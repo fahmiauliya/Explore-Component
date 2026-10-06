@@ -1,0 +1,44 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<style>
+  /* Clockwise sweep; the mirrored original foil trails behind the leading beam. */
+  .radar-sweep {
+    transform-box: view-box;
+    transform-origin: 8px 8px;
+    animation: radar-scan 4s linear infinite;
+  }
+  @keyframes radar-scan { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .radar-sweep { animation: none; } }
+</style>
+<g id="Frame" clip-path="url(#clip0_0_8)">
+  <g class="radar-sweep">
+    <g transform="translate(16 0) scale(-1 1)">
+<path id="Ellipse 4" d="M16 8C16 6.94943 15.7931 5.90914 15.391 4.93853C14.989 3.96793 14.3997 3.08601 13.6569 2.34315C12.914 1.60028 12.0321 1.011 11.0615 0.608964C10.0909 0.206926 9.05057 -4.59221e-08 8 0L8 8H16Z" fill="url(#paint0_radial_0_8)"/>
+<path id="Vector 39" d="M8 2L8 8" stroke="#0047FF" stroke-width="0.5"/>
+<path id="Vector 40" d="M8 0L8 8" stroke="#0047FF" stroke-width="0.5"/>
+<path id="Ellipse 6" d="M15 8C15 7.08075 14.8189 6.1705 14.4672 5.32122C14.1154 4.47194 13.5998 3.70026 12.9497 3.05025C12.2997 2.40024 11.5281 1.88463 10.6788 1.53284C9.8295 1.18106 8.91925 1 8 1L8 8" stroke="url(#paint1_linear_0_8)" stroke-width="0.5"/>
+    </g>
+  </g>
+  <g id="stationary-rings">
+<circle id="Ellipse 2" opacity="0.5" cx="8" cy="8" r="3.75" stroke="#797979" stroke-width="0.5"/>
+<circle id="Ellipse 5" cx="8" cy="8" r="7" stroke="#797979" stroke-width="0.5"/>
+  </g>
+<circle id="Ellipse 1" cx="8" cy="8" r="1" fill="url(#paint2_radial_0_8)"/>
+</g>
+<defs>
+<radialGradient id="paint0_radial_0_8" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(8 3) rotate(23.9625) scale(4.92443)">
+<stop stop-color="#0047FF"/>
+<stop offset="1" stop-color="#0047FF" stop-opacity="0"/>
+</radialGradient>
+<linearGradient id="paint1_linear_0_8" x1="8" y1="1" x2="15" y2="7" gradientUnits="userSpaceOnUse">
+<stop stop-color="#0047FF"/>
+<stop offset="1" stop-color="#0047FF" stop-opacity="0"/>
+</linearGradient>
+<radialGradient id="paint2_radial_0_8" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(8 8) rotate(90)">
+<stop stop-color="white"/>
+<stop offset="1" stop-color="#0047FF"/>
+</radialGradient>
+<clipPath id="clip0_0_8">
+<rect width="16" height="16" fill="white"/>
+</clipPath>
+</defs>
+</svg>
