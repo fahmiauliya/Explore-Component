@@ -1,0 +1,532 @@
+@font-face {
+  font-family: 'Geist';
+  src: url('../assets/fonts/geist-regular.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+* { box-sizing: border-box; }
+
+html {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-family);
+  font-size: 16px;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+body { margin: 0; min-width: 320px; background: var(--color-canvas); }
+button, a { color: inherit; font: inherit; }
+button { border: 0; }
+a { text-decoration: none; }
+img { display: block; }
+p, h1, h2, h3 { margin: 0; }
+:focus-visible { outline: 2px solid #1b1b1b; outline-offset: 3px; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.site-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  display: flex;
+  width: 100%;
+  height: 61px;
+  flex: 0 0 61px;
+  align-items: center;
+  justify-content: center;
+}
+
+.site-nav {
+  position: relative;
+  width: 375px;
+  height: 32px;
+  flex: 0 0 375px;
+}
+
+/* Scrolled, the controls span x 32–375 of the 375px strip, 16px right of its centre.
+   On a phone that pushes the email button to (or past) the screen edge, so the strip
+   slides left with the morph and the scrolled controls end up centred. */
+@media (max-width: 419px) {
+  .site-nav { translate: calc(var(--navigation-progress, 0) * -16px) 0; }
+}
+
+.nav-material,
+.nav-inner-highlight {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.nav-inner-highlight {
+  z-index: 2;
+}
+
+.nav-surface {
+  position: relative;
+  overflow: hidden;
+  border: 0.5px solid transparent;
+  border-radius: var(--radius-control);
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.2)),
+    var(--color-control);
+  box-shadow:
+    0 4px 5px 1px rgba(0, 0, 0, 0.1),
+    0 2px 2px rgba(0, 0, 0, 0.25),
+    0 0 0 0.5px rgba(0, 0, 0, 0.55);
+}
+
+.nav-surface::before,
+.nav-surface::after {
+  position: absolute;
+  inset: -0.5px;
+  border-radius: inherit;
+  content: '';
+  pointer-events: none;
+}
+
+.nav-surface::before {
+  z-index: 2;
+  padding: 0.5px;
+  background: linear-gradient(
+    180deg,
+    var(--navigation-rim-top, var(--color-control-stroke-top)),
+    var(--navigation-rim-bottom, var(--color-control-stroke-bottom))
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+
+.nav-surface::after {
+  z-index: 2;
+  box-shadow:
+    inset 0 2px 1px rgba(255, 255, 255, 0.15),
+    inset 0 -1.5px 1px rgba(0, 0, 0, 0.15);
+}
+
+.nav-circle {
+  display: flex;
+  width: var(--navigation-control-height);
+  height: var(--navigation-control-height);
+  flex: 0 0 var(--navigation-control-height);
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+/* Touch targets. The small controls (28px circles, 29px social icons, 25px pills) keep
+   their drawn size; an invisible area around each takes the tap, about 44px tall, and
+   only as wide as the gap to its neighbour allows (4px between nav circles, 2px between
+   social icons). Nothing is drawn, so the design doesn't change. A nav circle clips
+   its own contents, so its link is a plain wrapper around it (.nav-link) that holds
+   the tap area, and the circle inside draws exactly as before. */
+.nav-link { position: relative; display: block; flex: 0 0 var(--navigation-control-height); }
+.nav-link::after { position: absolute; inset: -8px -2px; content: ''; }
+.tap-target { position: relative; }
+.tap-target::after { position: absolute; inset: var(--tap-inset, -8px); content: ''; }
+.social-button.tap-target { --tap-inset: -7.5px -1px; }
+:is(.beam-visit, .bifrost-visit).tap-target { --tap-inset: -9.5px -4px; }
+
+/* A project page's title, between its home and email buttons (Figma 185:7030): the
+   controls' dark surface and rim, lit by an inner glow instead of the buttons' raised
+   shadows, as it isn't pressable. 103px wide, growing for a longer title. */
+.nav-title {
+  position: relative;
+  display: flex;
+  min-width: 103px;
+  height: 28px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 10px;
+  border: 0.5px solid transparent;
+  border-radius: var(--radius-control);
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.2)),
+    var(--color-control);
+  box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-shadow: 0.5px 0.5px 1px rgba(0, 0, 0, 0.25), 0.3px 0.3px 0.4px rgba(0, 0, 0, 0.25);
+}
+
+.nav-title::before {
+  position: absolute;
+  inset: -0.5px;
+  padding: 0.5px;
+  border-radius: inherit;
+  background: linear-gradient(180deg, var(--color-control-stroke-top), var(--color-control-stroke-bottom));
+  content: '';
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+
+.site-nav > .nav-link {
+  position: absolute;
+  top: 2px;
+  left: 0;
+}
+
+.nav-segments {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  height: var(--navigation-control-height);
+  overflow: hidden;
+  border-radius: var(--radius-control);
+}
+
+/* The pill keeps the resting border geometry at all times, so its content never shifts
+   by a subpixel when the morph starts or settles. */
+.nav-segments {
+  --navigation-border-space: 1px;
+  border: 0.5px solid transparent;
+}
+
+.nav-segments-content {
+  position: absolute;
+  top: 1px;
+  left: 3px;
+  display: flex;
+  height: 27px;
+  align-items: center;
+  pointer-events: none;
+}
+
+.nav-segments-content button,
+.nav-segments-content > a,
+.nav-about {
+  display: flex;
+  height: 27px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-control);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.4;
+  letter-spacing: -0.24px;
+  white-space: nowrap;
+  text-shadow: 0.5px 0.5px 1px rgba(0, 0, 0, 0.3), 0.3px 0.3px 0.4px rgba(0, 0, 0, 0.2);
+}
+
+.nav-segments-content button,
+.nav-segments-content > a {
+  width: 74px;
+  flex: 0 0 74px;
+  gap: 4px;
+  padding: 5px 12px;
+  background: transparent;
+}
+
+/* The intro row (Works) sat 1.5px below the pill's centre, while About is centred, so
+   Works' icon and label looked low. Raise it to centre on the pill like About, and move
+   it 1.5px left so its chip meets the pill's left end at the same 2.5px gap as the top
+   and bottom. */
+.nav-segments-content--intro {
+  top: -0.5px;
+  left: 1.5px;
+}
+
+.nav-segments-content--works .nav-project-tab {
+  position: relative;
+  z-index: 1;
+  width: var(--nav-tab-width);
+  flex-basis: var(--nav-tab-width);
+  height: 23px;
+  padding: 3px 10px;
+  opacity: 1;
+  cursor: pointer;
+  transition: opacity 160ms ease;
+}
+
+/* Two 121px tabs fill the 242px inside the settled pill, leaving the same 2.5px gap at
+   both ends as at the top and bottom (at 120px the right end had 4.5px). The track
+   width is also the scroll morph's clip width in Header.tsx (TAB_TRACK_WIDTH). */
+.nav-segments-content--works {
+  --nav-tab-width: 121px;
+  top: 50%;
+  left: calc(2.5px - var(--navigation-border-space, 0px));
+  width: calc(2 * var(--nav-tab-width));
+  height: 23px;
+  transform: translateY(-50%);
+}
+
+.nav-tab-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--nav-tab-width);
+  height: 100%;
+  border-radius: var(--radius-control);
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow:
+    inset 0 0 0 0.3px rgba(255, 255, 255, 0.2),
+    inset 0 0 2px rgba(255, 255, 255, 0.36),
+    inset 0 0 4px rgba(255, 255, 255, 0.16);
+  pointer-events: none;
+  transform: translateX(0);
+  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.nav-segments-content--works[data-active='recent'] .nav-tab-indicator {
+  transform: translateX(var(--nav-tab-width));
+}
+
+.nav-segments-content--works .nav-project-tab[aria-selected='true'] {
+  opacity: 1;
+}
+
+.site-nav[data-works-settled='true'] .nav-segments-content--works {
+  pointer-events: auto;
+}
+
+.nav-about {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  z-index: 1;
+  height: var(--navigation-control-height);
+  cursor: pointer;
+}
+
+.site-nav[data-works-settled='true'] .nav-about {
+  padding: 0 4px;
+}
+
+.nav-about:focus-visible {
+  outline: 2px solid #1b1b1b;
+  outline-offset: 3px;
+}
+
+/* Navigation button states, skeuomorphic, per control. Standalone surfaces (the round
+   home and email buttons, and About once it is its own circle) brighten on hover and
+   darken on press, with the highlight turning into an inner top shadow. Segments that
+   share a track (Works and About at the top of the page, and the project tabs) get
+   their own chip instead, so only the hovered segment reacts. Each state keeps the same
+   shadow layers so it animates smoothly, and nothing uses transform, which the scroll
+   morph sets inline. */
+.nav-surface {
+  transition: box-shadow 180ms ease, filter 180ms ease;
+}
+
+.nav-surface::after {
+  transition: box-shadow 180ms ease;
+}
+
+.nav-link { cursor: pointer; }
+
+.nav-link:hover > .nav-circle.nav-surface {
+  filter: brightness(1.12);
+}
+
+.nav-link:hover > .nav-circle.nav-surface::after {
+  box-shadow:
+    inset 0 2px 1px rgba(255, 255, 255, 0.28),
+    inset 0 -1.5px 1px rgba(0, 0, 0, 0.15);
+}
+
+.nav-link:active > .nav-circle.nav-surface {
+  box-shadow:
+    0 1px 1.5px 0 rgba(0, 0, 0, 0.08),
+    0 0.5px 0.5px rgba(0, 0, 0, 0.2),
+    0 0 0 0.5px rgba(0, 0, 0, 0.55);
+  filter: brightness(0.86);
+}
+
+.nav-link:active > .nav-circle.nav-surface::after {
+  box-shadow:
+    inset 0 1.5px 2px rgba(0, 0, 0, 0.35),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.06);
+}
+
+
+/* Segment chips. The unselected project tab, Works or About while they share the pill
+   at the top of the page, and the About bubble once scrolled, lift faintly on hover and
+   press into the track on click (their surface is the SVG material, so the chip is the
+   state layer).
+   The selected tab keeps its sliding indicator. Works and About draw the chip on a
+   ::before inset to the tabs' 23px height; same two shadow layers in every state. */
+.nav-segments-content--works .nav-project-tab,
+.site-nav[data-state='intro'] :is(.nav-segments-content--intro > a, .nav-about)::before {
+  box-shadow: inset 0 0 0 0.3px rgba(255, 255, 255, 0), inset 0 1px 1.5px rgba(0, 0, 0, 0);
+  transition: opacity 160ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.site-nav[data-state='intro'] .nav-segments-content--intro > a {
+  position: relative;
+  z-index: 0;
+}
+
+.site-nav[data-state='intro'] :is(.nav-segments-content--intro > a, .nav-about)::before {
+  position: absolute;
+  z-index: -1;
+  border-radius: var(--radius-control);
+  content: '';
+  pointer-events: none;
+}
+
+/* Each chip is 23px tall, like the tabs. Works sits 1px below the pill's geometric
+   centre (3.5px from the top edge, 1.5px from the bottom): the pill's top rim reads thicker
+   than its bottom (a bright highlight band under the stroke vs a thin dark band), so the
+   nudge evens out its visible gaps; it also sits 0.5px right (3px from the pill's left
+   end). About is centred (2.5px / 2.5px). Both tuned by eye. The
+   shared rule above sets no inset, so these per-segment rules never compete with it.
+   The Works link box is 27px tall and About's 28px, hence the different values. */
+/* About's chip reaches 2px further right so it meets the pill's right end at 2.5px too;
+   its content shifts 1px right to stay centred in the wider chip. */
+.site-nav[data-state='intro'] .nav-about {
+  padding-left: 2px;
+}
+
+.site-nav[data-state='intro'] .nav-about::before {
+  inset: 2.5px -2px 2.5px 0;
+}
+
+.site-nav[data-state='intro'] .nav-segments-content--intro > a::before {
+  inset: 3px -0.5px 1px 0.5px;
+}
+
+.nav-segments-content--works .nav-project-tab[aria-selected='false']:hover,
+.site-nav[data-state='intro'] :is(.nav-segments-content--intro > a, .nav-about):hover::before {
+  background-color: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 0.3px rgba(255, 255, 255, 0.16), inset 0 1px 1.5px rgba(0, 0, 0, 0);
+}
+
+.nav-segments-content--works .nav-project-tab[aria-selected='false']:active,
+.site-nav[data-state='intro'] :is(.nav-segments-content--intro > a, .nav-about):active::before {
+  background-color: rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 0 0 0.3px rgba(255, 255, 255, 0.08), inset 0 1px 1.5px rgba(0, 0, 0, 0.35);
+}
+
+/* Scrolled: the About bubble's chip fills the whole circle. */
+.site-nav[data-state='works'] .nav-about::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: var(--radius-control);
+  box-shadow: inset 0 0 0 0.3px rgba(255, 255, 255, 0), inset 0 1px 1.5px rgba(0, 0, 0, 0);
+  content: '';
+  pointer-events: none;
+  transition: background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.site-nav[data-state='works'] .nav-about:hover::before {
+  background-color: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 0.3px rgba(255, 255, 255, 0.16), inset 0 1px 1.5px rgba(0, 0, 0, 0);
+}
+
+.site-nav[data-state='works'] .nav-about:active::before {
+  background-color: rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 0 0 0.3px rgba(255, 255, 255, 0.08), inset 0 1px 1.5px rgba(0, 0, 0, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-nav[data-state='works'] .nav-about::before { transition: none; }
+  .nav-surface,
+  .nav-surface::after,
+  .nav-segments-content--works .nav-project-tab,
+  .site-nav[data-state='intro'] :is(.nav-segments-content--intro > a, .nav-about)::before { transition: none; }
+}
+
+.nav-about-label {
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+.nav-about-label > span {
+  display: block;
+  padding-left: 4px;
+}
+
+.nav-icon {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+}
+
+.nav-icon img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+}
+
+.nav-icon--logo,
+.nav-icon--about {
+  overflow: hidden;
+}
+
+.nav-icon--logo > span {
+  position: absolute;
+  inset: 0;
+  /* Rolled with the scroll (useScrollRoll.ts), about its centre. */
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+
+/* Render the Figma logo at its native 14px size. */
+.nav-icon--logo img { width: auto; height: auto; }
+
+.nav-icon--works > span {
+  position: absolute;
+  inset: 10.42% 6.25% 14.58%;
+}
+
+.nav-icon--works > span > img {
+  position: absolute;
+  top: -9.52%;
+  left: -8.16%;
+  width: calc(100% + 24.49%);
+  height: calc(100% + 28.57%);
+}
+
+.nav-icon--about > span {
+  position: absolute;
+  inset: 6.33% 6.33% 9.72% 6.32%;
+}
+
+.nav-icon--about > span > img {
+  position: absolute;
+  top: -4.25%;
+  left: -4.09%;
+  width: calc(100% + 16.36%);
+  height: calc(100% + 21.27%);
+}
+
+.nav-icon--contact > img {
+  position: absolute;
+  inset: 0;
+}

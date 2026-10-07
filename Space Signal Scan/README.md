@@ -44,3 +44,7 @@ Use `--vertical --poster` to check framing without encoding the video.
 Open `http://localhost:5187/?view=closeup` for the composition from Figma `446:737`. The original animated card is scaled to 2440 px wide and placed at (314, 141.6772) within the 1041 × 780 frame; right and bottom clipping is intentional. Radar, heatmap, and background keep the existing eight-second loop. The standard preview and existing exported files retain their original framing.
 
 Export the latest close-up with `node scripts/export-video.mjs --closeup`. Output: `exports/space-signal-scan-closeup-2082x1560-60fps.mp4` (2082 × 1560, 60 fps, eight seconds). `exports/preview-closeup.html` plays the video; `poster-closeup.png` and `export-info-closeup.json` hold its first frame and verification results.
+
+## Signal controls close-up
+
+Open `http://localhost:5187/?view=detail` for Figma `391:42719`. This view crops the lower-right controls, including signal confidence and Inspect Signal, by positioning the shared card at (-842, -1142) with a 1626.7686 px width. The background retains the existing eight-second twinkle loop. Radar and heatmap retain their shared animation but are outside this crop; the metric and buttons stay fixed as in the original motion.

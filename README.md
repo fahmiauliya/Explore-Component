@@ -1,6 +1,29 @@
 # Explore Component
 
-Animated component studies built with code.
+Animated component studies built with code. This repository lives directly in the local `Code Explore` folder.
+
+```text
+Code Explore/
+├── Liquid Transform Navigation/
+└── Space Signal Scan/
+```
+
+Each component keeps its own source, dependencies, previews, and exports.
+
+## Liquid Transform Navigation
+
+A looping navigation transformation with normal and slow-motion versions.
+
+```sh
+cd "Liquid Transform Navigation"
+npm ci
+npm run dev
+```
+
+Preview: http://localhost:5186/
+
+Final videos and comparison player: [exports/final](Liquid%20Transform%20Navigation/exports/final/). See the [component documentation](Liquid%20Transform%20Navigation/README.md).
+
 
 ## Space Signal Scan
 
@@ -15,7 +38,8 @@ npm run dev
 ```
 
 - Original animated preview: http://localhost:5187/
-- Latest animated close-up: http://localhost:5187/?view=closeup
+- Radar close-up: http://localhost:5187/?view=closeup
+- Signal controls close-up: http://localhost:5187/?view=detail
 - Latest exported video preview: http://localhost:5187/exports/preview-closeup.html
 
 ### Videos

@@ -1,0 +1,16 @@
+:root {
+  color-scheme: light;
+  --color-canvas: #fafafa;
+  --color-footer: #fafafa;
+  --color-ink: #1b1b1b;
+  --color-muted: rgba(27, 27, 27, 0.7);
+  --color-project: #ebebeb;
+  --color-control: #656565;
+  --color-control-stroke-top: rgba(255, 255, 255, 0.2);
+  --color-control-stroke-bottom: rgba(153, 153, 153, 0.2);
+  --font-family: 'Geist', Arial, sans-serif;
+  --content-width: 587px;
+  --page-gutter: 16px;
+  --radius-control: 999px;
+  --radius-project: 12px;
+}
