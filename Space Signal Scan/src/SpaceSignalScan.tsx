@@ -40,7 +40,7 @@ function Legend() {
     {['Noise','Background','Detected signal'].map((label,i)=><span className="legend-item" key={label}><i className={`swatch swatch-${i}`} />{label}</span>)}
   </div><span>Selection · Distance 8K–34K</span></div>;
 }
-export function SpaceSignalScan() {
+export function SpaceSignalScan({ animateInspect = false }: { animateInspect?: boolean }) {
   return <article className="signal-card">
     <header className="card-header">
       <img className="scan-icon" src={scan} alt="" />
@@ -50,7 +50,7 @@ export function SpaceSignalScan() {
     <div className="panel-rim"><div className="panel">
       <SignalChart/><Legend/><EngravedDividers/>
       <div className="metrics">{[['1.42 kHz','peak signal frequency'],['12.8 K ly','estimated distance'],['92%','signal confidence']].map(([value,label])=><div className="metric" key={label}><strong>{value}</strong><span>{label}</span></div>)}</div>
-      <footer className="card-footer"><p>Repeating narrowband signal<br/>detected above baseline noise.</p><div className="actions"><span className="material-control table-control">Signal Table</span><span className="material-control inspect-control">Inspect Signal</span></div></footer>
+      <footer className="card-footer"><p>Repeating narrowband signal<br/>detected above baseline noise.</p><div className="actions"><span className="material-control table-control">Signal Table</span><span className={`material-control inspect-control${animateInspect ? ' inspect-loop' : ''}`}>{animateInspect ? <span className="inspect-face"><span>Inspect Signal</span></span> : 'Inspect Signal'}</span></div></footer>
     </div></div>
     <CardRims />
   </article>;

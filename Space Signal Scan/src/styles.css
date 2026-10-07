@@ -104,3 +104,36 @@ body { background: #171717; color: #fff; font-family: Inter, Arial, sans-serif; 
 .preview-detail .actions .material-control { height: 37.8138898px; }
 .preview-detail .table-control { width: 113.772635px; }
 .preview-detail .inspect-control { width: 126.550728px; }
+
+/* Opaque mechanical button face inside a stationary rim. */
+@property --inspect-light-y {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 12.5%;
+}
+.actions .inspect-loop { background: #0c122d; isolation: isolate; }
+.inspect-loop .inspect-face {
+  position: absolute;
+  inset: .75px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  background: radial-gradient(ellipse 90.131px 26.719px at 50% var(--inspect-light-y), #4b6cff 50%, #1f43e4 100%);
+  box-shadow: inset 0 4px 4px #ffffff1a, inset 0 -4px 4px #0004;
+  will-change: transform;
+}
+.inspect-loop::after {
+  z-index: 1;
+  box-shadow: inset 0 0 0 .75px #0c122d;
+}
+.presentation-cursor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  transform: translate(1100px, 560px);
+  pointer-events: none;
+  filter: drop-shadow(0 2px 2px #0007);
+  will-change: transform;
+}
