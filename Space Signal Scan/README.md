@@ -47,4 +47,10 @@ Export the latest close-up with `node scripts/export-video.mjs --closeup`. Outpu
 
 ## Signal controls close-up
 
-Open `http://localhost:5187/?view=detail` for Figma `391:42719`. This view crops the lower-right controls, including signal confidence and Inspect Signal, by positioning the shared card at (-842, -1142) with a 1626.7686 px width. The background retains the existing eight-second twinkle loop. Radar and heatmap retain their shared animation but are outside this crop; the metric and buttons stay fixed as in the original motion.
+Open `http://localhost:5187/?view=detail` for Figma `391:42719`. This view crops the lower-right controls, including signal confidence and Inspect Signal, by positioning the shared card at (-842, -1142) with a 1626.7686 px width. The background retains the existing eight-second twinkle loop. Radar and heatmap retain their shared animation but are outside this crop; the metric remains fixed. Inspect Signal has an automatic presentation-only cursor and tactile button loop.
+
+### Inspect Signal click loop
+
+The detail view uses an eight-second shared timeline: rest → cursor entry → hover → press at 3.5 seconds → release → cursor exit → rest. The button rim stays anchored; the opaque inner face and label move together, with a shifting radial highlight and compressed shadows. The cursor stays fully opaque and resets beyond the right edge. No click ripple, navigation, or opacity transitions are applied to the button or cursor. Reduced motion restores the default state and keeps the cursor outside the frame; hidden tabs pause the three coordinated tracks.
+
+Export the button click loop with `node scripts/export-video.mjs --detail` while Vite is running. This produces `exports/space-signal-scan-detail-2082x1560-60fps.mp4`: 2082 × 1560, 60 fps, eight seconds, 480 frames. The cursor, button face, shadows, and background share the exact export clock. See `exports/preview-detail.html` for looping playback and `exports/export-info-detail.json` for verification.

@@ -9,10 +9,11 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const folder = join(root, 'exports');
 const vertical = process.argv.includes('--vertical');
 const closeup = process.argv.includes('--closeup');
-if (vertical && closeup) throw Error('Choose --vertical or --closeup as separate compositions.');
-const suffix = closeup ? '-closeup' : vertical ? '-vertical' : '';
+const detail = process.argv.includes('--detail');
+if ([vertical, closeup, detail].filter(Boolean).length > 1) throw Error('Choose one composition: --vertical, --closeup, or --detail.');
+const suffix = detail ? '-detail' : closeup ? '-closeup' : vertical ? '-vertical' : '';
 const width = vertical ? 1080 : 2082, height = vertical ? 1920 : 1560;
-const output = join(folder, `space-signal-scan${closeup ? '-closeup' : ''}-${width}x${height}-60fps.mp4`);
+const output = join(folder, `space-signal-scan${detail ? '-detail' : closeup ? '-closeup' : ''}-${width}x${height}-60fps.mp4`);
 const fps = 60, duration = 8, frames = fps * duration;
 mkdirSync(folder, { recursive: true });
 const chrome = spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
@@ -54,7 +55,7 @@ try {
   await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: width / 2, height: height / 2, deviceScaleFactor: 2, mobile: false });
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
-  await send('Page.navigate', { url: `http://127.0.0.1:5187/${closeup ? '?view=closeup' : ''}` });
+  await send('Page.navigate', { url: `http://127.0.0.1:5187/${detail ? '?view=detail' : closeup ? '?view=closeup' : ''}` });
   await new Promise(resolve => setTimeout(resolve, 1200));
   console.log('Preparing exact-time export:', await evaluate(`(async () => {
     await document.fonts.ready;
@@ -95,6 +96,11 @@ try {
       }
     }
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    if (${detail}) {
+      for (const selector of ['.presentation-cursor', '.inspect-face', '.inspect-loop']) {
+        if (!document.querySelector(selector)?.getAnimations().length) throw Error('Missing button animation: ' + selector);
+      }
+    }
     window.__exportAnimations = document.getAnimations();
     window.__exportAnimations.forEach(animation => { animation.pause(); animation.currentTime = 0; });
     return { animations: window.__exportAnimations.length, radar: !!svg.querySelector('.radar-sweep'), width: document.querySelector('.artboard').getBoundingClientRect().width };
@@ -105,7 +111,7 @@ try {
   };
   const start = await render(0), end = await render(duration);
   if (!start.equals(end)) throw Error('Loop boundary screenshots differ; export stopped');
-  console.log('All three animations match exactly across the eight-second boundary.');
+  console.log('All captured animations match exactly across the eight-second boundary.');
   writeFileSync(join(folder, `poster${suffix}.png`), start);
   if (process.argv.includes('--poster')) { await send('Browser.close'); process.exitCode = 0; }
   else {

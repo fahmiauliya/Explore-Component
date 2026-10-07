@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { SpaceSignalScan } from './SpaceSignalScan';
 import './styles.css';
 import { BackgroundPattern } from './SurfaceDetails';
+import { InspectSignalMotion } from './InspectSignalMotion';
 
 const requestedView = new URLSearchParams(window.location.search).get('view');
 const view = requestedView === 'closeup' || requestedView === 'detail' ? requestedView : 'full';
@@ -17,7 +18,7 @@ function Preview() {
     return () => observer.disconnect();
   }, []);
   return <main ref={ref} className={`preview preview-${view}`} aria-label={`Space Signal Scan ${view === 'closeup' ? 'radar close-up' : view === 'detail' ? 'signal controls close-up' : 'full card'} preview`}>
-    <div className="artboard" style={{transform:`scale(${scale})`}}><BackgroundPattern view={view} /><SpaceSignalScan /></div>
+    <div className="artboard" style={{transform:`scale(${scale})`}}><BackgroundPattern view={view} /><SpaceSignalScan animateInspect={view === 'detail'} />{view === 'detail' && <InspectSignalMotion />}</div>
   </main>;
 }
 createRoot(document.getElementById('root')!).render(<Preview />);
