@@ -22,10 +22,12 @@ const starPositions = Array.from({ length: 18 * 13 }, (_, index) => {
 }).filter(({ x, y }) => x < 1037 && y < 776);
 
 // Figma material geometry remains vector-based at any preview/export scale.
-export function BackgroundPattern({ closeup = false }: { closeup?: boolean }) {
-  const stars = starPositions.filter(({ x, y }) => closeup
+export function BackgroundPattern({ view = 'full' }: { view?: 'full' | 'closeup' | 'detail' }) {
+  const stars = starPositions.filter(({ x, y }) => view === 'closeup'
     ? !(x > 290 && y > 118)
-    : !(x > 230 && x < 809 && y > 98 && y < 682));
+    : view === 'detail'
+      ? !(x < 809 && y < 518)
+      : !(x > 230 && x < 809 && y > 98 && y < 682));
   const ref = useRef<SVGSVGElement>(null);
   useEffect(() => {
     const syncVisibility = () => {

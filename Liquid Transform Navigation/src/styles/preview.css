@@ -1,0 +1,14 @@
+html, body, #root { min-height: 100%; background: #fafafa; }
+.preview { min-height: 100svh; display: grid; place-items: center; padding: 24px; }
+.post { position: relative; width: min(1186px, calc(100vw - 48px), calc((100svh - 48px) * 593 / 473)); aspect-ratio: 593 / 473; overflow: hidden; background: #ebebeb; }
+.post-stage { position: absolute; inset: 0 auto auto 0; width: 593px; height: 473px; transform-origin: 0 0; background: #ebebeb; }
+.post-stage::before, .post-stage::after { content: ''; position: absolute; pointer-events: none; box-sizing: border-box; border: 0 solid #d9dcdf; }
+.post-stage::before { top: 0; bottom: 0; left: 59.5px; width: 472px; border-width: 0 1px; }
+.post-stage::after { left: 0; right: 0; bottom: 101.5px; height: 273px; border-width: 1px 0; }
+.navigation-position { position: absolute; left: 50%; top: 50%; width: 375px; height: 32px; transform: translate(-50%, -50%); }
+.navigation-scale { transform: scale(1.25); transform-origin: center; }
+.site-header { position: relative; width: 375px; height: 32px; }
+.site-nav { translate: none; }
+
+/* Presentation only: ignore all pointer input, including inline pointer rules on links. */
+.navigation-position, .navigation-position * { pointer-events: none !important; user-select: none; }

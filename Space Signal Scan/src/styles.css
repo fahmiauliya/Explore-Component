@@ -84,3 +84,23 @@ body { background: #171717; color: #fff; font-family: Inter, Arial, sans-serif; 
   transform: scale(4.5778611632);
   transform-origin: top left;
 }
+
+/* Figma 391:42719: lower-right controls crop, retaining the shared animation. */
+.preview-detail .signal-card {
+  left: -842px;
+  top: -1142px;
+  height: 535.9774275px;
+  transform: scale(3.0520986017);
+  transform-origin: top left;
+}
+.preview-detail .panel-rim { height: 484.9774427px; }
+.preview-detail .panel { height: 483.9774343px; }
+.preview-detail .card-rims { transform: scaleY(1.0008915546); transform-origin: top; }
+.preview-detail .legend { height: 36.1228037px; }
+.preview-detail .metrics { height: 73.0407636px; }
+.preview-detail .metric strong { line-height: 19.33096px; }
+.preview-detail .card-footer { height: 70.8138872px; }
+.preview-detail .actions { left: 256.676637px; }
+.preview-detail .actions .material-control { height: 37.8138898px; }
+.preview-detail .table-control { width: 113.772635px; }
+.preview-detail .inspect-control { width: 126.550728px; }
