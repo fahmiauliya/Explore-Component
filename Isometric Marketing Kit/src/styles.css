@@ -1,0 +1,130 @@
+/* Tokens: one set per theme, used by the site and, through --hairline-*, by every illustration. */
+:root, :root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0A0B0D; --surface: #0F1013; --border: #1F2125; --dim: #3A3D42; --mid: #52565C; --stroke: #6B6F76;
+  --hi: #F2F3F5; --text: #E6E7E9; --muted: #8A8E95;
+  --tint: #3A3D42;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #FAFAF9; --surface: #FFFFFF; --border: #E4E4E2; --dim: #C9CAC7; --mid: #ABACA8; --stroke: #8C8E8A;
+  --hi: #111214; --text: #17181A; --muted: #6B6D6A;
+  /* soft tint fills (the spotlight's cone, the glasses' liquid): close to the background, always lighter than any line */
+  --tint: #EEEEEB;
+}
+:root {
+  /* the illustrations fill their solid parts with the cell's own background, so hidden lines stay hidden */
+  --plate: var(--bg);
+  --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fade: 200ms ease;
+  /* the spacing scale: 8, 16, 24, 32, 48, 64, 96; side margins 64 / 32 / 16 */
+  --margin: 64px;
+}
+@media (max-width: 1023px) { :root { --margin: 32px; } }
+@media (max-width: 639px) { :root { --margin: 16px; } }
+[data-hairline] {
+  --hairline-plate: var(--plate); --hairline-lo: var(--dim); --hairline-mid: var(--mid); --hairline-edge: var(--stroke); --hairline-hi: var(--hi);
+  --hairline-stroke: 1; /* 1px at every size: the kernel's strokes do not scale */
+}
+
+* { box-sizing: border-box; border-radius: 0 !important; }
+html { background: var(--bg); transition: background-color var(--fade); }
+body {
+  margin: 0; min-height: 100vh; display: flex; flex-direction: column;
+  background: var(--bg); color: var(--text); font: 400 14px/1.5 var(--sans); -webkit-font-smoothing: antialiased;
+  transition: background-color var(--fade), color var(--fade);
+}
+#root { flex: 1; display: flex; flex-direction: column; }
+main { flex: 1; }
+h1, h2, p { margin: 0; font-weight: 500; }
+p { font-weight: 400; }
+a { color: inherit; text-decoration: none; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 1px solid var(--hi); outline-offset: 2px; }
+/* every mono label: 11px, capitals, spaced */
+.mono { font: 400 11px/16px var(--mono); text-transform: uppercase; letter-spacing: 0.08em; }
+.muted { color: var(--muted); transition: color var(--fade); }
+.row { width: 100%; max-width: 1440px; margin: 0 auto; padding: 0 var(--margin); }
+
+/* the theme crossfades: strokes keep the kernel's 260 ms, fills follow over 200 ms; nothing restarts */
+[data-hairline] > svg :is(path, polygon, ellipse, line) { transition: stroke 260ms cubic-bezier(0.5, 0, 0.1, 1), fill var(--fade); }
+[data-hairline] > svg .dot.off { fill: var(--tint); }
+
+/* header: 56px, the name and the count on the left, the theme on the right; the same on every page */
+.bar { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--border); transition: background-color var(--fade), border-color var(--fade); }
+.bar { height: 56px; }
+.bar .row { display: flex; align-items: center; gap: 16px; height: 100%; }
+.brand { font-size: 14px; font-weight: 500; white-space: nowrap; }
+.count { white-space: nowrap; }
+@media (max-width: 479px) { .count { display: none; } }
+.toggle { margin-left: auto; display: flex; border: 1px solid var(--border); transition: border-color var(--fade); }
+.toggle button { height: 32px; padding: 0 16px; border: 0; background: transparent; color: var(--muted); cursor: pointer; transition: background-color var(--fade), color var(--fade); }
+.toggle button + button { border-left: 1px solid var(--border); }
+.toggle button[aria-pressed="true"] { background: var(--surface); color: var(--text); }
+
+/* intro: the only title on the page, its description right under it */
+.intro { padding-top: 96px; padding-bottom: 64px; display: flex; flex-direction: column; gap: 8px; }
+.intro h1 { font-size: 16px; }
+.intro p { max-width: 440px; font-size: 14px; }
+
+/* the gallery: 4:5 cells sharing hairlines, like a table */
+.grid { list-style: none; margin: 0 0 64px; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 1px solid var(--border); border-left: 1px solid var(--border); transition: border-color var(--fade); }
+@media (max-width: 1279px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 639px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.grid > li { min-width: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); transition: border-color var(--fade); }
+.cell { position: relative; display: block; aspect-ratio: 4 / 5; overflow: hidden; container-type: inline-size; background: var(--plate); transition: background-color var(--fade); }
+.cell:hover, .cell:focus-visible { --plate: var(--surface); }
+.cell:focus-visible { outline: 1px solid var(--hi); outline-offset: -1px; }
+.corner { position: absolute; z-index: 1; pointer-events: none; }
+.tl { top: 24px; left: 24px; }
+.tr { top: 24px; right: 24px; color: var(--text); font-variant-numeric: tabular-nums; }
+.bl { bottom: 24px; left: 24px; }
+.br { bottom: 24px; right: 24px; }
+.name { font-size: 14px; font-weight: 500; line-height: 16px; }
+.open, .status { opacity: 0; transition: opacity var(--fade); }
+.cell:hover .open, .cell:focus-visible .open, .cell:hover .status, .cell:focus-visible .status, .cell[data-active] .status { opacity: 1; }
+
+/* the drawing in its cell: placed by its measured extent (see Illustration.tsx) */
+.plane { position: absolute; }
+.stage { cursor: default; }
+.cell .stage { cursor: pointer; }
+
+/* the detail view: header, a 48px nav row, then one main area filling the rest of the window; no page scroll */
+.navrow { display: flex; align-items: center; justify-content: space-between; height: 48px; }
+.steps { display: flex; align-items: center; gap: 24px; }
+.navrow a:hover { color: var(--text); }
+.split { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); border: 1px solid var(--border); transition: border-color var(--fade); }
+.view { position: relative; overflow: hidden; container-type: size; background: var(--plate); border-right: 1px solid var(--border); transition: border-color var(--fade), background-color var(--fade); }
+@media (min-width: 900px) {
+  .split { height: calc(100vh - 56px - 48px - 32px); height: calc(100dvh - 56px - 48px - 32px); }
+  .detail { padding-bottom: 32px; }
+}
+@media (max-width: 899px) {
+  .split { grid-template-columns: minmax(0, 1fr); }
+  .view { aspect-ratio: 1; border-right: 0; border-bottom: 1px solid var(--border); }
+  .detail { padding-bottom: 64px; }
+}
+.side { display: flex; flex-direction: column; padding: 24px; min-width: 0; }
+.side > * + * { margin-top: 8px; }
+.side h1 { font-size: 16px; line-height: 24px; }
+.means { font-size: 14px; text-wrap: pretty; }
+.side .downloads { margin-top: 32px; }
+.downloads { display: flex; flex-direction: column; gap: 8px; }
+.button {
+  width: 100%; height: 48px; padding: 0 16px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; text-align: left;
+  transition: background-color var(--fade), color var(--fade), border-color var(--fade);
+}
+.button:hover:not(:disabled) { background: var(--surface); border-color: var(--stroke); }
+.button:disabled { cursor: progress; color: var(--muted); font-variant-numeric: tabular-nums; }
+.note { font-size: 13px; }
+.error { font-size: 13px; padding-left: 8px; border-left: 1px solid var(--text); }
+
+/* keyboard stops over the hover targets: no pointer, a ring only while focused */
+.stops { position: absolute; inset: 0; pointer-events: none; }
+.stop { position: absolute; width: 24px; height: 24px; margin: -12px 0 0 -12px; border: 0; background: transparent; padding: 0; pointer-events: none; }
+.stop:focus { outline: none; }
+.stop:focus-visible { box-shadow: 0 0 0 1px var(--hi); outline: none; border-radius: 50% !important; }
+
+.foot { border-top: 1px solid var(--border); transition: border-color var(--fade); }
+.foot .row { padding-top: 32px; padding-bottom: 32px; }
+@media (prefers-reduced-motion: reduce) { * { transition-duration: 0ms !important; } }

@@ -1,13 +1,14 @@
 /**
  * Segmentation: a lazy-susan tray on a pedestal, split by thin walls into four compartments of
  * 40, 25, 20 and 15 percent, each holding its own kind of token: cubes, spheres, cylinders, pawns.
- * Hover a compartment and the tray turns to bring it to the front; its tokens lift and brighten,
- * its neighbours lift a little. On leave the tray settles back and the tokens lower.
+ * At rest the tray turns slowly, once every 24 seconds. When the pointer comes onto the tray the turn
+ * eases to a stop; the compartment under the pointer then lifts its tokens and brightens them in place,
+ * its neighbours lift a little. Off the tray the tokens settle and the turn eases back in.
  *
- * Hit areas turn with the tray, but are read only once it has settled and the pointer has moved
- * since, so the turn never flickers. Angle and lifts follow critically damped springs.
+ * Hit areas are the compartments where they are now; the tray is stopped while the pointer is on it, so
+ * they never move under it. Spin speed and lifts follow critically damped springs.
  */
-const { Cam, fit, proj, unproj, spring, stepS, disposer, mk, pointer, register } = HL;
+const { Cam, fit, proj, unproj, spring, stepS, disposer, mk, pointer, register, reducedMotion } = HL;
 
 const Z0 = 4, PLATE = 25, BASE = { r: 20, h: 2 }, FLARE = { r: 15, h: 5 }, STEM = { r: 6, h: 15 }, ZB = Z0 + BASE.h + FLARE.h + STEM.h;
 const R = 44, WALLR = 1.5, RIN = R - WALLR, FLOOR = ZB + 2, ZT = FLOOR + 4, HUB = 3, T = 1.2, Q = Math.PI / 2, CALM = { k: 60, c: 15.5 };
@@ -15,7 +16,7 @@ const R = 44, WALLR = 1.5, RIN = R - WALLR, FLOOR = ZB + 2, ZT = FLOOR + 4, HUB 
 // walls by ≥ 3.7, the rim by ≥ 3.5, the hub by ≥ 8, and the next token by ≥ 7.4; it never moves sideways.
 const SPAN = [144, 90, 72, 54].map((d) => (d * Math.PI) / 180), START = SPAN.map((_, i) => SPAN.slice(0, i).reduce((a, b) => a + b, 0));
 const SETS = [[[16, 40], [16, 104], [30, 26], [30, 72], [30, 118]], [[14, 45], [27, 18], [27, 72], [36, 45]], [[16, 36], [30, 16], [30, 56], [36, 36]], [[18, 27], [34, 12], [34, 42]]];
-const KIND = ["cube", "sphere", "cylinder", "pawn"], REST_TURN = -1.1;
+const KIND = ["cube", "sphere", "cylinder", "pawn"], START_TURN = -1.1, SPIN = (2 * Math.PI) / 24, STOP = { k: 100, c: 20 };
 
 function mount({ stage, svg, read }, value) {
   const bag = disposer();
@@ -78,7 +79,7 @@ function mount({ stage, svg, read }, value) {
 
   // what turns: four compartments of tokens, four walls, the hub. Each wall is a vertical plane through the
   // centre, so the camera's side of it says which of its two compartments is in front: the order is exact.
-  const inside = mk("g", {}, g), turn = spring(REST_TURN, CALM), ups = SPAN.map(() => spring(0, CALM));
+  const inside = mk("g", {}, g), ups = SPAN.map(() => spring(0, CALM));
   const comps = SETS.map((set, k) => ({ g: mk("g", {}, inside), tokens: set.map(([r, d]) => ({ r, a: (d * Math.PI) / 180, g: null })) }));
   comps.forEach((cp) => cp.tokens.forEach((t) => { t.g = mk("g", {}, cp.g); }));
   const walls = START.map(() => mk("g", {}, inside)), hub = mk("g", {}, inside);
@@ -93,7 +94,7 @@ function mount({ stage, svg, read }, value) {
       put(cyl([x, y, z + u], 1.4 * u, [x, y, z + 4.6 * u], 0.8 * u)); put(ball([x, y, z + 6 * u], 1.6 * u)); }
   }
   function drawInside() {
-    const al = turn.x, view = (x, y) => x * Math.cos(CAM) + y * Math.sin(CAM);
+    const view = (x, y) => x * Math.cos(CAM) + y * Math.sin(CAM);
     comps.forEach((cp, k) => {
       const z = FLOOR + ups[k].x, cls = k === lit ? "hi" : "sil";
       cp.tokens.map((t) => { const a = al + START[k] + t.a; return { t, x: t.r * Math.cos(a), y: t.r * Math.sin(a), a }; })
@@ -119,52 +120,53 @@ function mount({ stage, svg, read }, value) {
   mk("path", { d: arc([0, 0, ZT], EX, EY, RIN, FR, FR + 2 * Q, true) + `L${fl(ZT, FR + 2 * Q)}L${fl(ZB, FR + 2 * Q)}` + arc([0, 0, ZB], EX, EY, R, FR + 2 * Q, FR, false) + `L${fl(ZT, FR)}Z`, class: "fo" }, g);
   mk("path", { d: arc([0, 0, ZT], EX, EY, RIN, FR, FR + 2 * Q, true) + arc([0, 0, ZT], EX, EY, R, FR, FR + 2 * Q, true) + `M${fl(ZT, FR)}L${fl(ZB, FR)}` + arc([0, 0, ZB], EX, EY, R, FR, FR + 2 * Q, false) + `L${fl(ZT, FR + 2 * Q)}`, class: "nf sil" }, g);
 
-  let last = "";
+  // the turn: an angle advanced by a speed that eases between SPIN and 0 (0 throughout under reduced motion)
+  const still = reducedMotion(), cruise = still ? 0 : SPIN, spin = spring(cruise, STOP);
+  let al = START_TURN, act = -1, at = null, last = "";
   const B = register(stage, (dt) => {
-    let moving = stepS(turn, dt);
+    let moving = stepS(spin, dt);
+    al = (al + spin.x * dt) % (4 * Q);
+    if (at) pick(hit(at)); // while the turn eases out, the compartment under a resting pointer can still change
     ups.forEach((u) => { moving = stepS(u, dt) || moving; });
-    const key = [turn.x, ...ups.map((u) => u.x), lit].map((v) => +v.toFixed(4)).join();
+    const key = [al, ...ups.map((u) => u.x), lit].map((v) => +v.toFixed(4)).join();
     if (key !== last) { last = key; drawInside(); }
-    return moving;
+    return moving || Math.abs(spin.x) > 1e-4;
   });
   bag.add(B.unregister);
 
-  // hit test: the compartment under the pointer at the tray's settled angle. While the tray turns the pointer is not
-  // read, and after it settles a new turn needs the pointer to cross a wall, so one turn never chains into another
-  let act = -1, under = -1; // under: the compartment the pointer was over once the tray last settled (null: not read yet)
-  const settled = () => Math.abs(turn.x - turn.t) < 0.01 && Math.abs(turn.v) < 0.05;
+  // hit test on the tray's top plane: -2 off the tray, else the compartment under the pointer at the tray's angle now
   function hit([sx, sy]) {
-    const [x, y] = unproj(C, sx, sy, FLOOR + 3);
-    if (Math.hypot(x, y) > RIN) return -1;
-    const a = (((Math.atan2(y, x) - turn.x) % (4 * Q)) + 4 * Q) % (4 * Q);
+    const [x, y] = unproj(C, sx, sy, ZT), r = Math.hypot(x, y);
+    if (r > R + 1) return -2;
+    if (r < HUB + 1) return act; // over the hub, the compartment stays as it was
+    const a = (((Math.atan2(y, x) - al) % (4 * Q)) + 4 * Q) % (4 * Q);
     return START.findIndex((s, k) => a >= s && a < s + SPAN[k]);
   }
-  function choose(k) {
-    act = k; lit = k; under = k < 0 ? -1 : null;
-    const goal = k < 0 ? REST_TURN : CAM - (START[k] + SPAN[k] / 2), d = ((((goal - turn.t) % (4 * Q)) + 6 * Q) % (4 * Q)) - 2 * Q;
-    turn.t += d;
-    ups.forEach((u, i) => { u.t = k < 0 ? 0 : i === k ? lift : Math.abs(((i - k + 6) % 4) - 2) === 1 ? lift * 0.25 : 0; });
+  function pick(k) {
+    if (k === act) return;
+    act = k; lit = k;
+    ups.forEach((u, i) => { u.t = k < 0 ? 0 : i === k ? lift : Math.abs(((i - k + 6) % 4) - 2) === 1 ? lift * 0.3 : 0; });
     read.textContent = k < 0 ? "rest" : `segment ${k + 1}`;
     B.wake();
   }
+  function off() { at = null; spin.t = cruise; pick(-1); B.wake(); }
   bag.add(pointer(stage, {
     move: (p) => {
-      if (!settled()) return;
       const k = hit(p);
-      if (under === null || k === under) { under = k; return; } // a turn starts only when the pointer crosses into another compartment
-      under = k; if (k >= 0 && k !== act) choose(k);
+      if (k === -2) { if (at) off(); return; }
+      at = p; spin.t = 0; pick(k); B.wake();
     },
-    leave: () => choose(-1),
+    leave: off,
   }));
   bag.add(() => svg.replaceChildren());
-  choose(-1);
+  read.textContent = "rest";
 
-  return { set: (v) => { lift = v; if (act >= 0) choose(act); }, destroy: bag.dispose };
+  return { set: (v) => { lift = v; const k = act; act = -3; pick(k); }, destroy: bag.dispose };
 }
 
 hairline({
   name: "segmentation",
-  means: "A lazy-susan tray in four compartments: hover one and the tray turns it to the front, and its tokens lift and brighten.",
+  means: "A slowly turning lazy-susan tray in four compartments: point at it and it stops, and the compartment under the pointer lifts.",
   rules: [1, 4, 5, 8],
   range: [2, 3.5, 5],
   mount,
