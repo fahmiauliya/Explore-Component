@@ -33,3 +33,13 @@ Motion uses Web Animations on registered custom properties (`--sweep`, `--fill`)
 ## Video background
 
 Uses the supplied `12820845_1080_1920_30fps.mp4` as a local background: 1080 × 1920, 30 fps, 20 seconds. Autoplays muted, loops, and plays inline on mobile. The portrait video is centered and cropped to fill the original landscape artboard. A still from the video is displayed while it loads; the gauge remains static.
+
+## Video export
+
+- `exports/training-capacity-2082x1560-60fps.mp4`: H.264, 2082 × 1560, constant 60 fps, 40 seconds, no audio.
+- `exports/preview.html`: looping video player and download link.
+- `exports/poster.png`: full-resolution first frame.
+- `exports/export-info.json`: verified dimensions, frame rate, decoded frame count, and loop-boundary result.
+
+With the preview running on port 5188, run `node scripts/export-video.mjs`. The exporter uses an isolated Chrome process and Homebrew FFmpeg on macOS. Each of the 2,400 frames is rendered at its exact timestamp. The card loops every 8 seconds and the background video every 20, so the export runs 40 seconds: five card loops and two video loops, seamless for both. The background video is paused in the capture page and stepped to the matching source frame (30 fps, so each one holds for two output frames). The final endpoint is verified against frame zero but is not duplicated in the MP4. Use `--poster` to check the first frame and the seam without encoding.
+

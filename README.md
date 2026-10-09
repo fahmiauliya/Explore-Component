@@ -4,6 +4,7 @@ Animated component studies built with code. This repository lives directly in th
 
 ```text
 Code Explore/
+├── Isometric Marketing Kit/
 ├── Line Illustration/
 ├── Liquid Transform Navigation/
 ├── Space Signal Scan/
@@ -69,9 +70,18 @@ npm ci
 npm run dev
 ```
 
-Preview: http://localhost:5188/
+- Preview: http://localhost:5188/
+- Video preview: http://localhost:5188/exports/preview.html
 
-See the [component documentation](Training%20Capacity/README.md).
+### Video
+
+H.264 MP4, **60 fps**, a **40-second seamless loop** (five card loops over two loops of the background video), with 2,400 verified frames and no audio.
+
+| Version | Resolution | File |
+| --- | --- | --- |
+| Full card | 2082 × 1560 | [Download](Training%20Capacity/exports/training-capacity-2082x1560-60fps.mp4) |
+
+See the [component documentation](Training%20Capacity/README.md) for the export command and animation details.
 
 
 ## Line Illustration
@@ -87,3 +97,18 @@ npm run dev
 Preview: http://localhost:5189/
 
 See the [component documentation](Line%20Illustration/README.md).
+
+
+## Isometric Marketing Kit
+
+A website for the ten line illustrations. They run live in a gallery, each opens on its own page with its intensity slider, and each downloads as a self-contained React component (`.jsx`, React only) or as a 1080 × 1080, 60 fps MP4 demo loop rendered in the browser. Dark and light themes share one set of colour tokens with the illustrations.
+
+```sh
+cd "Isometric Marketing Kit"
+npm ci
+npm run dev
+```
+
+Preview: http://localhost:5190/
+
+See the [component documentation](Isometric%20Marketing%20Kit/README.md).

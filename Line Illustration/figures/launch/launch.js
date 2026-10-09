@@ -1,31 +1,33 @@
 /**
- * Launch: a hot air balloon moored over a small plate. A rounded envelope with eight gores, a burner frame, and four
- * ropes down to a woven basket, with three identical sandbags hanging from its rim on the visible side. A tether runs
- * from the basket to a mooring post. Hover sandbag 1, 2 or 3: it and every bag before it drop to the plate, the
- * balloon rises one level per dropped bag and the tether stretches. On leave the bags return and the balloon settles.
+ * Launch: a hot air balloon moored over a small plate. A teardrop envelope, widest in its upper third, with six
+ * gores from crown to mouth, a crown ring and a skirt ring; a small burner frame under the skirt; four ropes to an
+ * open woven basket with three identical sandbags on short ropes. A tether runs from the basket to a mooring post.
+ * Hover sandbag 1, 2 or 3: it and every bag before it fall, each with its rope, to the plate below where it hung, and
+ * the balloon floats up one large step per dropped bag while the tether pulls taut. On leave all of it comes back.
  *
- * Hit areas stay at the bags' rest positions. Height and bags follow critically damped springs; the balloon sways a
+ * Hit areas stay at the bags' rest positions. Height and bags follow critically damped springs; the balloon bobs a
  * little at rest. Every curve is a true Bézier, and the envelope's outline is exact: a sphere and a tangent cone.
  */
 const { Cam, fit, proj, spring, stepS, disposer, mk, pointer, register, reducedMotion } = HL;
 
-const Z0 = 4, PLATE = 24, GAP = 3.5, B = 7, BR = 1.5, BH = 8, WALL = 0.8, Q = Math.PI / 2, D = Math.SQRT1_2;
-const FRAME = { dz: 7.5 }, BURNER = { r: 1.4, h: 2 }, THROAT = { dz: 10, r: 4 }, ENV = { dz: 15, r: 13 }, CAP = 1.3;
-const BAG = { r: 2.3, neck: 1.2, tie: 0.55, frill: 0.7, out: 2.6, hang: 2.6 }, POST = { x: 15, y: -19, r: 1.4, h: 8, tie: 6 }, SAG = 2.4;
-const FLOAT = { k: 20, c: 2 * Math.sqrt(20) }, FALL = { k: 70, c: 2 * Math.sqrt(70) }, LABEL = ["rest", "pre-launch", "launch", "scale"];
-// the three bags, left to right: on the left face, at the front corner, on the right face. at: where the rope meets the rim
+const Z0 = 4, PLATE = 18, GAP = 3, B = 3, BR = 0.7, BH = 4.5, WALL = 0.6, Q = Math.PI / 2, D = Math.SQRT1_2;
+const ROPE = 7, SKIRT = { h: 1.4, r: 2.2 }, MOUTH = 2.4, ENV = { dz: 20, r: 11 }, CAP = Math.acos(2.4 / 11), FRAME = { dz: 1, h: 0.8, r: 0.35 };
+const BAG = { r: 1.35, neck: 0.5, tie: 0.3, frill: 0.35, out: 1.5, hang: 2 }, POST = { x: 12, y: -15, r: 1.1, h: 6.5, tie: 5 }, SAG = 2.6;
+const FLOAT = { k: 14, c: 2 * Math.sqrt(14) }, FALL = { k: 60, c: 2 * Math.sqrt(60) }, LABEL = ["rest", "pre-launch", "launch", "scale"];
+// the three bags, left to right: on the left wall, at the front corner, on the right wall. at: where the rope meets the rim
 const CC = B - BR, BAGS = [
   { c: [0, B + BAG.out], at: [0, B], out: [0, 1] },
   { c: [CC + (BR + BAG.out) * D, CC + (BR + BAG.out) * D], at: [CC + BR * D, CC + BR * D], out: [D, D] },
   { c: [B + BAG.out, 0], at: [B, 0], out: [1, 0] },
 ];
+const HIGH = GAP + BH + ROPE + SKIRT.h + ENV.dz; // the envelope's centre above the plate, at rest
 
 function mount({ stage, svg, read }, value) {
   const bag = disposer();
   let LV = value;
 
-  const C = Cam(45, 0.5, 3), TOP = GAP + BH + THROAT.dz + ENV.dz + ENV.r;
-  fit(C, [[-PLATE, -PLATE, 0], [PLATE, PLATE, 0], [-PLATE, PLATE, 0], [PLATE, -PLATE, 0], [0, 0, Z0 + TOP + 30]], 200, 160);
+  const C = Cam(45, 0.5, 3.15);
+  fit(C, [[-PLATE, -PLATE, 0], [PLATE, PLATE, 0], [-PLATE, PLATE, 0], [PLATE, -PLATE, 0], [0, 0, Z0 + HIGH + 42 + ENV.r + 2]], 200, 160);
   const P = proj(C), O = P(0, 0, 0), J = (v) => { const q = P(...v); return [q[0] - O[0], q[1] - O[1]]; };
   const f2 = (q) => `${q[0].toFixed(2)},${q[1].toFixed(2)}`, pt = (v) => f2(P(...v)), EX = [1, 0, 0], EY = [0, 1, 0], EZ = [0, 0, 1];
   const cross = (a, b) => a[0] * b[1] - a[1] * b[0], dot = (a, b) => a[0] * b[0] + a[1] * b[1], dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -77,60 +79,58 @@ function mount({ stage, svg, read }, value) {
   const path = (parent, d, cls = "sil") => mk("path", { d, class: cls }, parent);
 
   // the ground: the plate. The balloon, the tether, the post and the bags are redrawn each frame, back to front
-  const g = mk("g", {}, svg), [ps, pc] = box(0, 0, PLATE, 7, 0, Z0);
+  const g = mk("g", {}, svg), [ps, pc] = box(0, 0, PLATE, 6, 0, Z0);
   path(g, ps); path(g, pc, "nf sil");
   const air = mk("g", {}, g), post = mk("g", {}, g), tether = path(g, "", "nf sil"), bags = BAGS.map(() => mk("g", {}, g));
   const pr = POST.r, pz = Z0 + POST.h;
-  path(post, cyl([POST.x, POST.y, Z0], pr + 0.8, [POST.x, POST.y, Z0 + 0.8], pr + 0.8)); path(post, front([POST.x, POST.y, Z0 + 0.8], pr + 0.8), "nf sil");
-  path(post, cyl([POST.x, POST.y, Z0 + 0.8], pr, [POST.x, POST.y, pz], pr)); path(post, cyl([POST.x, POST.y, Z0 + POST.tie - 0.5], pr + 0.3, [POST.x, POST.y, Z0 + POST.tie + 0.5], pr + 0.3)); // the lashing
-  path(post, cyl([POST.x, POST.y, pz], pr + 0.6, [POST.x, POST.y, pz + 1], pr + 0.6)); path(post, ring([POST.x, POST.y, pz + 1], pr + 0.6), "nf sil");
+  path(post, cyl([POST.x, POST.y, Z0], pr + 0.7, [POST.x, POST.y, Z0 + 0.7], pr + 0.7)); path(post, front([POST.x, POST.y, Z0 + 0.7], pr + 0.7), "nf sil");
+  path(post, cyl([POST.x, POST.y, Z0 + 0.7], pr, [POST.x, POST.y, pz], pr)); path(post, cyl([POST.x, POST.y, Z0 + POST.tie - 0.4], pr + 0.25, [POST.x, POST.y, Z0 + POST.tie + 0.4], pr + 0.25)); // the lashing
+  path(post, cyl([POST.x, POST.y, pz], pr + 0.5, [POST.x, POST.y, pz + 0.8], pr + 0.5)); path(post, ring([POST.x, POST.y, pz + 0.8], pr + 0.5), "nf sil");
 
   const lift = spring(0, FLOAT), drops = BAGS.map(() => spring(0, FALL));
-  let act = -1, sway = 0;
+  let act = -1, bob = 0;
   function draw() {
-    const F = Z0 + GAP + lift.x * LV, rim = F + BH, sx = sway * D, sy = -sway * D, zt = rim + THROAT.dz, zc = zt + ENV.dz;
+    const F = Z0 + GAP + lift.x * LV + bob, rim = F + BH, zs = rim + ROPE, zt = zs + SKIRT.h, zc = zt + ENV.dz;
     air.replaceChildren();
-    // ropes run from the throat to the basket's rim corners, through the burner frame's corners
-    const top = (k) => at3([sx, sy, zt], EX, EY, THROAT.r, (Math.PI / 4) * (2 * k + 1)), foot = (k) => { const a = (Math.PI / 4) * (2 * k + 1), r = (CC + BR * D) * Math.SQRT2; return [sx + r * Math.cos(a), sy + r * Math.sin(a), rim]; };
-    const rope = (k) => path(air, `M${pt(top(k))}L${pt(foot(k))}`, "nf sil"), fr = top(0).map((x, i) => x + ((foot(0)[i] - x) * (THROAT.dz - FRAME.dz)) / THROAT.dz), fh = Math.hypot(fr[0] - sx, fr[1] - sy) * D + (1 - D) * 0.5;
+    // ropes: straight from the skirt ring to the basket's top corners, through the burner frame's corners
+    const ang = (k) => (Math.PI / 4) * (2 * k + 1), RA = (CC + BR * D) * Math.SQRT2, at = (r, z, k) => [r * Math.cos(ang(k)), r * Math.sin(ang(k)), z];
+    const rope = (k) => path(air, `M${pt(at(SKIRT.r, zs, k))}L${pt(at(RA, rim, k))}`, "nf sil");
+    const zf = zs - FRAME.dz, fr = SKIRT.r + ((RA - SKIRT.r) * FRAME.dz) / ROPE, fh = fr * D + FRAME.r * (1 - D);
     rope(2);
-    const [bs, bc] = box(sx, sy, B, BR, F, rim);
-    path(air, bs); path(air, bc, "nf sil"); path(air, rrun(sx, sy, B - WALL, BR - WALL, rim, 0, 4 * Q, true) + "Z", "nf sil");
-    [1, 2].forEach((n) => path(air, rrun(sx, sy, B, BR, F + (n * BH) / 3, FR, FR + 2 * Q, true), "nf sil")); // the woven bands
-    // the burner frame: an open wire square on the ropes, with four spokes holding the burner at its centre
-    const zf = rim + FRAME.dz, spoke = (k) => { const a = (Math.PI / 4) * (2 * k + 1), r0 = BURNER.r, r1 = (fh - 0.5 + 0.5 * D) * Math.SQRT2;
-      return `M${pt([sx + r0 * Math.cos(a), sy + r0 * Math.sin(a), zf])}L${pt([sx + r1 * Math.cos(a), sy + r1 * Math.sin(a), zf])}`; };
-    path(air, rrun(sx, sy, fh, 0.5, zf, FR + 2 * Q, FR + 4 * Q, true) + spoke(1) + spoke(2) + spoke(3), "nf sil");
-    path(air, cyl([sx, sy, zf - BURNER.h / 2], BURNER.r, [sx, sy, zf + BURNER.h / 2], BURNER.r)); path(air, front([sx, sy, zf + BURNER.h / 2], BURNER.r), "nf sil");
-    path(air, rrun(sx, sy, fh, 0.5, zf, FR, FR + 2 * Q, true) + spoke(0), "nf sil");
+    const [bs, bc] = box(0, 0, B, BR, F, rim); // the basket: open top with its inner rim, and two weave bands
+    path(air, bs); path(air, bc, "nf sil"); path(air, rrun(0, 0, B - WALL, BR - WALL, rim, 0, 4 * Q, true) + "Z", "nf sil");
+    [1, 2].forEach((n) => path(air, rrun(0, 0, B, BR, F + (n * BH) / 3, FR, FR + 2 * Q, true), "nf sil"));
     rope(1); rope(3);
-    // the envelope: its outline, then the gores on the side facing the camera, then the crown
-    const c = [sx, sy, zc], R = ENV.r, { d, tk } = bulb(c, R, [sx, sy, zt], THROAT.r);
+    const [ks, kc] = box(0, 0, fh, FRAME.r, zf - FRAME.h, zf);
+    path(air, ks); path(air, kc, "nf sil");
+    // the skirt, then the envelope over its top edge: outline, the gores on the side facing the camera, the crown ring
+    path(air, cyl([0, 0, zs], SKIRT.r, [0, 0, zt], MOUTH));
+    const c = [0, 0, zc], R = ENV.r, { d, tk } = bulb(c, R, [0, 0, zt], MOUTH);
     path(air, d);
     let gores = "";
-    for (let k = 0; k < 6; k++) { // six gores, none facing the camera; the two at the outline are the outline itself
+    for (let k = 0; k < 6; k++) { // six gores like meridians, none facing the camera; the two along the outline are the outline
       if (k === 1 || k === 4) continue;
       const f = CAM + Math.PI / 6 + (Math.PI / 3) * k, e1 = [Math.cos(f), Math.sin(f), 0], del = Math.atan2(w[2], dot3(e1, w));
       const t0 = Math.max(tk, del - Q + 0.02), t1 = Math.min(CAP, del + Q - 0.02);
       if (t0 >= t1) continue;
-      gores += t0 === tk ? `M${pt(at3([sx, sy, zt], e1, EZ, THROAT.r, 0))}` + arc(c, e1, EZ, R, tk, t1, false) : arc(c, e1, EZ, R, t0, t1, true);
+      gores += t0 === tk ? `M${pt(at3([0, 0, zt], e1, EZ, MOUTH, 0))}` + arc(c, e1, EZ, R, tk, t1, false) : arc(c, e1, EZ, R, t0, t1, true);
     }
-    path(air, gores, "nf sil"); path(air, ring([sx, sy, zc + R * Math.sin(CAP)], R * Math.cos(CAP)), "nf sil");
+    path(air, gores, "nf sil"); path(air, ring([0, 0, zc + R * Math.sin(CAP)], R * Math.cos(CAP)), "nf sil");
     rope(0);
-    // the tether: from the basket's right corner to a knot on the front of the post, slack at rest and drawn tighter as the balloon climbs
-    const t0 = [sx + CC + BR * D, sy - CC - BR * D, F + 0.6], u = [t0[0] - POST.x, t0[1] - POST.y].map((v, i, a) => v / Math.hypot(...a)), t3 = [POST.x + (pr + 0.3) * u[0], POST.y + (pr + 0.3) * u[1], Z0 + POST.tie], sag = SAG * (1 - 0.85 * Math.min(1, lift.x / 3));
+    // the tether: from the basket's right corner, just under the rim, to a lashing on the post; a soft curve at rest, taut at the top
+    const t0 = [CC + BR * D, -(CC + BR * D), rim - 0.6], u = [t0[0] - POST.x, t0[1] - POST.y].map((v, i, a) => v / Math.hypot(...a));
+    const t3 = [POST.x + (pr + 0.25) * u[0], POST.y + (pr + 0.25) * u[1], Z0 + POST.tie], sag = SAG * (1 - 0.32 * Math.min(3, Math.max(0, lift.x)));
     const t1 = t0.map((x, i) => x + (t3[i] - x) / 3 - (i === 2 ? sag : 0)), t2 = t0.map((x, i) => x + (2 * (t3[i] - x)) / 3 - (i === 2 ? sag : 0));
     tether.setAttribute("d", `M${pt(t0)}C${pt(t1)} ${pt(t2)} ${pt(t3)}`);
-    // the bags: each falls straight down from where it hangs, its rope with it, and lies with the rope draped over it
+    // the bags: each falls straight down, its rope with it, and lands on the plate below where it hung, the rope behind it
     BAGS.forEach((b, i) => {
-      const p = Math.max(0, Math.min(1, drops[i].x)), hang = rim - BAG.hang - BAG.r - BAG.neck - BAG.frill, z = hang + (Z0 + BAG.r - hang) * p;
-      const x = b.c[0] + sx * (1 - p), y = b.c[1] + sy * (1 - p), cls = i === act ? "hi" : "sil", gi = bags[i], nk = [x, y, z + BAG.r + BAG.neck];
+      const p = Math.max(0, Math.min(1, drops[i].x)), hang = rim - BAG.hang - BAG.frill - BAG.neck - BAG.r, z = hang + (Z0 + BAG.r - hang) * p;
+      const [x, y] = b.c, cls = i === act ? "hi" : "sil", gi = bags[i], nk = [x, y, z + BAG.r + BAG.neck], fk = [x, y, nk[2] + BAG.frill];
+      const up = [b.at[0] - x, b.at[1] - y, BAG.hang], down = [-(BAG.r + 1.3) * b.out[0], -(BAG.r + 1.3) * b.out[1], Z0 + 0.12 - (Z0 + 2 * BAG.r + BAG.neck + BAG.frill)];
+      const bend = [-0.8 * BAG.r * b.out[0], -0.8 * BAG.r * b.out[1], 0.25], e = fk.map((v, j) => v + up[j] + (down[j] - up[j]) * p), m = fk.map((v, j) => v + up[j] / 2 + (bend[j] - up[j] / 2) * p);
       gi.replaceChildren();
-      const fk = [x, y, nk[2] + BAG.frill]; // the sack, then the gathered cloth above its tie
-      const end = [b.at[0] + sx, b.at[1] + sy, rim], lay = [x - 4.5 * b.out[0], y - 4.5 * b.out[1], Z0 + 0.3], mid = [x - 2.8 * b.out[0], y - 2.8 * b.out[1], fk[2] + 0.2];
-      const e = end.map((v, j) => v + (lay[j] - v) * p), m = fk.map((v, j) => (v + end[j]) / 2 + (mid[j] - (v + end[j]) / 2) * p);
       path(gi, `M${pt(fk)}Q${pt(m)} ${pt(e)}`, `nf ${cls}`); // the rope first: once down it lies behind the bag
-      path(gi, bulb([x, y, z], BAG.r, nk, BAG.tie).d, cls); path(gi, cyl(nk, BAG.tie, fk, BAG.tie + 0.5), cls); path(gi, ring(fk, BAG.tie + 0.5), `nf ${cls}`);
+      path(gi, bulb([x, y, z], BAG.r, nk, BAG.tie).d, cls); path(gi, cyl(nk, BAG.tie, fk, BAG.tie + 0.25), cls); path(gi, ring(fk, BAG.tie + 0.25), `nf ${cls}`);
     });
   }
 
@@ -138,14 +138,14 @@ function mount({ stage, svg, read }, value) {
   const T = register(stage, (dt, now) => {
     let moving = stepS(lift, dt);
     drops.forEach((s) => { moving = stepS(s, dt) || moving; });
-    sway = still ? 0 : 0.45 * Math.sin((now / 1000) * ((2 * Math.PI) / 7));
+    bob = still ? 0 : 0.3 * Math.sin((now / 1000) * ((2 * Math.PI) / 4.5));
     draw();
     return moving || !still;
   });
   bag.add(T.unregister);
 
   // hit areas: the bags where they hang at rest, never where they are now, so the drop never flickers
-  const RESTF = Z0 + GAP + BH - BAG.hang - BAG.r - BAG.neck - BAG.frill, HIT = 11, spots = BAGS.map((b) => P(b.c[0], b.c[1], RESTF));
+  const RESTF = Z0 + GAP + BH - BAG.hang - BAG.frill - BAG.neck - BAG.r, HIT = 9, spots = BAGS.map((b) => P(b.c[0], b.c[1], RESTF));
   function choose(k) {
     act = k; lift.t = k + 1;
     drops.forEach((s, i) => { s.t = i <= k ? 1 : 0; });
@@ -170,6 +170,6 @@ hairline({
   name: "launch",
   means: "A moored hot air balloon: drop sandbags one by one and it climbs a level for each, its tether stretching to the post.",
   rules: [1, 5, 7, 8],
-  range: [6, 8, 10],
+  range: [10, 12, 14],
   mount,
 });
