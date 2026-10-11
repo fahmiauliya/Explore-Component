@@ -1,6 +1,6 @@
 # Isometric Marketing Kit
 
-A website for the ten interactive line illustrations from [Line Illustration](../Line%20Illustration/README.md). Each one runs live in the gallery and on its own page, and each downloads as a React component or an MP4.
+A website for the ten interactive line illustrations from the Line Illustration project. Each one runs live in the gallery and on its own page, and each downloads as a React component or an MP4.
 
 ```sh
 npm ci
@@ -47,7 +47,7 @@ Preview: http://localhost:5190/ · a detail page: http://localhost:5190/funnel
 
 ## How it reuses the illustrations
 
-`src/figures.ts` imports each figure file from `../Line Illustration/figures/<name>/<name>.js` as raw text and evaluates it unchanged, so drawing, motion and interaction are exactly those of the figures. `src/vendor/hairline-kernel.js` is an unchanged copy of the hairline kernel. The site mounts each figure the way the bench does: a `data-hairline` host, a 400 × 320 svg, and a read-out that feeds the status label. A change to a figure in Line Illustration shows up here on reload.
+`src/vendor/figures/` holds unchanged copies of the ten figure files from the Line Illustration project. That keeps the site self-contained: it builds from this folder alone, which is what Vercel checks out. `src/figures.ts` imports each one as raw text and evaluates it unchanged, so drawing, motion and interaction are exactly those of the figures. `src/vendor/hairline-kernel.js` is an unchanged copy of the hairline kernel. The site mounts each figure the way the bench does: a `data-hairline` host, a 400 × 320 svg, and a read-out that feeds the status label. After changing a figure in Line Illustration, run `npm run sync-figures` to copy the ten files in again (it needs Line Illustration next to this folder, as in Code Explore).
 
 The kernel's single frame loop only runs figures that are on screen, and its springs land at once under `prefers-reduced-motion` (the tray's spin and the balloon's bob also stop). On touch, a tap holds its hover after the finger lifts, and a tap anywhere else returns to rest. In the detail view every hover target is a keyboard stop: Tab moves between them and focus acts as hover.
 
@@ -75,6 +75,16 @@ The illustrations take them through the kernel's `--hairline-*` properties: plat
 **Video (.mp4).** `src/download/video.ts` renders a scripted demo loop of 1080 × 1080 at 60 fps in the current theme. The script is rest → each hover target in order → rest. It shows only the drawing on the plain background, with no frame, labels, controls or cursor. The drawing's extent over every state fills the middle 70% of the frame. The figure runs in a hidden same-origin iframe on a virtual clock: its `requestAnimationFrame` and `performance.now` advance exactly 1/60 s per frame, and its colour transitions are paused and stepped to the same clock. Every frame is exact, however fast the machine renders. Each frame's svg is drawn to a canvas with its computed colours and strokes scaled to the frame. It is encoded with WebCodecs as H.264, at constant quality where supported, and muxed into an MP4 with `mp4-muxer`. Browsers without WebCodecs fall back to `MediaRecorder` with an MP4 type, recorded in real time. If neither can produce MP4, the button reports it. The button shows `Rendering… n%` while it works.
 
 Loops are 8 seconds (480 frames), except the balloon at 9 seconds, two periods of its bob, so its loop is seamless. The folded map ends with the pin back on "discover". The funnel's gears and the tray's spin turn continuously, so those two loops show a small jump in the gears' and the tray's angle at the seam.
+
+## Deploy (Vercel)
+
+The site is a static Vite build, and `vercel.json` sets everything Vercel needs:
+- framework Vite, install `npm ci`, build `npm run build`, output `dist`;
+- a rewrite of every path to `index.html`, so detail pages such as `/folded-map` load when opened directly, refreshed or shared. Real files in `dist` are served first.
+
+Node 20.19 or newer is required (`engines` in `package.json`), as Vite 7 needs it. The repo root must be this folder; it is pushed on its own to `github.com/fahmiauliya/Compo`.
+
+Checked as Vercel would build it: a copy of this folder alone, with no Line Illustration beside it, installs with `npm ci` and builds clean. Served with the same fallback, the gallery shows all ten figures, and deep links to detail pages load directly.
 
 ## Checked
 

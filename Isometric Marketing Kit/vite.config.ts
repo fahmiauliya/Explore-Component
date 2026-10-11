@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite';
 
-// The figures are read straight from the Line Illustration project, so the dev server may serve its folder.
+// Self-contained: the figures are vendored in src/vendor/figures, so the site builds from this folder alone (Vercel).
 export default defineConfig({
   esbuild: { jsx: 'automatic' },
-  server: { fs: { allow: ['..'] } },
 });

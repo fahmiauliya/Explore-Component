@@ -1,14 +1,14 @@
-// The ten illustrations, read unchanged from the Line Illustration project.
-import funnel from '../../Line Illustration/figures/funnel/funnel.js?raw';
-import megaphone from '../../Line Illustration/figures/megaphone/megaphone.js?raw';
-import magnet from '../../Line Illustration/figures/magnet/magnet.js?raw';
-import target from '../../Line Illustration/figures/target/target.js?raw';
-import roi from '../../Line Illustration/figures/roi/roi.js?raw';
-import email from '../../Line Illustration/figures/email/email.js?raw';
-import segmentation from '../../Line Illustration/figures/segmentation/segmentation.js?raw';
-import launch from '../../Line Illustration/figures/launch/launch.js?raw';
-import analytics from '../../Line Illustration/figures/analytics/analytics.js?raw';
-import journey from '../../Line Illustration/figures/journey/journey.js?raw';
+// The ten illustrations: unchanged copies of the Line Illustration project's figures (npm run sync-figures).
+import funnel from './vendor/figures/funnel.js?raw';
+import megaphone from './vendor/figures/megaphone.js?raw';
+import magnet from './vendor/figures/magnet.js?raw';
+import target from './vendor/figures/target.js?raw';
+import roi from './vendor/figures/roi.js?raw';
+import email from './vendor/figures/email.js?raw';
+import segmentation from './vendor/figures/segmentation.js?raw';
+import launch from './vendor/figures/launch.js?raw';
+import analytics from './vendor/figures/analytics.js?raw';
+import journey from './vendor/figures/journey.js?raw';
 
 export type Target = { label: string; at: [number, number] };
 export type Entry = {
