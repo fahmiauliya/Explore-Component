@@ -1,0 +1,13 @@
+/* the room around the frame: a plain background a step off the frame's own; DialKit's panel and dock sit over it */
+:root { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
+/* --room and --muted come from the theme colours in config.ts */
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--room); transition: background-color 200ms ease; }
+#root { height: 100%; }
+/* the frame, as large as fits above the timeline dock and left of the panel */
+.room { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: var(--margin) var(--panel) var(--dock) var(--margin); }
+canvas { display: block; flex: none; }
+.note { margin: 0; font: 400 11px/1 "Geist Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+/* the panel stops above the dock, so every clip row stays in view */
+.dialkit-panel-inner:not([data-collapsed="true"]) { max-height: calc(100vh - var(--dock, 16px) - 20px) !important; overflow-y: auto; }

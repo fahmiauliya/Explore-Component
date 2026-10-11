@@ -4,6 +4,7 @@ Animated component studies built with code. This repository lives directly in th
 
 ```text
 Code Explore/
+├── Isometric Marketing Carousel/
 ├── Isometric Marketing Kit/
 ├── Line Illustration/
 ├── Liquid Transform Navigation/
@@ -112,3 +113,20 @@ npm run dev
 Preview: http://localhost:5190/
 
 See the [component documentation](Isometric%20Marketing%20Kit/README.md).
+
+
+## Isometric Marketing Carousel
+
+A looping 4:5 social media carousel of the ten line illustrations, one card at a time, each playing its demo, with an eyebrow, headline, subheadline and "See details" button per card. It is designed at 540 × 675, previewed at actual size and exported at 2× (1080 × 1350). A DialKit panel tunes layout, type and motion, and a DialKit timeline dock times one card's cycle clip by clip. Both stay out of the frame. It can export a seamless 60 fps MP4 at the timeline's exact timing, rendered frame by frame in the browser. Separate from the website.
+
+```sh
+cd "Isometric Marketing Carousel"
+npm ci
+npm run dev
+```
+
+Preview: http://localhost:5191/
+
+The current renders (dark and light, 1080 × 1350, 60 fps, 42.5 s) are in `Isometric Marketing Carousel/exports/`.
+
+See the [component documentation](Isometric%20Marketing%20Carousel/README.md).

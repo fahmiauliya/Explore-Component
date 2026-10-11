@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carousel Exports</title>
+<style>
+  :root { color-scheme: dark; --bg: #050607; --text: #E6E7E9; --muted: #8A8E95; --line: #1F2125; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, sans-serif; }
+  main { display: flex; flex-wrap: wrap; gap: 32px; justify-content: center; padding: 32px 16px; }
+  figure { margin: 0; width: min(540px, 100%); }
+  video { display: block; width: 100%; aspect-ratio: 4 / 5; background: #000; }
+  figcaption { display: flex; justify-content: space-between; gap: 12px; padding-top: 10px; color: var(--muted); }
+  a { color: var(--text); }
+</style>
+</head>
+<body>
+<main>
+    <figure>
+      <video src="isometric-marketing-carousel-dark-1080x1350-60fps.mp4" poster="poster-dark.png" autoplay muted loop playsinline controls></video>
+      <figcaption><span>Dark · 1080 × 1350 · 2550 frames · 42.5 s</span><a href="isometric-marketing-carousel-dark-1080x1350-60fps.mp4" download>Download MP4</a></figcaption>
+    </figure>
+    <figure>
+      <video src="isometric-marketing-carousel-light-1080x1350-60fps.mp4" poster="poster-light.png" autoplay muted loop playsinline controls></video>
+      <figcaption><span>Light · 1080 × 1350 · 2550 frames · 42.5 s</span><a href="isometric-marketing-carousel-light-1080x1350-60fps.mp4" download>Download MP4</a></figcaption>
+    </figure>
+</main>
+</body>
+</html>
