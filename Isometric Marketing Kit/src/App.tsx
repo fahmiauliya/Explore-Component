@@ -3,7 +3,7 @@ import { ENTRIES, bySlug, type Entry } from './figures';
 import { Illustration, figureOf } from './Illustration';
 import { valueAt } from './hairline';
 import { componentSource } from './download/component';
-import { renderVideo } from './download/video';
+import { FORMAT_INFO } from './download/info';
 import type { Theme } from './tokens';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -152,10 +152,7 @@ function Detail({ entry, go, theme }: { entry: Entry; go: Go; theme: Theme }) {
           <p className="mono muted">{entry.n} · {entry.topic}</p>
           <h1>{entry.name}</h1>
           <p className="means">{figure.means}</p>
-          <div className="downloads">
-            <ComponentButton entry={entry} value={value} />
-            <VideoButton entry={entry} value={value} theme={theme} />
-          </div>
+          <Downloads entry={entry} value={value} theme={theme} />
           <p className="note muted">Downloads use the current theme.</p>
         </aside>
       </div>
@@ -173,33 +170,64 @@ function save(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-function ComponentButton({ entry, value }: { entry: Entry; value: number }) {
-  const download = () => save(new Blob([componentSource(entry, figureOf(entry), value)], { type: 'text/javascript' }), `${entry.component}.jsx`);
-  return <button type="button" className="button mono" onClick={download}>Download React (.jsx)</button>;
-}
+type Job = (onProgress: (fraction: number) => void) => Promise<{ blob: Blob; name: string }>;
+type Row = { key: string; format: string; hint: string; job: Job };
 
-function VideoButton({ entry, value, theme }: { entry: Entry; value: number; theme: Theme }) {
-  const [busy, setBusy] = useState<number | null>(null);
+/** The downloads, grouped: code, still images, motion. One renders at a time; its row shows the progress. */
+function Downloads({ entry, value, theme }: { entry: Entry; value: number; theme: Theme }) {
+  const [busy, setBusy] = useState<{ key: string; pct: number } | null>(null);
   const [error, setError] = useState('');
-  const run = async () => {
+  const { gif, alpha, png } = FORMAT_INFO, states = entry.targets.length;
+  // the encoders load on the first download, not with the page
+  const formats = () => import('./download/formats'), video = () => import('./download/video');
+  const groups: [string, Row[]][] = [
+    ['Code', [
+      { key: 'jsx', format: 'React (.jsx)', hint: 'Live and interactive',
+        job: async () => ({ blob: new Blob([componentSource(entry, figureOf(entry), value)], { type: 'text/javascript' }), name: `${entry.component}.jsx` }) },
+    ]],
+    ['Image', [
+      { key: 'svg', format: 'SVG (.zip)', hint: `Default + ${states} hover states`,
+        job: async (p) => ({ blob: await (await formats()).renderSvgStates(entry, theme, value, p), name: `${entry.slug}-svg-${theme}.zip` }) },
+      { key: 'png', format: 'PNG', hint: `${png.side} px, for slides`, job: async () => (await formats()).renderPng(entry, theme, value) },
+    ]],
+    ['Motion', [
+      { key: 'mp4', format: 'MP4', hint: '1080 × 1080, 60 fps',
+        job: async (p) => ({ blob: await (await video()).renderVideo(entry, theme, value, p), name: `${entry.slug}-${theme}-1080x1080-60fps.mp4` }) },
+      { key: 'gif', format: 'GIF', hint: `${gif.size} px loop, Notion and email`,
+        job: async (p) => ({ blob: await (await formats()).renderGif(entry, theme, value, p), name: `${entry.slug}-${theme}-${gif.size}x${gif.size}-${gif.fps}fps.gif` }) },
+      { key: 'webm', format: 'WebM', hint: 'Transparent, for the web',
+        job: async (p) => ({ blob: await (await formats()).renderTransparentWebm(entry, theme, value, p), name: `${entry.slug}-${theme}-transparent-${alpha.size}x${alpha.size}-${alpha.webmFps}fps.webm` }) },
+      { key: 'seq', format: 'PNG sequence (.zip)', hint: 'Transparent, for video editors',
+        job: async (p) => ({ blob: await (await formats()).renderPngSequence(entry, theme, value, p), name: `${entry.slug}-${theme}-transparent-${alpha.size}-${alpha.sequenceFps}fps-png.zip` }) },
+    ]],
+  ];
+  const run = async (row: Row) => {
     setError('');
-    setBusy(0);
+    setBusy({ key: row.key, pct: 0 });
     try {
-      const blob = await renderVideo(entry, theme, value, (f) => setBusy(Math.floor(f * 100)));
-      save(blob, `${entry.slug}-${theme}-1080x1080-60fps.mp4`);
+      const { blob, name } = await row.job((f) => setBusy({ key: row.key, pct: Math.floor(f * 100) }));
+      save(blob, name);
     } catch (e) {
-      setError(`The video could not be rendered: ${e instanceof Error ? e.message : String(e)}`);
+      setError(`The ${row.format} could not be made: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setBusy(null);
     }
   };
   return (
-    <>
-      <button type="button" className="button mono" onClick={run} disabled={busy !== null} aria-live="polite">
-        {busy === null ? 'Download video (.mp4)' : `Rendering… ${busy}%`}
-      </button>
+    <div className="downloads">
+      {groups.map(([title, rows]) => (
+        <section key={title} className="dl-group" aria-label={`${title} downloads`}>
+          <h2 className="mono muted">{title}</h2>
+          {rows.map((row) => (
+            <button key={row.key} type="button" className="button dl" onClick={() => run(row)} disabled={busy !== null} aria-live="polite">
+              <span className="mono">{row.format}</span>
+              <span className="dl-hint">{busy?.key === row.key ? `Rendering… ${busy.pct}%` : row.hint}</span>
+            </button>
+          ))}
+        </section>
+      ))}
       {error && <p className="error" role="alert">{error}</p>}
-    </>
+    </div>
   );
 }
 

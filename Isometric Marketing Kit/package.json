@@ -10,6 +10,9 @@
     "sync-figures": "node scripts/sync-figures.mjs"
   },
   "dependencies": {
+    "fflate": "^0.8.3",
+    "gifenc": "^1.0.3",
+    "mediabunny": "^1.61.3",
     "mp4-muxer": "^5.2.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"

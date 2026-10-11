@@ -70,6 +70,36 @@ The illustrations take them through the kernel's `--hairline-*` properties: plat
 
 ## Downloads
 
+Each illustration page offers seven downloads in three groups: Code, Image and Motion. Every one uses the current theme's colours. One renders at a time, and its row shows `Rendering… n%`. The encoders (`src/download/formats.ts`, `video.ts`) load on the first download, not with the page, so the site's own script stays at about 375 KB.
+
+Each one draws from the same hidden copy of the figure (`src/download/scene.ts`): the figure file and kernel, unchanged, in a same-origin iframe on a virtual clock. Its `requestAnimationFrame` and `performance.now` advance only when told to, and its colour transitions are paused and stepped to the same clock. So every still and every frame is exact, however fast the machine is.
+
+| Group | Format | What you get |
+| --- | --- | --- |
+| Code | React (.jsx) | The live, interactive component (below). |
+| Image | SVG (.zip) | One SVG per state: `01-default.svg`, then `02-hover-<target>.svg` and on, one per hover target (4 to 12 per figure). |
+| Image | PNG | The default state, 2000 px on the longer side, 4 px strokes, on the theme background, for slides. |
+| Motion | MP4 | The demo loop, 1080 × 1080, 60 fps (below). |
+| Motion | GIF | The same loop at 600 × 600, 25 fps, looping forever, for Notion and email. |
+| Motion | WebM | The same loop on a transparent background, 1080 × 1080, 60 fps, VP9 with alpha, for the web. |
+| Motion | PNG sequence (.zip) | The same loop as numbered transparent PNGs, 1080 × 1080, 30 fps, for video editors. |
+
+**SVG states.**
+- Each hover state starts from rest, the way a first hover would, and is given 2.5 s to settle before it is drawn.
+- The files are cleaned for Figma and Illustrator:
+  - only `path`, `g`, a `rect` and a `title`;
+  - colours as plain hex attributes, and no styles, classes, masks or transforms;
+  - strokes in the drawing's own units (1.5 at its native size);
+  - hidden layers dropped, and the background as its own layer (`id="background"`) that can be deleted.
+- Every state uses the same crop, the drawing's extent over every state plus 6%, so the files stack and line up.
+
+**GIF.**
+- One fixed palette is built from the theme's tones and the antialiased steps between them, so no frame shifts colour.
+- Each frame after the first stores only the pixels that moved; the rest show through from the frame before.
+- That roughly halves the file (the funnel: 3.0 MB down to 1.4 MB) with identical pixels.
+
+**Transparent video.** Browsers can't encode alpha directly. `mediabunny` encodes the alpha as a second VP9 stream and attaches it, which Chrome, Edge and Firefox play. Many video editors don't import transparent WebM, so the PNG sequence covers them. In both, the drawing's solid faces keep the theme's background colour, which is what hides the lines behind them, so it reads as a solid object over any backdrop.
+
 **React component (.jsx).** `src/download/component.ts` writes one self-contained file per illustration, such as `FunnelIllustration.jsx`: a comment block with props and usage, the colour tokens for both themes, the kernel and the figure (both unchanged), and a component that mounts it. It depends only on React. Props: `theme` (`"dark"` or `"light"`, default `"dark"`), `intensity` (the figure's own number, defaulting to the middle of its range), `interactive` (default `true`) and `className`. The current state is mirrored on the wrapper as `data-status`.
 
 **Video (.mp4).** `src/download/video.ts` renders a scripted demo loop of 1080 × 1080 at 60 fps in the current theme. The script is rest → each hover target in order → rest. It shows only the drawing on the plain background, with no frame, labels, controls or cursor. The drawing's extent over every state fills the middle 70% of the frame. The figure runs in a hidden same-origin iframe on a virtual clock: its `requestAnimationFrame` and `performance.now` advance exactly 1/60 s per frame, and its colour transitions are paused and stepped to the same clock. Every frame is exact, however fast the machine renders. Each frame's svg is drawn to a canvas with its computed colours and strokes scaled to the frame. It is encoded with WebCodecs as H.264, at constant quality where supported, and muxed into an MP4 with `mp4-muxer`. Browsers without WebCodecs fall back to `MediaRecorder` with an MP4 type, recorded in real time. If neither can produce MP4, the button reports it. The button shows `Rendering… n%` while it works.

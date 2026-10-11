@@ -104,12 +104,17 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline: 1px solid 
   .view { aspect-ratio: 1; border-right: 0; border-bottom: 1px solid var(--border); }
   .detail { padding-bottom: 64px; }
 }
-.side { display: flex; flex-direction: column; padding: 24px; min-width: 0; }
+.side { display: flex; flex-direction: column; padding: 24px; min-width: 0; overflow-y: auto; }
 .side > * + * { margin-top: 8px; }
 .side h1 { font-size: 16px; line-height: 24px; }
 .means { font-size: 14px; text-wrap: pretty; }
-.side .downloads { margin-top: 32px; }
-.downloads { display: flex; flex-direction: column; gap: 8px; }
+.side .downloads { margin-top: 24px; }
+.downloads { display: flex; flex-direction: column; gap: 16px; }
+/* the downloads in three groups (code, image, motion): a mono label, then one 40px row per format */
+.dl-group { display: flex; flex-direction: column; gap: 6px; }
+.dl-group h2 { font-size: 11px; line-height: 16px; font-weight: 400; text-transform: uppercase; letter-spacing: 0.08em; margin: 0; }
+.button.dl { height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dl-hint { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 .button {
   width: 100%; height: 48px; padding: 0 16px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; text-align: left;
   transition: background-color var(--fade), color var(--fade), border-color var(--fade);
