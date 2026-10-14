@@ -106,7 +106,7 @@ function mount({ stage, svg, read }, value) {
   }
 
   const fc = spring(0, CALM), fr = spring(0, CALM), amount = spring(0, CALM);
-  let lit = -2;
+  let lit = -2, hover = false;
   const B = register(stage, (dt) => {
     let moving = false;
     for (const s of [fc, fr, amount]) moving = stepS(s, dt) || moving;
@@ -118,7 +118,7 @@ function mount({ stage, svg, read }, value) {
       l.body.setAttribute("d", p.card); l.flap.setAttribute("d", p.flap); l.ofill.setAttribute("d", p.shape); l.obody.setAttribute("d", p.out); l.oflap.setAttribute("d", p.oflap);
       l.last = key;
     });
-    const on = amount.x > 0.15 ? letters.findIndex((l) => l.c === Math.round(fc.x) && l.r === Math.round(fr.x)) : -1;
+    const on = hover && amount.x > 0.15 ? letters.findIndex((l) => l.c === Math.round(fc.x) && l.r === Math.round(fr.x)) : -1;
     if (on !== lit) { lit = on; letters.forEach((l, n) => [l.body, l.flap, l.obody, l.oflap].forEach((el) => el.classList.toggle("hi", n === on))); }
     return moving;
   });
@@ -134,12 +134,13 @@ function mount({ stage, svg, read }, value) {
   }
   function follow(p) {
     if (!p) return;
+    hover = true;
     if (amount.x < 0.01) { fc.x = p[0]; fr.x = p[1]; }
     fc.t = p[0]; fr.t = p[1]; amount.t = 1;
     read.textContent = `slot ${Math.round(p[0]) + 1}·${Math.round(p[1]) + 1}`;
     B.wake();
   }
-  bag.add(pointer(stage, { move: (p) => follow(at(p)), leave: () => { amount.t = 0; read.textContent = "rest"; B.wake(); } }));
+  bag.add(pointer(stage, { move: (p) => follow(at(p)), leave: () => { hover = false; amount.t = 0; read.textContent = "rest"; B.wake(); } }));
   bag.add(() => svg.replaceChildren());
   read.textContent = "rest";
 

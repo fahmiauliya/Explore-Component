@@ -1,0 +1,194 @@
+/**
+ * Moneyjar: a glass mason jar on the ground (round foot, straight body, round shoulder, a short narrower neck with a screw lid of its width
+ * and a coin slot), a small loose heap on its floor at rest: five coins and a note. Hover: coins, now and then a note, drop in from above
+ * edge-on through the slot; a coin tumbles in perspective, bounces once and settles at its own angle, a note flutters down swaying
+ * and lands bent over the pile. Bright: only what falls or settles. Leave: the extras slide into the resting items' places and go in under
+ * them in 0.8 s; nothing fades. data-fill (1-5) and data-label (up to 8 of A-Z 0-9) are read live; a new fill replays once unhovered. */
+const STROKES = {"0":[0.952,"M0.429 -1 L0.286 -0.952 0.19 -0.81 0.143 -0.571 0.143 -0.429 0.19 -0.19 0.286 -0.048 0.429 0 0.524 0 0.667 -0.048 0.762 -0.19 0.81 -0.429 0.81 -0.571 0.762 -0.81 0.667 -0.952 0.524 -1 0.429 -1"],"1":[0.952,"M0.286 -0.81 L0.381 -0.857 0.524 -1 0.524 0"],"2":[0.952,"M0.19 -0.762 L0.19 -0.81 0.238 -0.905 0.286 -0.952 0.381 -1 0.571 -1 0.667 -0.952 0.714 -0.905 0.762 -0.81 0.762 -0.714 0.714 -0.619 0.619 -0.476 0.143 0 0.81 0"],"3":[0.952,"M0.238 -1 L0.762 -1 0.476 -0.619 0.619 -0.619 0.714 -0.571 0.762 -0.524 0.81 -0.381 0.81 -0.286 0.762 -0.143 0.667 -0.048 0.524 0 0.381 0 0.238 -0.048 0.19 -0.095 0.143 -0.19"],"4":[0.952,"M0.619 -1 L0.143 -0.333 0.857 -0.333 M0.619 -1 L0.619 0"],"5":[0.952,"M0.714 -1 L0.238 -1 0.19 -0.571 0.238 -0.619 0.381 -0.667 0.524 -0.667 0.667 -0.619 0.762 -0.524 0.81 -0.381 0.81 -0.286 0.762 -0.143 0.667 -0.048 0.524 0 0.381 0 0.238 -0.048 0.19 -0.095 0.143 -0.19"],"6":[0.952,"M0.762 -0.857 L0.714 -0.952 0.571 -1 0.476 -1 0.333 -0.952 0.238 -0.81 0.19 -0.571 0.19 -0.333 0.238 -0.143 0.333 -0.048 0.476 0 0.524 0 0.667 -0.048 0.762 -0.143 0.81 -0.286 0.81 -0.333 0.762 -0.476 0.667 -0.571 0.524 -0.619 0.476 -0.619 0.333 -0.571 0.238 -0.476 0.19 -0.333"],"7":[0.952,"M0.81 -1 L0.333 0 M0.143 -1 L0.81 -1"],"8":[0.952,"M0.381 -1 L0.238 -0.952 0.19 -0.857 0.19 -0.762 0.238 -0.667 0.333 -0.619 0.524 -0.571 0.667 -0.524 0.762 -0.429 0.81 -0.333 0.81 -0.19 0.762 -0.095 0.714 -0.048 0.571 0 0.381 0 0.238 -0.048 0.19 -0.095 0.143 -0.19 0.143 -0.333 0.19 -0.429 0.286 -0.524 0.429 -0.571 0.619 -0.619 0.714 -0.667 0.762 -0.762 0.762 -0.857 0.714 -0.952 0.571 -1 0.381 -1"],"9":[0.952,"M0.762 -0.667 L0.714 -0.524 0.619 -0.429 0.476 -0.381 0.429 -0.381 0.286 -0.429 0.19 -0.524 0.143 -0.667 0.143 -0.714 0.19 -0.857 0.286 -0.952 0.429 -1 0.476 -1 0.619 -0.952 0.714 -0.857 0.762 -0.667 0.762 -0.429 0.714 -0.19 0.619 -0.048 0.476 0 0.381 0 0.238 -0.048 0.19 -0.143"],"A":[0.857,"M0.429 -1 L0.048 0 M0.429 -1 L0.81 0 M0.19 -0.333 L0.667 -0.333"],"B":[0.952,"M0.19 -1 L0.19 0 M0.19 -1 L0.619 -1 0.762 -0.952 0.81 -0.905 0.857 -0.81 0.857 -0.714 0.81 -0.619 0.762 -0.571 0.619 -0.524 M0.19 -0.524 L0.619 -0.524 0.762 -0.476 0.81 -0.429 0.857 -0.333 0.857 -0.19 0.81 -0.095 0.762 -0.048 0.619 0 0.19 0"],"C":[1.048,"M0.857 -0.762 L0.81 -0.857 0.714 -0.952 0.619 -1 0.429 -1 0.333 -0.952 0.238 -0.857 0.19 -0.762 0.143 -0.619 0.143 -0.381 0.19 -0.238 0.238 -0.143 0.333 -0.048 0.429 0 0.619 0 0.714 -0.048 0.81 -0.143 0.857 -0.238"],"D":[0.952,"M0.19 -1 L0.19 0 M0.19 -1 L0.524 -1 0.667 -0.952 0.762 -0.857 0.81 -0.762 0.857 -0.619 0.857 -0.381 0.81 -0.238 0.762 -0.143 0.667 -0.048 0.524 0 0.19 0"],"E":[0.857,"M0.19 -1 L0.19 0 M0.19 -1 L0.81 -1 M0.19 -0.524 L0.571 -0.524 M0.19 0 L0.81 0"],"F":[0.762,"M0.19 -1 L0.19 0 M0.19 -1 L0.81 -1 M0.19 -0.524 L0.571 -0.524"],"G":[1.048,"M0.857 -0.762 L0.81 -0.857 0.714 -0.952 0.619 -1 0.429 -1 0.333 -0.952 0.238 -0.857 0.19 -0.762 0.143 -0.619 0.143 -0.381 0.19 -0.238 0.238 -0.143 0.333 -0.048 0.429 0 0.619 0 0.714 -0.048 0.81 -0.143 0.857 -0.238 0.857 -0.381 M0.619 -0.381 L0.857 -0.381"],"H":[1.048,"M0.19 -1 L0.19 0 M0.857 -1 L0.857 0 M0.19 -0.524 L0.857 -0.524"],"I":[0.381,"M0.19 -1 L0.19 0"],"J":[0.762,"M0.571 -1 L0.571 -0.238 0.524 -0.095 0.476 -0.048 0.381 0 0.286 0 0.19 -0.048 0.143 -0.095 0.095 -0.238 0.095 -0.333"],"K":[0.952,"M0.19 -1 L0.19 0 M0.857 -1 L0.19 -0.333 M0.429 -0.571 L0.857 0"],"L":[0.667,"M0.19 -1 L0.19 0 M0.19 0 L0.762 0"],"M":[1.143,"M0.19 -1 L0.19 0 M0.19 -1 L0.571 0 M0.952 -1 L0.571 0 M0.952 -1 L0.952 0"],"N":[1.048,"M0.19 -1 L0.19 0 M0.19 -1 L0.857 0 M0.857 -1 L0.857 0"],"O":[1.048,"M0.429 -1 L0.333 -0.952 0.238 -0.857 0.19 -0.762 0.143 -0.619 0.143 -0.381 0.19 -0.238 0.238 -0.143 0.333 -0.048 0.429 0 0.619 0 0.714 -0.048 0.81 -0.143 0.857 -0.238 0.905 -0.381 0.905 -0.619 0.857 -0.762 0.81 -0.857 0.714 -0.952 0.619 -1 0.429 -1"],"P":[0.952,"M0.19 -1 L0.19 0 M0.19 -1 L0.619 -1 0.762 -0.952 0.81 -0.905 0.857 -0.81 0.857 -0.667 0.81 -0.571 0.762 -0.524 0.619 -0.476 0.19 -0.476"],"Q":[1.048,"M0.429 -1 L0.333 -0.952 0.238 -0.857 0.19 -0.762 0.143 -0.619 0.143 -0.381 0.19 -0.238 0.238 -0.143 0.333 -0.048 0.429 0 0.619 0 0.714 -0.048 0.81 -0.143 0.857 -0.238 0.905 -0.381 0.905 -0.619 0.857 -0.762 0.81 -0.857 0.714 -0.952 0.619 -1 0.429 -1 M0.571 -0.19 L0.857 0.095"],"R":[0.952,"M0.19 -1 L0.19 0 M0.19 -1 L0.619 -1 0.762 -0.952 0.81 -0.905 0.857 -0.81 0.857 -0.714 0.81 -0.619 0.762 -0.571 0.619 -0.524 0.19 -0.524 M0.524 -0.524 L0.857 0"],"S":[0.952,"M0.81 -0.857 L0.714 -0.952 0.571 -1 0.381 -1 0.238 -0.952 0.143 -0.857 0.143 -0.762 0.19 -0.667 0.238 -0.619 0.333 -0.571 0.619 -0.476 0.714 -0.429 0.762 -0.381 0.81 -0.286 0.81 -0.143 0.714 -0.048 0.571 0 0.381 0 0.238 -0.048 0.143 -0.143"],"T":[0.762,"M0.381 -1 L0.381 0 M0.048 -1 L0.714 -1"],"U":[1.048,"M0.19 -1 L0.19 -0.286 0.238 -0.143 0.333 -0.048 0.476 0 0.571 0 0.714 -0.048 0.81 -0.143 0.857 -0.286 0.857 -1"],"V":[0.857,"M0.048 -1 L0.429 0 M0.81 -1 L0.429 0"],"W":[1.143,"M0.095 -1 L0.333 0 M0.571 -1 L0.333 0 M0.571 -1 L0.81 0 M1.048 -1 L0.81 0"],"X":[0.952,"M0.143 -1 L0.81 0 M0.81 -1 L0.143 0"],"Y":[0.857,"M0.048 -1 L0.429 -0.524 0.429 0 M0.81 -1 L0.429 -0.524"],"Z":[0.952,"M0.81 -1 L0.143 0 M0.143 -1 L0.81 -1 M0.143 0 L0.81 0"]," ":[0.762,""]};
+const { Cam, fit, proj, unproj, disposer, mk, pointer, register, reducedMotion, clamp, lerp, bezier } = HL;
+const Q = Math.PI / 2, TAU = 4 * Q, DEG = Math.PI / 180, EASE = bezier(0.32, 0.72, 0, 1);
+const U = [Math.SQRT1_2, -Math.SQRT1_2, 0], V = [Math.SQRT1_2, Math.SQRT1_2, 0]; // across the screen, towards the viewer
+// the jar (world units, axis at the origin): the body R round (RI inside; its floor ZF, rounding up RBI to the wall), its foot round RB, straight to ZS, a round shoulder to the neck RN (two thirds of the body) at ZK; the lid RL, the neck's width, ZN to ZL
+const R = 12, RI = 11.2, RB = 3, RBI = 2.4, ZF = 0.6, ZS = 27, RN = 8, ZK = 32.6, RL = 8.25, ZN = 33.8, ZL = 38;
+// a coin RC round (22% of the jar's width), TC thick; a note NL by NW, bent NB at rest; the slot ±SA along V, ±SB across; the label band LZ0..LZ1 high, ±LA round the front, corners LR, its type LH tall at most, tracking TR
+const RC = 2.64, TC = 0.55, NL = 9.4, NW = 4.4, NB = 0.9, SA = RC + 0.5, SB = 0.45, LZ0 = 14.6, LZ1 = 20.4, LA = 11.5, LR = 1.2, LH = 2.9, TR = 0.1;
+// s at the default 250 ms a drop: gravity, a coin's bounce and settle, a note's fall and landing, the 700 ms tuck and its stagger, a replay's hold. A drop sets off a third of the longest of its and the two before's times after the last: at most three in the air
+const G = 340, BNC = 0.1, SET = 0.11, NF = 0.56, NLD = 0.18, OUT = 0.7, OST = 0.1, HOLD = 1;
+const EXTRA = [7, 15, 23, 31, 38], NOTES = [4, 15, 27], HA = 0.9, DS = 0.45, LOWW = 0.3; // extras for fill 1-5; which are notes; the dome; the pull to lie low
+const GL = Object.fromEntries(Object.entries(STROKES).map(([c, [a, d]]) => [c, [a, d.split("M").filter(Boolean).map((p) => p.replace("L", "").trim().split(/\s+/).reduce((o, x, i) => (i % 2 ? o[o.length - 1].push(+x) : o.push([+x]), o), []))]]));
+const ad = (p, q, k = 1) => p.map((x, i) => x + k * q[i]), sc = (p, k) => p.map((x) => x * k), dt = (p, q) => p.reduce((s, x, i) => s + x * q[i], 0), cr3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], cr2 = (a, b) => a[0] * b[1] - a[1] * b[0], nz = (p) => sc(p, 1 / (Math.hypot(...p) || 1)), lp = (a, b, t) => ad(a, ad(b, a, -1), t), sm = (u) => (u = clamp(u, 0, 1)) * u * (3 - 2 * u), rot = (v, k, a) => ad(ad(sc(v, Math.cos(a)), cr3(k, v), Math.sin(a)), k, dt(k, v) * (1 - Math.cos(a)));
+const rng = (a) => () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+// an item's frame: e along it (a note's width), p across it, in its plane (normal n); the floor's height at radius r
+const fr = (o) => { let e = ad(o.e, o.n, -dt(o.e, o.n)); if (Math.hypot(...e) < 0.3) e = cr3(o.n, Math.abs(o.n[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0]); e = nz(e); return [e, cr3(o.n, e)]; };
+const floor = (r) => ZF + RBI - Math.sqrt(Math.max(0, RBI ** 2 - Math.max(0, r - RI + RBI) ** 2));
+/** Points over an item: a coin's centre and three rings on its mid-plane; a note's surface, bent b (its ends that much lower), 5 by 3. */ function pts(o) {
+  const [e, p] = fr(o), out = [];
+  if (!o.note) { out.push(o.c); for (let i = 0; i < 36; i++) { const a = (i * TAU) / 12, r = RC * (1 - Math.floor(i / 12) / 3); out.push(ad(ad(o.c, e, r * Math.cos(a)), p, r * Math.sin(a))); } }
+  else for (const s of [-1, -0.5, 0, 0.5, 1]) for (const t of [-1, 0, 1]) out.push(ad(ad(ad(o.c, e, (t * NW) / 2), p, (s * NL) / 2), o.n, -(o.b || 0) * s * s)); return out; }
+/** The heap, planned once: six resting items, then the extras, each the best of 12 seeded tries lowered onto a heightfield (the floor, following its round edge; the items' tops; for an extra a dome that rises with every one: the pile under the top layer).
+ * Best: covers most of the screen not yet covered, floats least (what is just under it on screen is money already), lies low. */
+function plan() {
+  const rnd = rng(7), hf = Float32Array.from({ length: 625 }, (_, k) => floor(Math.hypot(Math.floor(k / 25) - 12, (k % 25) - 12))), cov = new Uint8Array(1500), cell = (x, y) => clamp(Math.round(x + 12), 0, 24) * 25 + clamp(Math.round(y + 12), 0, 24);
+  const sx = (q) => { const i = Math.round(((q[0] - q[1]) * Math.SQRT1_2 + 12) / 0.8), j = Math.round((0.354 * (q[0] + q[1]) - 0.866 * q[2] + 34) / 0.8); return i >= 0 && i < 30 && j >= 0 && j < 50 ? i * 50 + j : -1; };
+  return Array.from({ length: 6 + EXTRA[4] }, (_, i) => {
+    const x = i - 6, note = i === 4 || NOTES.includes(x), H = x < 0 ? ZF + 2 : ZF + HA * Math.pow(x + 1, 0.9), rm = RI - (note ? 5.7 : RC + 0.6);
+    const dome = (q) => ZF + (H - ZF) * (1 - (DS * (q[0] ** 2 + q[1] ** 2)) / RI ** 2);
+    let o, best = -Infinity;
+    for (let t = 0; t < 12; t++) {
+      const r0 = rm * (x < 0 ? 0.62 : 1), u = r0 * clamp(2 * ((i * 0.618 + 0.3) % 1) - 1 + 0.25 * (rnd() - 0.5), -1, 1), w = Math.sqrt(r0 * r0 - u * u) * (2 * rnd() - 1), th = (note ? 3 + 7 * rnd() : 5 + 23 * rnd()) * DEG, al = rnd() * TAU, yw = note ? (45 + 70 * (rnd() - 0.5)) * DEG : rnd() * TAU;
+      const c = { note, c: [(u + w) * Math.SQRT1_2, (w - u) * Math.SQRT1_2, 0], n: [Math.sin(th) * Math.cos(al), Math.sin(th) * Math.sin(al), Math.cos(th)], e: [Math.cos(yw), Math.sin(yw), 0], b: note ? NB * (0.8 + 0.4 * rnd()) : 0 };
+      c.c[2] = Math.max(...pts(c).map((q) => Math.max(hf[cell(q[0], q[1])], x < 0 || t % 2 ? 0 : dome(q)) - q[2])) + (note ? 0.12 : TC / 2);
+      const P = pts(c), own = new Set(P.map(sx)), fl = P.filter((q) => q[2] > ZF + 2 && !own.has(sx(ad(q, [0, 0, -1.8]))) && !cov[sx(ad(q, [0, 0, -1.8]))]).length;
+      const v = [...own].filter((k) => k >= 0 && !cov[k]).length - 2.5 * fl - 8 * Math.max(0, c.c[2] - dome(c.c) - 1) - LOWW * c.c[2] + 3 * rnd();
+      if (v > best) { best = v; o = c; } }
+    pts(o).forEach((q) => { cov[sx(q)] = 1; const k = cell(q[0], q[1]); hf[k] = Math.max(hf[k], q[2] + (note ? 0.2 : TC / 2 + 0.1)); });
+    const hx = rnd() - 0.5, hy = rnd() - 0.5, sg = rnd() < 0.5 ? -1 : 1, sw = rnd() < 0.5 ? -1 : 1;
+    const imp = note ? { ...o, c: ad(o.c, [0, 0, 0.6]), b: o.b - 0.5 } : { c: [o.c[0] * 0.9, o.c[1] * 0.9, o.c[2] + 0.45], n: nz(ad(o.n, [0.6 * hx, 0.6 * hy, 0])) };
+    return { o, imp, sg, sw, sd: nz(cr3([0, 0, 1], o.e)) };
+  }); }
+/** Item it, t s into its drop from z0: down the axis, edge-on through the slot (a coin tumbling about V below it), out of the neck towards its place (a note swaying and bending), then bouncing or landing, then still. */
+function drop(it, t) {
+  const o = it.o, m = it.imp, ext = o.note ? NL / 2 : RC, zA = ZL + ext + 0.2, zB = ZL - ext - 0.2;
+  const out = (z) => Math.sqrt(clamp((ZK - z) / (ZK - m.c[2]), 0, 1)), down = (z) => clamp((zB - z) / (zB - m.c[2]), 0, 1);
+  if (t >= it.dur) return o; if (!o.note) {
+    if (t < it.tf) { const z = it.z0 - (it.z0 - m.c[2]) * (t / it.tf) ** 2, q = out(z), r = rot(U, V, it.sg * (z < zB ? 0.3 * (zB - z) : 0)), w = sm((down(z) - 0.5) / 0.5);
+      return { c: [m.c[0] * q, m.c[1] * q, z], n: nz(lp(r, dt(r, m.n) < 0 ? sc(m.n, -1) : m.n, w)), e: V }; }
+    const b = (t - it.tf) / BNC, e = sm((t - it.tf) / (BNC + SET)); return { c: ad(lp(m.c, o.c, e), [0, 0, b < 1 ? 3.2 * b * (1 - b) : 0]), n: nz(lp(m.n, o.n, e)), e: V }; }
+  if (t < NF) {
+    const p = t / NF, z = it.z0 - (it.z0 - m.c[2]) * p * (0.35 + 0.65 * p), q = out(z), s = sm(down(z)), w = Math.sin(3 * Math.PI * s) * (1 - s) * it.sw;
+    if (z > zA) return { note: true, c: [0, 0, z], n: U, e: V, b: 0 };
+    return { note: true, c: ad([m.c[0] * q, m.c[1] * q, z], it.sd, 1.1 * w * q), n: nz(ad(lp(U, m.n, s), it.sd, 0.5 * w)), e: nz(lp(V, dt(V, o.e) < 0 ? sc(o.e, -1) : o.e, s)), b: m.b * s + 0.5 * w }; }
+  const e = sm((t - NF) / NLD); return { note: true, c: lp(m.c, o.c, e), n: o.n, e: o.e, b: lerp(m.b, o.b, e) };
+}
+/** From pose a towards pose b, by e (a coin's normal may flip: a disc is the same either way up). */
+const mix = (a, b, e) => ({ note: a.note, c: lp(a.c, b.c, e), n: nz(lp(a.n, dt(a.n, b.n) < 0 && !a.note ? sc(b.n, -1) : b.n, e)), e: nz(lp(a.e, dt(a.e, b.e) < 0 ? sc(b.e, -1) : b.e, e)), b: lerp(a.b || 0, b.b || 0, e) });
+const PL = plan();
+function mount({ stage, svg, read }, value) {
+  const bag = disposer(), C = Cam(45, 0.5, 5.6), box = [[0, 0, ZL]];
+  for (let i = 0; i < 16; i++) { const c = Math.cos((i * Q) / 4), s = Math.sin((i * Q) / 4); box.push([(R - RB) * c, (R - RB) * s, 0], [R * c, R * s, RB], [RL * c, RL * s, ZL]); }
+  fit(C, box, 200, 166);
+  const P = proj(C), O = P(0, 0, 0), J = (v) => ad(P(...v), O, -1), f2 = (q) => `${q[0].toFixed(2)},${q[1].toFixed(2)}`, L = (q) => "L" + f2(q);
+  // FR: a level ring's screen-right extreme; JU across the screen, JV towards the viewer, JZ up; W: the line of sight, towards the viewer
+  const FR = Math.atan2(J([0, 1, 0])[0], J([1, 0, 0])[0]), JU = J(U), JV = J(V), JZ = J([0, 0, 1]), HY = Math.hypot(JV[1], JZ[1]), SS = JU[0];
+  const W = nz([1, 1, -(J([1, 0, 0])[1] + J([0, 1, 0])[1]) / JZ[1]]), yOf = (z) => P(0, 0, z)[1];
+  PL.slice(6).forEach((it, i, xs) => { // each extra sets off wholly above the frame
+    const ext = it.o.note ? Math.hypot(NL, NW) / 2 : RC; it.z0 = (-3 - ext * SS - O[1]) / JZ[1];
+    it.tf = Math.sqrt((2 * (it.z0 - it.imp.c[2])) / G); it.dur = it.o.note ? NF + NLD : it.tf + BNC + SET;
+  });
+  PL.slice(6).forEach((it, i, xs) => (it.gap = Math.max(...xs.slice(Math.max(0, i - 2), i + 1).map((u) => u.dur)) / 3 + 0.005));
+  /** An arc of the ellipse c + a·cos f + b·sin f, as cubics of at most 90°: an affine image of a circle, so exact. */
+  function arc(c, a, b, f0, f1, move) {
+    const n = Math.max(1, Math.ceil(Math.abs(f1 - f0) / Q - 1e-9)), h = (f1 - f0) / n, k = (4 / 3) * Math.tan(h / 4);
+    const pt = (f) => ad(ad(c, a, Math.cos(f)), b, Math.sin(f)), tg = (f) => ad(sc(b, Math.cos(f)), a, -Math.sin(f));
+    let d = (move ? "M" : "L") + f2(pt(f0)); for (let i = 0, u = f0; i < n; i++, u += h) d += `C${f2(ad(pt(u), tg(u), k))} ${f2(ad(pt(u + h), tg(u + h), -k))} ${f2(pt(u + h))}`; return d; }
+  const ring = (z, r, f0, f1, mv = true) => arc(P(0, 0, z), J([r, 0, 0]), J([0, r, 0]), f0, f1, mv), path = (par, d, cls) => mk("path", { d, class: cls }, par);
+  /** A smooth curve through screen points (Catmull-Rom, as cubics), from the first, which is already reached. */ const crv = (q) => q.slice(1).map((b, i) => { const a = q[i], p0 = q[i - 1] || a, p3 = q[i + 2] || b; return `C${f2(ad(a, ad(b, p0, -1), 1 / 6))} ${f2(ad(b, ad(p3, a, -1), -1 / 6))} ${f2(b)}`; }).join("");
+  // the glass's outline is the envelope of its level rings: on the ring at height z, radius r, it runs where sin f = r'/√3 (f from the right extreme towards the viewer). The profile: the foot's round, the body, the shoulder (a cubic in r and z), the neck
+  const prof = [], bz = (v, t, u = 1 - t) => v[0] * u ** 3 + 3 * v[1] * u * u * t + 3 * v[2] * u * t * t + v[3] * t ** 3, db = (v, t, u = 1 - t) => 3 * ((v[1] - v[0]) * u * u + 2 * (v[2] - v[1]) * u * t + (v[3] - v[2]) * t * t);
+  for (let i = 8; i >= 0; i--) { const t = Math.atan(1 / Math.max(1e-6, Math.sqrt(3) * Math.sin((i * Q) / 8))); prof.push([R - RB + RB * Math.sin(t), RB * (1 - Math.cos(t)), 1 / Math.tan(t)]); }
+  [6, 11, 16, 21, 24.5].forEach((z) => prof.push([R, z, 0]));
+  const RV = [R, R, RN, RN], ZV = [ZS, ZS + 3.6, ZK - 2.2, ZK];
+  for (let i = 0; i <= 8; i++) prof.push([bz(RV, i / 8), bz(ZV, i / 8), db(RV, i / 8) / db(ZV, i / 8)]);
+  prof.push([RN, ZN + 0.4, 0]);
+  const side = (s) => prof.map(([r, z, d]) => { const f = Math.asin(clamp(d / Math.sqrt(3), -1, 1)), a = FR + (s > 0 ? f : 2 * Q - f); return P(r * Math.cos(a), r * Math.sin(a), z); });
+  const right = side(1), left = side(-1);
+  // back to front: the shoulder's back rim; the heap and anything inside; the label; the glass's outline and glints; the lid and its slot; last, what is above the lid's top: an item in the air, or the part of one in the slot that still shows
+  const g = mk("g", {}, svg);
+  path(g, ring(ZS, R, FR + 2 * Q, FR + TAU), "nf lo");
+  const heap = mk("g", {}, g), band = path(g, "", "sil"), text = path(g, "", "nf sil");
+  path(g, "M" + f2(left[left.length - 1]) + crv(left.slice().reverse().concat(right.slice(1))), "nf sil");
+  const glint = (a, z0, z1) => `M${f2(P(R * Math.cos(a * DEG), R * Math.sin(a * DEG), z0))}${L(P(R * Math.cos(a * DEG), R * Math.sin(a * DEG), z1))}`;
+  path(g, glint(114, 21.6, 25.6) + glint(121, 22.4, 24.8), "nf lo");
+  path(g, ring(ZL, RL, FR + 2 * Q, FR + TAU) + ring(ZN, RL, FR, FR + 2 * Q, false) + "Z", "sil"); path(g, ring(ZL, RL, FR, FR + 2 * Q), "nf lo");
+  path(g, [1.1, 2].map((z) => ring(ZN + z, RL, FR + 0.3, FR + 2 * Q - 0.3)).join(""), "nf lo");
+  const sp = (u, w) => P(...ad(ad([0, 0, ZL], U, u), V, w)), sb = SA - SB; // the slot, along V: a thin pill whose ends are half circles
+  path(g, [[0, sb, 0], [0, sb, Q], [0, -sb, 2 * Q], [0, -sb, 3 * Q]].map(([u, w, f], i) => arc(sp(u, w), sc(JU, SB), sc(JV, SB), f, f + Q, !i)).join("") + "Z", "nf sil");
+  const cut = mk("g", {}, g);
+  /** A coin: the outline of its rim (the hull of its two faces), the inner edge of the face it shows, a fine rim on that face. */
+  function coinD(o) {
+    const [e, p] = fr(o), vs = dt(o.n, W) >= 0 ? 1 : -1, A = J(sc(e, RC)), B = J(sc(p, RC)), D = J(sc(o.n, TC * vs)), A2 = sc(A, 0.74), B2 = sc(B, 0.74);
+    const c0 = P(...ad(o.c, o.n, (-TC / 2) * vs)), c1 = ad(c0, D), f = Math.atan2(cr2(B, D), cr2(A, D)), k = dt(ad(sc(A, -Math.sin(f)), B, Math.cos(f)), D) > 0 ? f : f + 2 * Q;
+    return arc(c0, A, B, k + 2 * Q, k + TAU, true) + arc(c1, A, B, k, k + 2 * Q, false) + "Z" + arc(c1, A, B, k + 2 * Q, k + TAU, true) + arc(c1, A, B, k + TAU, k + 2 * Q, false) + arc(c1, A2, B2, 0, TAU, true) + arc(c1, A2, B2, TAU, 0, false); } // the face edge and rim are traced there and back: their fill adds nothing
+  /** A note, bent b along its length: one outline (its long edges parabolas, so quadratics, exact; corners rounded), a thin inner border, an oval. */
+  function noteD(o) {
+    const [e, p] = fr(o), b = o.b || 0, at = (s, t, l = 0) => P(...ad(ad(ad(o.c, e, t), p, s), o.n, l - b * ((2 * s) / NL) ** 2)), h = NL / 2, w = NW / 2, r = 0.45, i = 0.6;
+    const qd = (a, t) => `Q${f2(at(0, t, (4 * a * a * b) / NL ** 2))} `, A = h - r, A2 = h - i;
+    return `M${f2(at(-A, -w))}${qd(A, -w)}${f2(at(A, -w))}Q${f2(at(h, -w))} ${f2(at(h, r - w))}${L(at(h, w - r))}Q${f2(at(h, w))} ${f2(at(A, w))}${qd(A, w)}${f2(at(-A, w))}Q${f2(at(-h, w))} ${f2(at(-h, w - r))}${L(at(-h, r - w))}Q${f2(at(-h, -w))} ${f2(at(-A, -w))}Z` + `M${f2(at(-A2, i - w))}${qd(A2, i - w)}${f2(at(A2, i - w))}${L(at(A2, w - i))}${qd(A2, w - i)}${f2(at(-A2, w - i))}Z` + arc(at(0, 0), J(sc(p, 1.1)), J(sc(e, 0.7)), 0, TAU, true); }
+  /** What of an item (edge-on above the lid) shows over the lid's top and inside the frame: a bar on screen, down to its lowest point there. */
+  const bar = (o) => { const w = o.note ? 0 : (TC * SS) / 2, y0 = Math.max(0, o.note ? yOf(o.c[2] + NL / 2) - (JV[1] * NW) / 2 : yOf(o.c[2]) - RC * HY), y1 = whole(o) ? (o.note ? yOf(o.c[2] - NL / 2) + (JV[1] * NW) / 2 : yOf(o.c[2]) + RC * HY) : yOf(ZL) + JV[1] * (o.note ? NW / 2 : Math.sqrt(Math.max(0, RC * RC - (ZL - o.c[2]) ** 2)));
+    return y1 <= y0 ? "" : `M${f2([O[0] - w, y0])}L${f2([O[0] + w, y0])}L${f2([O[0] + w, y1])}L${f2([O[0] - w, y1])}Z`; }, whole = (o) => o.c[2] - (o.note ? NL / 2 : (-RC * JZ[1]) / HY) >= ZL;
+  let ids = 0; const make = () => ({ id: ids++, el: path(heap, "", "sil"), pc: path(cut, "", "sil"), last: "", key: -1e9 });
+  /** Draws v at pose o, if it moved: inside the jar, where any of it is under the lid's top; above the lid, where any is over it. */
+  function show(v, o) {
+    const s = [...o.c, ...o.n, ...(o.note ? [...o.e, o.b] : [])].map((x) => x.toFixed(3)).join(" ");
+    if (s === v.last) return; v.last = s; v.pose = o; v.key = dt(o.c, W);
+    const d = o.note ? noteD(o) : coinD(o), x = o.note ? NL / 2 : RC;
+    v.el.setAttribute("d", o.c[2] - x < ZL ? d : ""); v.pc.setAttribute("d", o.c[2] + x > ZL ? bar(o) : ""); // above the lid it is edge-on: a bar, cut at the frame's top
+  }
+  const rest = PL.slice(0, 6).map((it) => { const v = make(); show(v, it.o); return v; });
+  // the label, on the body's front: a point (s, z) of it is s along the glass from the front (to the right on screen), z high
+  const LRr = R + 0.08, on = (s, z) => P(LRr * Math.cos(Q / 2 - s / LRr), LRr * Math.sin(Q / 2 - s / LRr), z), K4 = 0.5523;
+  const cor = (s0, z0, s1, z1, sx, zx) => `C${f2(on(s0 + (sx - s0) * K4, z0 + (zx - z0) * K4))} ${f2(on(s1 + (sx - s1) * K4, z1 + (zx - z1) * K4))} ${f2(on(s1, z1))}`;
+  /** The paper band (its long edges arcs of the body's rings) and its text in single strokes, wrapped onto the glass. */
+  function label(txt) {
+    if (!txt) { band.setAttribute("d", ""); text.setAttribute("d", ""); return; }
+    const a = LA, b = LA - LR, w0 = [...txt].reduce((w, ch) => w + GL[ch][0] - TR, 0), h = Math.min(LH, (2 * (LA - 1.6)) / w0), zb = (LZ0 + LZ1) / 2 - h / 2;
+    band.setAttribute("d", `M${f2(on(a, LZ0 + LR))}${L(on(a, LZ1 - LR))}` + cor(a, LZ1 - LR, b, LZ1, a, LZ1) + ring(LZ1, LRr, Q / 2 - b / LRr, Q / 2 + b / LRr, false) + cor(-b, LZ1, -a, LZ1 - LR, -a, LZ1)
+      + L(on(-a, LZ0 + LR)) + cor(-a, LZ0 + LR, -b, LZ0, -a, LZ0) + ring(LZ0, LRr, Q / 2 + b / LRr, Q / 2 - b / LRr, false) + cor(b, LZ0, a, LZ0 + LR, a, LZ0) + "Z");
+    const fine = (o, q) => { const n = Math.max(1, Math.ceil(Math.abs(q[0] - o[0]) / 0.4)); return Array.from({ length: n }, (_, j) => L(on(...lp(o, q, (j + 1) / n)))).join(""); };
+    let x = (-w0 * h) / 2, d = "";
+    for (const ch of txt) { GL[ch][1].forEach((st) => { const q = st.map(([gx, gy]) => [x + (gx - TR / 2) * h, zb - gy * h]); d += "M" + f2(on(...q[0])) + q.slice(1).map((y, j) => fine(q[j], y)).join(""); }); x += (GL[ch][0] - TR) * h; }
+    text.setAttribute("d", d);
+  }
+  let E = 14, k = value / 250, inside = false, demo = 0, live = [], order = "", seen = null, lab = null;
+  const attrs = () => stage.getAttribute("data-fill") + "\n" + stage.getAttribute("data-label");
+  /** The stage's settings, cleaned: extras for the fill (1-5, else 3), and the label (up to 8 of A-Z 0-9 space). */
+  function cfg() {
+    const f = stage.getAttribute("data-fill") ?? "", n = Number(f), t = [...(stage.getAttribute("data-label") ?? "").toUpperCase()].filter((c) => /[A-Z0-9 ]/.test(c)).join("").slice(0, 8).trim();
+    E = EXTRA[f.trim() !== "" && Number.isInteger(n) ? clamp(n, 1, 5) - 1 : 2]; if (t !== lab) label((lab = t));
+  }
+  /** Sets the extras not in the jar off, one after another, after the last one set off. */
+  function fill(now) {
+    const have = live.filter((v) => !v.out); let t = now;
+    have.forEach((v) => { v.late = false; t = Math.max(t, v.t0 + v.it.gap * v.k * 1000); });
+    for (let n = 0; n < E; n++) if (!have.some((v) => v.n === n)) { const it = PL[6 + n]; live.push(Object.assign(make(), { n, it, t0: t, k })); t += it.gap * k * 1000; }
+  }
+  const coins = rest.filter((v) => !v.pose.note), drop2 = (v) => { v.el.remove(); v.pc.remove(); v.dead = true; };
+  /** One extra tucks away: it slides onto the place of a resting item of its kind, the nearest, then in under it along the line of sight. */
+  const sink = (v, now) => Object.assign(v, { out: now + OST * 1000 * clamp((v.pose.c[2] - ZF) / 20, 0, 1), from: v.pose, late: false, lit: false,
+    tg: (v.pose.note ? [rest[4]] : coins).reduce((a, r) => (Math.hypot(r.pose.c[0] - v.pose.c[0], r.pose.c[1] - v.pose.c[1]) < Math.hypot(a.pose.c[0] - v.pose.c[0], a.pose.c[1] - v.pose.c[1]) ? r : a)).pose });
+  /** Leaving (or a lower fill): the extras from n on tuck away; one not yet in sight goes, one still above the lid comes in first. */
+  function empty(now, from = 0) {
+    live.forEach((v) => { if (v.out || v.n < from) return; const x = v.it.o.note ? NL / 2 : RC;
+      if (!v.pose || P(...v.pose.c)[1] + x * SS < 0) drop2(v); else if (v.pose.c[2] + x > ZL) Object.assign(v, { late: true, lit: false }); else sink(v, now); });
+    live = live.filter((v) => !v.dead);
+  }
+  seen = attrs(); cfg();
+  const B = register(stage, (_, now) => {
+    if (attrs() !== seen) { const e0 = E; seen = attrs(); cfg(); if (E !== e0) { if (inside || demo) { empty(now, E); fill(now); } else { demo = 1; fill(now); } } }
+    let moving = false, landed = 0;
+    for (const v of live) {
+      if (v.out) { const u = (now - v.out) / (OUT * 1000), T = v.tg, A = { ...T, c: ad(T.c, W, 0.2) }; moving = true;
+        if (u >= 1 || reducedMotion()) drop2(v); else show(v, u < 0.8 ? mix(v.from, A, EASE(clamp(u / 0.8, 0, 1))) : mix(A, { ...T, c: ad(T.c, W, -0.3) }, (u - 0.8) / 0.2)); continue; }
+      const t = reducedMotion() ? Infinity : (now - v.t0) / 1000 / v.k;
+      if (t < 0) { moving = true; continue; }
+      show(v, drop(v.it, t)); v.lit = t < v.it.dur && !v.late; if (t < v.it.dur) moving = true; else if (v.late) { sink(v, now); moving = true; } else landed++;
+    }
+    live = live.filter((v) => !v.dead);
+    const all = rest.concat(live).filter((v) => v.pose).sort((a, b) => a.key - b.key), ord = all.map((v) => v.id).join();
+    if (ord !== order) { order = ord; all.forEach((v) => heap.append(v.el)); }
+    live.forEach((v) => [v.el, v.pc].forEach((el) => el.classList.toggle("hi", !!v.lit)));
+    const full = (inside || demo) && landed >= E;
+    if (demo && full) { if (demo === 1) demo = now + HOLD * 1000; else if (now >= demo) { demo = 0; empty(now); } moving = true; }
+    read.textContent = inside || demo ? (full ? "full" : "saving") : "rest";
+    return moving || demo !== 0;
+  });
+  const mo = new MutationObserver(() => B.wake()); mo.observe(stage, { attributes: true, attributeFilter: ["data-fill", "data-label"] }); bag.add(B.unregister); bag.add(() => mo.disconnect()); bag.add(() => svg.replaceChildren());
+  // hit test: the pointer's line of sight against the RESTING jar and lid, which never move
+  const rad = (z) => (z <= ZS ? R : z <= ZK ? lerp(R, RN, (z - ZS) / (ZK - ZS)) : z <= ZN ? RN : RL) + 0.5;
+  const hit = ([sx, sy]) => Array.from({ length: Math.floor(ZL * 2) + 1 }, (_, i) => i / 2).some((z) => Math.hypot(...unproj(C, sx, sy, z)) <= rad(z));
+  const turn = (h) => { if (h === inside) return; inside = h; const now = performance.now(); if (h) { demo = 0; fill(now); } else empty(now); B.wake(); };
+  bag.add(pointer(stage, { move: (p) => turn(hit(p)), leave: () => turn(false) }));
+  read.textContent = "rest"; return { set: (v) => { k = v / 250; }, destroy: bag.dispose };
+}
+hairline({ name: "moneyjar", means: "Hover and coins and notes drop into the jar and pile up naturally.", rules: [1, 4, 5, 6], range: [320, 250, 200], mount });

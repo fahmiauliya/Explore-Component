@@ -829,16 +829,18 @@ function mount({ stage, svg, read }, value) {
     let moving = false;
     for (const s of [...T, amount]) moving = stepS(s, dt) || moving;
     drawLight();
-    const on = [];
+    // the cone is bright only while it swings to a chosen cluster; once it lands it gives the bright up to the pawns
+    const swing = amount.t > 0 && Math.hypot(T[0].x - T[0].t, T[1].x - T[1].t) > 4, on = [];
     pawns.forEach((p, n) => {
       const d = Math.hypot(p.at[0] - T[0].x, p.at[1] - T[1].x);
       p.up = lift * amount.x * Math.exp(-(d * d) / (2 * 20 * 20)); // the lit cluster most, nearby pawns a little
       if (Math.abs(p.up - p.last) > 1e-3) { drawPawn(p); p.last = p.up; }
-      if (amount.x > 0.5 && d < POOL) on.push(n);
+      if (amount.t > 0 && !swing && amount.x > 0.5 && d < POOL) on.push(n);
     });
     // brightness follows the light, not the pointer; strokes fade between
     const key = on.join();
     if (key !== lit) { lit = key; pawns.forEach((p, n) => p.parts.forEach((el) => { el.classList.toggle("hi", on.includes(n)); el.classList.toggle("lo", !on.includes(n)); })); }
+    edges.classList.toggle("hi", swing);
     return moving;
   });
   bag.add(B.unregister);

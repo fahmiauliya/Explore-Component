@@ -146,7 +146,7 @@ function mount({ stage, svg, read }, value) {
       if (x !== rg.last) { drawRing(rg, x); rg.last = x; }
     });
     // the bright edge rides the spring, not the pointer, and the strokes fade between
-    const on = amount.x > 0.15 ? clamp(Math.round(focus.x), 0, N - 1) : -1;
+    const on = amount.t > 0 && amount.x > 0.15 ? clamp(Math.round(focus.x), 0, N - 1) : -1;
     if (on !== lit) {
       lit = on;
       ringsOut.forEach((rg, i) => rg.band.classList.toggle("hi", i === on));

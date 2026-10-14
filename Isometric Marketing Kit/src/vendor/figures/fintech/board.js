@@ -3,7 +3,8 @@
  * 10° like a desk clock's. On the front, inside a thin frame, three large flap tiles spell a currency code in Hershey
  * single strokes: data-from at rest (USD), data-to on hover (IDR). Hover and each tile's top half folds down over its
  * hinge, left to right, and shows the other code; leave and they fold back. A change of either code plays the flip
- * once, there and back. Grey at rest; a tile is bright while it flips, the frame while the board shows the other code.
+ * once, there and back. Grey at rest; a tile's falling flap is bright while it flips to the other code, then the other
+ * code's letters once all three have landed; flipping back is grey.
  * The block is a rounded profile swept along its width; every curve is a true Bézier (the camera is affine).
  */
 const STROKES = {"A":[0.857,"M0.429 -1 L0.048 0 M0.429 -1 L0.81 0 M0.19 -0.333 L0.667 -0.333"],"B":[0.952,"M0.19 -1 L0.19 0 M0.19 -1 L0.619 -1 0.762 -0.952 0.81 -0.905 0.857 -0.81 0.857 -0.714 0.81 -0.619 0.762 -0.571 0.619 -0.524 M0.19 -0.524 L0.619 -0.524 0.762 -0.476 0.81 -0.429 0.857 -0.333 0.857 -0.19 0.81 -0.095 0.762 -0.048 0.619 0 0.19 0"],"C":[1.048,"M0.857 -0.762 L0.81 -0.857 0.714 -0.952 0.619 -1 0.429 -1 0.333 -0.952 0.238 -0.857 0.19 -0.762 0.143 -0.619 0.143 -0.381 0.19 -0.238 0.238 -0.143 0.333 -0.048 0.429 0 0.619 0 0.714 -0.048 0.81 -0.143 0.857 -0.238"],"D":[0.952,"M0.19 -1 L0.19 0 M0.19 -1 L0.524 -1 0.667 -0.952 0.762 -0.857 0.81 -0.762 0.857 -0.619 0.857 -0.381 0.81 -0.238 0.762 -0.143 0.667 -0.048 0.524 0 0.19 0"],"E":[0.857,"M0.19 -1 L0.19 0 M0.19 -1 L0.81 -1 M0.19 -0.524 L0.571 -0.524 M0.19 0 L0.81 0"],"F":[0.762,"M0.19 -1 L0.19 0 M0.19 -1 L0.81 -1 M0.19 -0.524 L0.571 -0.524"],"G":[1.048,"M0.857 -0.762 L0.81 -0.857 0.714 -0.952 0.619 -1 0.429 -1 0.333 -0.952 0.238 -0.857 0.19 -0.762 0.143 -0.619 0.143 -0.381 0.19 -0.238 0.238 -0.143 0.333 -0.048 0.429 0 0.619 0 0.714 -0.048 0.81 -0.143 0.857 -0.238 0.857 -0.381 M0.619 -0.381 L0.857 -0.381"],"H":[1.048,"M0.19 -1 L0.19 0 M0.857 -1 L0.857 0 M0.19 -0.524 L0.857 -0.524"],"I":[0.381,"M0.19 -1 L0.19 0"],"J":[0.762,"M0.571 -1 L0.571 -0.238 0.524 -0.095 0.476 -0.048 0.381 0 0.286 0 0.19 -0.048 0.143 -0.095 0.095 -0.238 0.095 -0.333"],"K":[0.952,"M0.19 -1 L0.19 0 M0.857 -1 L0.19 -0.333 M0.429 -0.571 L0.857 0"],"L":[0.667,"M0.19 -1 L0.19 0 M0.19 0 L0.762 0"],"M":[1.143,"M0.19 -1 L0.19 0 M0.19 -1 L0.571 0 M0.952 -1 L0.571 0 M0.952 -1 L0.952 0"],"N":[1.048,"M0.19 -1 L0.19 0 M0.19 -1 L0.857 0 M0.857 -1 L0.857 0"],"O":[1.048,"M0.429 -1 L0.333 -0.952 0.238 -0.857 0.19 -0.762 0.143 -0.619 0.143 -0.381 0.19 -0.238 0.238 -0.143 0.333 -0.048 0.429 0 0.619 0 0.714 -0.048 0.81 -0.143 0.857 -0.238 0.905 -0.381 0.905 -0.619 0.857 -0.762 0.81 -0.857 0.714 -0.952 0.619 -1 0.429 -1"],"P":[0.952,"M0.19 -1 L0.19 0 M0.19 -1 L0.619 -1 0.762 -0.952 0.81 -0.905 0.857 -0.81 0.857 -0.667 0.81 -0.571 0.762 -0.524 0.619 -0.476 0.19 -0.476"],"Q":[1.048,"M0.429 -1 L0.333 -0.952 0.238 -0.857 0.19 -0.762 0.143 -0.619 0.143 -0.381 0.19 -0.238 0.238 -0.143 0.333 -0.048 0.429 0 0.619 0 0.714 -0.048 0.81 -0.143 0.857 -0.238 0.905 -0.381 0.905 -0.619 0.857 -0.762 0.81 -0.857 0.714 -0.952 0.619 -1 0.429 -1 M0.571 -0.19 L0.857 0.095"],"R":[0.952,"M0.19 -1 L0.19 0 M0.19 -1 L0.619 -1 0.762 -0.952 0.81 -0.905 0.857 -0.81 0.857 -0.714 0.81 -0.619 0.762 -0.571 0.619 -0.524 0.19 -0.524 M0.524 -0.524 L0.857 0"],"S":[0.952,"M0.81 -0.857 L0.714 -0.952 0.571 -1 0.381 -1 0.238 -0.952 0.143 -0.857 0.143 -0.762 0.19 -0.667 0.238 -0.619 0.333 -0.571 0.619 -0.476 0.714 -0.429 0.762 -0.381 0.81 -0.286 0.81 -0.143 0.714 -0.048 0.571 0 0.381 0 0.238 -0.048 0.143 -0.143"],"T":[0.762,"M0.381 -1 L0.381 0 M0.048 -1 L0.714 -1"],"U":[1.048,"M0.19 -1 L0.19 -0.286 0.238 -0.143 0.333 -0.048 0.476 0 0.571 0 0.714 -0.048 0.81 -0.143 0.857 -0.286 0.857 -1"],"V":[0.857,"M0.048 -1 L0.429 0 M0.81 -1 L0.429 0"],"W":[1.143,"M0.095 -1 L0.333 0 M0.571 -1 L0.333 0 M0.571 -1 L0.81 0 M1.048 -1 L0.81 0"],"X":[0.952,"M0.143 -1 L0.81 0 M0.81 -1 L0.143 0"],"Y":[0.857,"M0.048 -1 L0.429 -0.524 0.429 0 M0.81 -1 L0.429 -0.524"],"Z":[0.952,"M0.81 -1 L0.143 0 M0.143 -1 L0.81 -1 M0.143 0 L0.81 0"]};
@@ -90,11 +91,11 @@ function mount({ stage, svg, read }, value) {
   path("sil", trace(W, a0, a0 + 2 * Q, true) + trace(-W, a0 + 2 * Q, a0 + 4 * Q, false) + "Z");
   path("nf lo", trace(W, a0 + 2 * Q, a0 + 4 * Q, true));
   const Fp = (u, w) => add(add([XF, 0, 0], U, u), D, w);
-  const frame = path("nf sil", rr(Fp(0, WC), U, D, [-W + FI, WB + FI - WC, W - FI, WT - FI - WC], 1.4));
+  path("nf sil", rr(Fp(0, WC), U, D, [-W + FI, WB + FI - WC, W - FI, WT - FI - WC], 1.4));
   const on = (h, f) => { const d = add(D.map((x) => x * Math.cos(f)), N, Math.sin(f)); return (u, s) => add(add(h, U, u), d, s); };
   const type = (c, half, m) => (HALF[c] ? HALF[c][half] : []).map((p) => "M" + p.map(([u, s]) => pt(m(u, s))).join("L")).join("");
   const tiles = [0, 1, 2].map((i) => {
-    const h = Fp((i - 1) * (TW + G), WC), t = { i, h, box: path("sil", rr(h, U, D, [-TW / 2, -TH / 2, TW / 2, TH / 2], TR)), ink: path("nf sil") };
+    const h = Fp((i - 1) * (TW + G), WC), t = { i, h, box: path("sil", rr(h, U, D, [-TW / 2, -TH / 2, TW / 2, TH / 2], TR)), hinge: path("nf sil"), ink: path("nf sil") };
     return Object.assign(t, { a: " ", b: " ", mv: { p0: 0, p1: 0, t0: 0, ms: 0 }, go: 0, key: "" });
   });
   [...tiles].reverse().forEach((t) => { t.flap = path("sil"); t.fink = path("nf sil"); });
@@ -109,14 +110,15 @@ function mount({ stage, svg, read }, value) {
   const run = (t, to, now) => { const p = val(t, now); t.mv = { p0: p, p1: to, t0: now, ms: reducedMotion() ? 0 : dur * Math.abs(to - p) }; };
   // the top half shows b, the bottom a, the flap between them at p·π
   function paint(t, now) {
-    const p = val(t, now), busy = !done(t, now), th = busy ? p * Math.PI : 0, key = `${t.a}${t.b}${th}${p}`;
+    const p = val(t, now), busy = !done(t, now), th = busy ? p * Math.PI : 0, hot = busy && aim === to, key = `${t.a}${t.b}${th}${p}${hot}`;
     if (key !== t.key) {
       t.key = key;
       const top = busy || p > 0.5 ? t.b : t.a, bot = !busy && p > 0.5 ? t.b : t.a, h0 = on(t.h, 0);
-      t.ink.setAttribute("d", seg(P(...h0(-TW / 2, 0)), P(...h0(TW / 2, 0))) + type(top, 0, h0) + type(bot, 1, on(t.h, Math.PI)));
+      t.hinge.setAttribute("d", seg(P(...h0(-TW / 2, 0)), P(...h0(TW / 2, 0))));
+      t.ink.setAttribute("d", type(top, 0, h0) + type(bot, 1, on(t.h, Math.PI)));
       t.flap.setAttribute("d", busy ? flap(t.h, th) : "");
       t.fink.setAttribute("d", busy ? (th < TE ? type(t.a, 0, on(t.h, th)) : type(t.b, 1, on(t.h, th))) : "");
-      [t.box, t.ink, t.flap, t.fink].forEach((el) => el.classList.toggle("hi", busy));
+      [t.flap, t.fink].forEach((el) => el.classList.toggle("hi", hot)); // only the flap falling toward the other code
     }
     return busy;
   }
@@ -147,7 +149,7 @@ function mount({ stage, svg, read }, value) {
     });
     if (demo === Infinity && aim === to && !wait) demo = now + HOLD;
     const landed = !wait && aim === to, word = busy || wait ? "flipping" : landed ? to.toLowerCase() : "rest";
-    if (word !== lit) { lit = read.textContent = word; frame.classList.toggle("hi", landed); }
+    if (word !== lit) { lit = read.textContent = word; tiles.forEach((t) => t.ink.classList.toggle("hi", landed)); } // the result: its letters
     return busy || wait || (demo > now && demo !== 0);
   });
   bag.add(B.unregister); const mo = new MutationObserver(() => B.wake()); mo.observe(stage, { attributes: true, attributeFilter: ["data-from", "data-to"] }), bag.add(() => mo.disconnect());

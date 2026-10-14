@@ -86,7 +86,7 @@ const OPTICAL = 0.84, CAP = 1.1;
 
 /**
  * Where the 400 × 320 drawing sits, in container units so it holds at every size. Its rest pose is sized by OPTICAL
- * against the safe area (a gallery cell: 60% of its width, clear of the labels; a detail box: 62% of its smaller side)
+ * against the safe area (62% of the tile's smaller side: a gallery tile, its caption above it, or a detail box)
  * and centred; then, if a moving state (the balloon's flight, the box's open flaps) would leave the cell or reach the
  * labels, it is made smaller or nudged until every state stays inside.
  */
@@ -94,16 +94,16 @@ function plane(entry: Entry, aspect: number | 'box', box = entry.box): React.CSS
   const [r0, r1, r2, r3] = entry.rest, [a0, a1, a2, a3] = box;
   const k = Math.min(OPTICAL / Math.sqrt((r2 - r0) * (r3 - r1)), CAP / Math.max(r2 - r0, r3 - r1));
   const gallery = aspect !== 'box';
-  // the labels sit 24px in and are 16px tall: 48px clear above and below a gallery drawing; a detail box has none
-  const safe = gallery ? `min(60cqw, 100cqw - 96px, ${100 * aspect}cqw - 176px)` : '62cqmin';
-  const H = gallery ? `${100 * aspect}cqw` : '100cqh', inset = gallery ? 48 : 24, n = (v: number) => v.toFixed(4);
+  // a gallery tile has its caption above it, so the drawing only keeps 16px clear of the tile's edge
+  const safe = gallery ? `${(62 * Math.min(1, aspect)).toFixed(2)}cqw` : '62cqmin';
+  const H = gallery ? `${100 * aspect}cqw` : '100cqh', inset = gallery ? 16 : 24, n = (v: number) => v.toFixed(4);
   // px per viewBox unit
-  const scale = `min(${safe} * ${n(k)}, (${H} - ${2 * inset}px) / ${n(a3 - a1)}, (100cqw - 48px) / ${n(a2 - a0)})`;
+  const scale = `min(${safe} * ${n(k)}, (${H} - ${2 * inset}px) / ${n(a3 - a1)}, (100cqw - ${2 * inset}px) / ${n(a2 - a0)})`;
   const at = (lo: string, mid: string, hi: string) => `clamp(${lo}, ${mid}, ${hi})`;
   return {
     ['--s' as string]: scale,
     width: 'calc(400 * var(--s))',
-    left: at(`24px - var(--s) * ${n(a0)}`, `50cqw - var(--s) * ${n((r0 + r2) / 2)}`, `100cqw - 24px - var(--s) * ${n(a2)}`),
+    left: at(`${inset}px - var(--s) * ${n(a0)}`, `50cqw - var(--s) * ${n((r0 + r2) / 2)}`, `100cqw - ${inset}px - var(--s) * ${n(a2)}`),
     top: at(`${inset}px - var(--s) * ${n(a1)}`, `${H} / 2 - var(--s) * ${n((r1 + r3) / 2)}`, `${H} - ${inset}px - var(--s) * ${n(a3)}`),
   };
 }

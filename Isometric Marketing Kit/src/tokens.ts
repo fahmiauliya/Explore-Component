@@ -18,12 +18,14 @@ export const hairlineVars = (theme: Theme) => {
 
 /**
  * What every illustration gets on top of the kernel's own styles, wherever it is mounted (the site, the hidden scene
- * the downloads and Copy SVG draw from, the React download): grey and highlight cross over in 200 ms both ways; the
+ * the downloads and Copy SVG draw from, the React download): grey and highlight cross over in 150 ms while the pointer
+ * is on it (the highlight moving from part to part) and in 200 ms once it leaves; the
  * soft tint (the spotlight's cone, the glasses' liquid) fills only those; and dots are background-filled outlines in
  * their tone (grey, or highlight while active), never solid.
  */
 export const FIGURE_CSS = [
   '[data-hairline] > svg :is(path, polygon, ellipse, line) { transition-duration: 200ms; }',
+  '[data-hairline]:hover > svg :is(path, polygon, ellipse, line) { transition-duration: 150ms; }',
   '[data-hairline] > svg .dot.off { fill: var(--hairline-tint); }',
   '[data-hairline] > svg .dot:not(.off) { fill: var(--hl-plate); stroke: var(--hl-hi); }',
   '[data-hairline] > svg .dot.m { stroke: var(--hl-edge); }',

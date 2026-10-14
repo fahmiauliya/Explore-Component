@@ -109,18 +109,21 @@ function mount({ stage, svg, read }, value) {
 
   const s = spring(0, TRAVEL), up = spring(0, SETTLE);
   let act = -1, last = "";
+  const going = () => Math.abs(s.x - s.t) > 0.05 || Math.abs(s.v) > 0.5;
   function draw() {
+    const moving = going(), on = act >= 0, pc = on && moving ? "hi" : "sil";
     const where = locate(s.x), tip = bez(route[where.j].w, where.t), foot = [tip[0], tip[1], tip[2] + up.x], head = [foot[0], foot[1], foot[2] + PIN.needle + PIN.head];
-    trail.setAttribute("d", s.x > 1e-3 ? upTo(where) : "");
+    trail.setAttribute("d", s.x > 1e-3 ? upTo(where) : ""); trail.setAttribute("class", on ? "nf hi" : "nf");
+    dots.forEach((d, i) => d.el.setAttribute("class", i === act && !moving ? "dot" : "dot m")); // the stop lights when the pin lands
     pin.replaceChildren();
-    path(pin, `M${pt(foot)}L${pt([head[0], head[1], head[2] - PIN.head])}`, "nf sil");
-    path(pin, arc(head, S1, S2, PIN.head, 0, 4 * Q, true) + "Z");
+    path(pin, `M${pt(foot)}L${pt([head[0], head[1], head[2] - PIN.head])}`, `nf ${pc}`);
+    path(pin, arc(head, S1, S2, PIN.head, 0, 4 * Q, true) + "Z", pc);
   }
   const T = register(stage, (dt) => {
     let moving = stepS(s, dt);
-    up.t = Math.abs(s.x - s.t) > 0.05 || Math.abs(s.v) > 0.5 ? LIFT : 0; // up while it travels; a small drop as it lands
+    up.t = going() ? LIFT : 0; // up while it travels; a small drop as it lands
     moving = stepS(up, dt) || moving;
-    const key = `${s.x.toFixed(4)}|${up.x.toFixed(4)}`;
+    const key = `${s.x.toFixed(4)}|${up.x.toFixed(4)}|${act}|${going()}`;
     if (key !== last) { last = key; draw(); }
     return moving;
   });
@@ -129,7 +132,6 @@ function mount({ stage, svg, read }, value) {
   function choose(k) {
     if (k === act) return;
     act = k;
-    dots.forEach((d, i) => d.el.setAttribute("class", i === k ? "dot" : "dot m"));
     if (k >= 0) s.t = STOP[k];
     read.textContent = k < 0 ? "rest" : NAMES[k];
     T.wake();

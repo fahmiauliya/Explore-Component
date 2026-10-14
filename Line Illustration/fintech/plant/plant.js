@@ -6,7 +6,7 @@
  * The stage's data-bloom picks the bloom (daisy, the default: five petals round a small centre turned up to the eye;
  * tulip: a cup of three petals; leaf: no flower, a larger leaf pair). data-label (6 of A–Z, 0–9, space) puts a garden
  * marker in the soil at the front of the pot, its text in Hershey single strokes. Both are read live.
- * Grey at rest; hovered, the part that is growing is bright, and the open bloom and its marker stay bright.
+ * Grey at rest; hovered, only the part that is growing is bright (stem, leaves, bud), then the bloom alone stays bright.
  * The hit area is a fixed box round the pot and the tallest plant. Leaves and petals keep their size and open by
  * turning; the bud grows from nothing as it forms. Every curve is a true arc or cubic (the camera is affine).
  */
@@ -152,11 +152,11 @@ function mount({ stage, svg, read }, value) {
     const goal = hover ? RUN : 0;
     p = reducedMotion() ? goal : hover ? Math.min(RUN, p + dt) : Math.max(0, p - (dt * RUN) / BACK);
     draw(p);
-    // the bright stroke: what is growing now; once open, the bloom and the marker
+    // the bright stroke: what is growing now (the stem, the leaves, the bud); then the bloom alone
     const ph4 = !hover ? -1 : p < ENDS[1] ? 0 : p < ENDS[2] ? 1 : p < ENDS[3] ? 2 : 3, state = !hover ? "rest" : p < RUN ? "growing" : "bloom";
     if (`${ph4}|${state}|${kind}` !== lit) {
       lit = `${ph4}|${state}|${kind}`; read.textContent = state;
-      const hiSet = [[stem], leaves.map((l) => l.el), [stem, ...sepals.map((s) => s.el), ...slots], [...slots, stake, tag, text]][ph4] || [];
+      const hiSet = [[stem], leaves.map((l) => l.el), [...sepals.map((s) => s.el), ...slots], slots][ph4] || [];
       [stem, ...leaves.map((l) => l.el), ...sepals.map((s) => s.el), ...slots, stake, tag, text].forEach((el) => el.classList.toggle("hi", hiSet.includes(el)));
     }
     return p !== goal;

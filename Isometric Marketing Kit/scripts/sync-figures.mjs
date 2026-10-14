@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const SETS = [
   { from: 'figures', to: '', names: ['funnel', 'megaphone', 'magnet', 'target', 'roi', 'email', 'segmentation', 'launch', 'analytics', 'journey'] },
-  { from: 'fintech', to: 'fintech/', names: ['tube', 'cointube', 'jars', 'plant', 'safe', 'stamp', 'bridge', 'receipt', 'board', 'box'] },
+  { from: 'fintech', to: 'fintech/', names: ['edc', 'moneyjar', 'jars', 'coinstacks', 'safe', 'stamp', 'bridge', 'receipt', 'board', 'box'] },
 ];
 const path = (rel) => fileURLToPath(new URL(rel, import.meta.url));
 

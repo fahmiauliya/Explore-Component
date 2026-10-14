@@ -102,7 +102,7 @@ function mount({ stage, svg, read }, value) {
   const hubDraw = (cls) => { hub.replaceChildren(); path(hub, cyl(Wd(0, 0, 0), HUB, Wd(0, 0, 1.2), HUB, U, V), cls); path(hub, ring(Wd(0, 0, 1.2), HUB), `nf ${cls}`); };
 
   const val = spring(REST, SWING);
-  let act = -1, last = "";
+  let act = -1, last = "", swung = false;
   function draw() {
     const v = val.x;
     inner.forEach((t) => {
@@ -111,6 +111,9 @@ function mount({ stage, svg, read }, value) {
       if (c !== t.cls) { t.cls = c; t.el.setAttribute("class", c); }
     });
     const a = ang(v), e = [Math.cos(a), Math.sin(a)], n = [-e[1], e[0]], hw = 0.7, x = 0.4;
+    if (Math.abs(val.x - val.t) < 0.5) swung = true; // lit while it swings, grey for good once it arrives: the ticks hold the value
+    const nc = act >= 0 && !swung ? "hi" : "lo";
+    if (needle.getAttribute("class") !== nc) needle.setAttribute("class", nc);
     needle.setAttribute("d", `M${pt(Wd(NEEDLE * e[0], NEEDLE * e[1], x))}L${pt(Wd(hw * n[0], hw * n[1], x))}` + arc(Wd(0, 0, x), U, V, hw, a + Q, a + 3 * Q, false) + "Z");
   }
   hubDraw("lo");
@@ -129,7 +132,7 @@ function mount({ stage, svg, read }, value) {
   }
   function choose(k) {
     if (k === act) return;
-    act = k; val.t = k < 0 ? REST : endOf(k);
+    act = k; swung = false; val.t = k < 0 ? REST : endOf(k);
     outer.forEach((t) => { const c = segOf(t.i) === k ? "nf sil" : "nf"; if (c !== t.cls) { t.cls = c; t.el.setAttribute("class", c); } });
     read.textContent = k < 0 ? "rest" : `segment ${k + 1}`;
     B.wake();

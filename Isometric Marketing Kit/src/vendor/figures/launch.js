@@ -106,7 +106,7 @@ function mount({ stage, svg, read }, value) {
     // the skirt, then the envelope over its top edge: outline, the gores on the side facing the camera, the crown ring
     path(air, cyl([0, 0, zs], SKIRT.r, [0, 0, zt], MOUTH));
     const c = [0, 0, zc], R = ENV.r, { d, tk } = bulb(c, R, [0, 0, zt], MOUTH);
-    path(air, d);
+    path(air, d, act >= 0 && drops[act].x >= 0.92 ? "hi" : "sil"); // once its bag is down, the envelope carries the climb
     let gores = "";
     for (let k = 0; k < 6; k++) { // six gores like meridians, none facing the camera; the two along the outline are the outline
       if (k === 1 || k === 4) continue;
@@ -125,7 +125,7 @@ function mount({ stage, svg, read }, value) {
     // the bags: each falls straight down, its rope with it, and lands on the plate below where it hung, the rope behind it
     BAGS.forEach((b, i) => {
       const p = Math.max(0, Math.min(1, drops[i].x)), hang = rim - BAG.hang - BAG.frill - BAG.neck - BAG.r, z = hang + (Z0 + BAG.r - hang) * p;
-      const [x, y] = b.c, cls = i === act ? "hi" : "sil", gi = bags[i], nk = [x, y, z + BAG.r + BAG.neck], fk = [x, y, nk[2] + BAG.frill];
+      const [x, y] = b.c, cls = i === act && p < 0.92 ? "hi" : "sil", gi = bags[i], nk = [x, y, z + BAG.r + BAG.neck], fk = [x, y, nk[2] + BAG.frill];
       const up = [b.at[0] - x, b.at[1] - y, BAG.hang], down = [-(BAG.r + 1.3) * b.out[0], -(BAG.r + 1.3) * b.out[1], Z0 + 0.12 - (Z0 + 2 * BAG.r + BAG.neck + BAG.frill)];
       const bend = [-0.8 * BAG.r * b.out[0], -0.8 * BAG.r * b.out[1], 0.25], e = fk.map((v, j) => v + up[j] + (down[j] - up[j]) * p), m = fk.map((v, j) => v + up[j] / 2 + (bend[j] - up[j] / 2) * p);
       gi.replaceChildren();

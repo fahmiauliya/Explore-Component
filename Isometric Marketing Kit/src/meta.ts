@@ -1,11 +1,11 @@
-import { CATEGORIES, categoryOf, type Category, type Entry } from './figures';
+import { categoryOf, type Category, type Entry } from './figures';
 
 /*
  * Each page's title, description and share image. The app sets them as you move around (setMeta); the build writes
  * them into a page of HTML per address (vite.config.ts), because link previews and search engines don't run the app.
  */
 
-export type Page = { entry: Entry } | { category: Category } | { missing: true };
+export type Page = { entry: Entry } | { gallery: 'all' | Category } | { home: true } | { missing: true };
 export type Meta = { path: string; title: string; description: string; image: string };
 
 export const SITE_DESCRIPTION = 'Interactive components for product teams, starting with 20 line illustrations for marketing and fintech. Free for personal and commercial use.';
@@ -20,10 +20,11 @@ export function metaFor(page: Page): Meta {
       image: `/og/${e.slug}.png`,
     };
   }
-  if ('category' in page && page.category !== CATEGORIES[0].key) {
-    const c = categoryOf(page.category)!;
+  if ('home' in page) return { path: '/', title: 'Compo — Interactive line illustrations', description: SITE_DESCRIPTION, image: '/og/site.png' };
+  if ('gallery' in page && page.gallery !== 'all') {
+    const c = categoryOf(page.gallery)!;
     return {
-      path: `/illustrations/${c.key}`,
+      path: `/illustrations?c=${c.key}`,
       title: `Compo — ${c.label} illustrations`,
       description: `${c.entries.length} interactive ${c.label.toLowerCase()} line illustrations: ${list(c.entries.map((e) => lower(e.topic)))}. Free for personal and commercial use.`,
       image: '/og/site.png',

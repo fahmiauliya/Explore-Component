@@ -8,9 +8,9 @@ const t = (label: string, x: number, y: number): Target => ({ label, at: [x, y] 
 // (the coin tube's from rendered frames, since its coins fade in and out through masks above the cap; the receipt's
 // with its tallest receipt, a two-line name)
 const BOX: Record<string, Entry['box']> = {
-  'pneumatic-tube': [62.5, 78.1, 337.5, 249.9], 'coin-tube': [75.5, 38, 324, 263], 'jars-on-a-shelf': [68.3, 23.4, 331.7, 279.7],
-  'growing-plant': [106, 34.5, 293.5, 289], 'safe-box': [88, 44, 311.5, 287.5], 'approval-stamp': [63.5, 20, 336, 267],
-  bridge: [67.5, 68.5, 332, 259.5], 'receipt-printer': [81, 38, 318.5, 269.5], 'rate-board': [72.5, 63, 325, 267.5],
+  'edc-payment': [68.7, 49.9, 331.3, 282.5], 'money-jar': [132.6, 49.7, 267.4, 284.6], 'jars-on-a-shelf': [58.6, 72, 341.4, 280],
+  'coin-stacks': [56.8, 45, 343.2, 287.9], 'safe-box': [16, 62.3, 308.6, 270.8], 'approval-stamp': [63.5, 20, 336, 267],
+  bridge: [74.9, 73.3, 325, 246.7], 'receipt-printer': [81, 38, 318.5, 269.5], 'rate-board': [72.5, 63, 325, 267.5],
   'subscription-box': [86.5, 45.5, 313, 278],
 };
 
@@ -18,42 +18,56 @@ const BOX: Record<string, Entry['box']> = {
 // measured from rendered pixels: each drawing's extent at rest, settled. The gallery sizes every figure by this, so
 // they all look the same size whatever their motion does (the balloon's flight, the box's flaps)
 const REST: Record<string, Entry['rest']> = {
-  'pneumatic-tube': [61, 76.5, 338.5, 251], 'coin-tube': [75.5, 41.5, 324, 263],
-  'jars-on-a-shelf': [68.3, 71.9, 331.7, 279.7], 'growing-plant': [106, 120, 293.5, 289],
-  'safe-box': [88, 44, 311.5, 287.5], 'approval-stamp': [63.5, 65, 336, 267], bridge: [67.5, 75.5, 332, 259.5],
+  'edc-payment': [68.7, 69.2, 331.3, 282.5], 'money-jar': [132.6, 49.7, 267.4, 284.6],
+  'jars-on-a-shelf': [58.6, 79.4, 341.4, 280], 'coin-stacks': [56.8, 116.4, 343.2, 287.9],
+  'safe-box': [117, 62.3, 308.6, 267.2], 'approval-stamp': [63.5, 65, 336, 267], bridge: [74.9, 73.3, 325, 246.7],
   'receipt-printer': [81, 73.5, 318.5, 269.5], 'rate-board': [72.5, 63, 325, 267.5],
   'subscription-box': [86.5, 88, 313, 278],
 };
 
 export const REPLACED: Record<string, string> = {
+  'pneumatic-tube': 'edc-payment', 'growing-plant': 'coin-stacks', 'money-plant': 'coin-stacks', 'coin-tube': 'money-jar',
   'vault-door': 'safe-box', ladder: 'approval-stamp', 'credit-card': 'approval-stamp', 'balance-scale': 'rate-board', 'coin-swap': 'rate-board', 'flip-coin': 'rate-board',
   'tear-off-calendar': 'subscription-box', 'loop-track': 'subscription-box',
 };
 
 export const FINTECH: Entry[] = ([
-  { n: '01', slug: 'pneumatic-tube', name: 'Pneumatic tube', topic: 'Payments', component: 'PneumaticTube',
-    targets: [t('terminal A', 113, 166), t('terminal B', 287, 124)] },
-  // one coin per hover; the fifth hover empties it
-  { n: '02', slug: 'coin-tube', name: 'Coin tube', topic: 'Savings', component: 'CoinTube',
-    targets: [t('tube', 200, 137)], repeat: ['saving 1', 'saving 2', 'saving 3', 'goal'] },
-  // three jars share one budget: the split sets their coins; hovering a jar moves a few coins into it
+  // the card taps the terminal, the amount and a check show on its screen, and a receipt prints
+  { n: '01', slug: 'edc-payment', name: 'EDC payment', topic: 'Payments', component: 'EdcPayment',
+    targets: [t('terminal', 195, 178)], customHold: 3400,
+    props: [
+      { name: 'amount', label: 'Amount', type: 'string', fallback: '$24.00', doc: 'shown on the screen once paid, up to 10 characters', max: 10, allow: '[A-Za-z0-9.,$ ]' },
+      { name: 'logo', label: 'Logo', type: 'string', fallback: '', doc: 'a small logo on the front of the printer hump, as line path data in a unit square (absolute M L C Q Z)', max: 120000, allow: '.', optional: true, kind: 'svg', blank: true },
+    ] },
+  // one hover drops coins and the odd banknote through the lid; they pile up in a loose heap, and settle back on leave
+  { n: '02', slug: 'money-jar', name: 'Money jar', topic: 'Savings', component: 'MoneyJar',
+    targets: [t('jar', 200, 165)], customHold: 7400,
+    props: [
+      { name: 'fill', label: 'Fill', type: 'number', fallback: '3', doc: 'how full it gets on hover: 1 a quarter, 5 nearly to the shoulder', max: 1, allow: '[0-9]', kind: 'stepper', range: [1, 5] },
+      { name: 'label', label: 'Label', type: 'string', fallback: '', doc: 'a paper label round the jar, up to 8 letters, digits or spaces', max: 8, allow: '[A-Z0-9 ]', upper: true, optional: true, example: 'e.g. BALI' },
+    ] },
+  // three jars share one budget: the split sets their coins; hovering a jar moves one or two coins into it, in a low arc
   { n: '03', slug: 'jars-on-a-shelf', name: 'Jars on a shelf', topic: 'Budgeting', component: 'BudgetJars',
-    targets: [t('jar 1', 124, 202), t('jar 2', 200, 164), t('jar 3', 276, 126)], customHold: 1600,
+    targets: [t('jar 1', 114, 209), t('jar 2', 200, 166), t('jar 3', 286, 122)], customHold: 1600,
     props: [
       { name: 'jars', label: 'Jars', type: '{ label, percent }[]', fallback: 'NEEDS:50|WANTS:30|SAVE:20', doc: 'three jars, each { label: up to 6 letters, digits or spaces, percent: 0–100 }, the percents summing to 100', max: 200, allow: '.', kind: 'jars' },
     ] },
-  // one hover grows it all the way to the bloom; leaving shrinks it back to the sprout
-  { n: '04', slug: 'growing-plant', name: 'Growing plant', topic: 'Investing', component: 'GrowingPlant',
-    targets: [t('pot', 200, 230)], customHold: 3200,
+  // one hover drops coins onto six stacks, left to right, until they rise like compound growth; leaving lifts them away
+  { n: '04', slug: 'coin-stacks', name: 'Coin stacks', topic: 'Investing', component: 'CoinStacks',
+    targets: [t('tray', 200, 208)], customHold: 4600,
     props: [
-      { name: 'label', label: 'Label', type: 'string', fallback: '', doc: 'a garden marker in the pot, up to 6 letters, digits or spaces', max: 6, allow: '[A-Z0-9 ]', upper: true, optional: true, example: 'e.g. 2030' },
-      { name: 'bloom', label: 'Bloom', type: 'string', fallback: 'daisy', doc: 'what it grows into: "daisy", "tulip" or "leaf"', max: 5, allow: '[a-z]', kind: 'segment', options: ['daisy', 'tulip', 'leaf'] },
+      { name: 'years', label: 'Years', type: 'number', fallback: '5', doc: 'how long it compounds: more years, taller final stacks (the last from about 8 coins at 1 year to 20 at 10)', max: 2, allow: '[0-9]', kind: 'stepper', range: [1, 10] },
+      { name: 'mark', label: 'Coin mark', type: 'string', fallback: '$', doc: 'on each stack\'s top coin: one letter, digit or $ € £ ¥, or "Rp"', max: 2, allow: '[A-Za-z0-9$€£¥]', hint: 'A letter, a digit, $ € £ ¥, or “Rp”.',
+        shape: (s) => (/^rp$/i.test(s) ? 'Rp' : Array.from(s).slice(-1).join('').toUpperCase()) },
     ] },
+  // the code fills in digit by digit on the door's display, the handle turns, and the door swings open on what's inside
   { n: '05', slug: 'safe-box', name: 'Safe box', topic: 'Security', component: 'SafeBox',
-    targets: [t('safe', 253, 193)], customHold: 3000,
+    targets: [t('safe', 215, 165)], customHold: 3200,
     props: [
-      { name: 'code', label: 'Code', type: 'string', fallback: '2580', doc: 'the code the dial enters, exactly 4 digits', max: 4, allow: '[0-9]', exact: true, inputMode: 'numeric', hint: 'Exactly 4 digits.' },
+      { name: 'code', label: 'Code', type: 'string', fallback: '2580', doc: 'the code the display fills in, exactly 4 digits', max: 4, allow: '[0-9]', exact: true, inputMode: 'numeric', hint: 'Exactly 4 digits.' },
       { name: 'hideCode', label: 'Hide code', type: 'boolean', fallback: 'false', doc: 'show dots instead of digits', max: 5, allow: '.', kind: 'toggle', attr: 'hide-code' },
+      { name: 'inside', label: 'Inside', type: 'string', fallback: 'box', doc: 'what the open door shows: "box", "coin" or "letter"', max: 6, allow: '[a-z]', kind: 'segment', options: ['box', 'coin', 'letter'] },
+      { name: 'mark', label: 'Letter', type: 'string', fallback: 'C', doc: 'the letter on the cube\'s top face, one character (inside="letter" only)', max: 1, allow: '[A-Z0-9]', upper: true, when: { prop: 'inside', is: 'letter' } },
     ] },
   // the whole drawing starts it: the stamp lifts, presses and leaves its mark
   { n: '06', slug: 'approval-stamp', name: 'Approval stamp', topic: 'Credit score', component: 'ApprovalStamp',
@@ -65,7 +79,7 @@ export const FINTECH: Entry[] = ([
     ] },
   // the whole drawing builds it: one target is enough
   { n: '07', slug: 'bridge', name: 'Bridge', topic: 'Loans', component: 'Bridge',
-    targets: [t('bridge', 211, 130)], customHold: 2600, boxWith: { goal: [67.5, 68.5, 386, 259.5] },
+    targets: [t('bridge', 200, 136)], customHold: 2600, boxWith: { goal: [74.9, 73.3, 387.4, 246.7] },
     props: [
       { name: 'installments', label: 'Installments', type: 'number', fallback: '5', doc: 'how many planks pay the gap off, 3 to 12', max: 2, allow: '[0-9]', kind: 'stepper', range: [3, 12] },
       { name: 'goal', label: 'Goal', type: 'string', fallback: '', doc: 'a flag on the far cliff, up to 8 letters, digits or spaces', max: 8, allow: '[A-Z0-9 ]', upper: true, optional: true, example: 'e.g. HOME' },

@@ -119,6 +119,8 @@ function mount({ stage, svg, read }, value) {
       if (valves[i].turn.x !== valves[i].last) { drawLever(valves[i]); valves[i].last = valves[i].turn.x; }
     });
     if (tankVol.x !== tank.last) { tank.draw(tankVol.x); tank.last = tankVol.x; }
+    // the bright follows the story: the chosen valve's lever while it turns open, then its glass's liquid
+    valves.forEach((v, i) => { const open = i === act && v.turn.x >= 0.6; v.lever.classList.toggle("hi", i === act && !open); glasses[i].level.classList.toggle("hi", open); });
     return moving;
   });
   bag.add(B.unregister);
@@ -135,7 +137,6 @@ function mount({ stage, svg, read }, value) {
     glasses.forEach((gl, i) => {
       gl.vol.t = REST[i] + (k < 0 ? 0 : i === k ? shift : -shift / (2 * (N - 1)));
       valves[i].turn.t = i === k ? 1 : 0;
-      gl.edge.classList.toggle("hi", i === k); gl.level.classList.toggle("hi", i === k);
     });
     tankVol.t = TANK.rest - (k < 0 ? 0 : (shift / 2) * (gi / ti));
     read.textContent = k < 0 ? "rest" : `channel ${k + 1}`;

@@ -35,6 +35,10 @@ export type CustomProp = {
   example?: string;
   /** The value only counts when it has exactly `max` characters; until then the last full one stays (the safe's code). */
   exact?: boolean;
+  /** Tidies the typed value after `allow` and `max` (the coin's mark: one character, or "Rp"). */
+  shape?: (typed: string) => string;
+  /** 'svg': empty means no logo at all (the EDC card), rather than the Compo "C". */
+  blank?: boolean;
   /** The on-screen keyboard to offer: 'numeric' for digits. */
   inputMode?: 'numeric' | 'text';
 };
@@ -138,7 +142,7 @@ export const CATEGORIES: { key: Category; label: string; entries: Entry[] }[] = 
 ];
 export const ALL = CATEGORIES.flatMap((c) => c.entries);
 export const categoryOf = (key: string) => CATEGORIES.find((c) => c.key === key);
-/** An illustration by its category and slug, as in /fintech/pneumatic-tube. */
+/** An illustration by its category and slug, as in /fintech/edc-payment. */
 export const find = (category: string, slug: string) => categoryOf(category)?.entries.find((e) => e.slug === slug);
 
 /** Each tab's figure files, in a chunk of their own. */

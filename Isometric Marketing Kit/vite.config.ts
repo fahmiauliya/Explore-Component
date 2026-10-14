@@ -5,7 +5,8 @@ import { createServer, defineConfig, loadEnv, type Plugin } from 'vite';
 /**
  * Each tab's figure files are a chunk of their own (src/sources/), loaded when the tab opens. So that the one a page
  * needs doesn't wait for the main script, the built page starts fetching it at once: a tiny script picks the chunk
- * from the address (Fintech pages get Fintech; the rest of the gallery, Marketing) and adds a modulepreload for it.
+ * from the address (a detail page gets its category; the gallery gets its chip's, or both for All and the home page) and
+ * adds a modulepreload for each.
  */
 function preloadTab(): Plugin {
   return {
@@ -19,7 +20,7 @@ function preloadTab(): Plugin {
           if (file.type === 'chunk' && (file.name === 'marketing' || file.name === 'fintech')) chunks[file.name] = `/${file.fileName}`;
         }
         if (!chunks.marketing || !chunks.fintech) return html;
-        const script = `<script>(()=>{const c=${JSON.stringify(chunks)},p=location.pathname;const l=document.createElement('link');l.rel='modulepreload';l.href=/(^|\\/)fintech(\\/|$)/.test(p)?c.fintech:c.marketing;document.head.appendChild(l)})()</script>`;
+        const script = `<script>(()=>{const c=${JSON.stringify(chunks)},d=/^\\/illustrations\\/(fintech|marketing)\\//.exec(location.pathname),q=/[?&]c=(fintech|marketing)/.exec(location.search);for(const k of d?[d[1]]:q?[q[1]]:['fintech','marketing']){const l=document.createElement('link');l.rel='modulepreload';l.href=c[k];document.head.appendChild(l)}})()</script>`;
         return html.replace('</head>', `${script}\n</head>`);
       },
     },
@@ -77,10 +78,11 @@ function pages(): Plugin {
           mkdirSync(dirname(resolve(outDir, file)), { recursive: true });
           writeFileSync(resolve(outDir, file), html);
         };
-        write('index.html', { category: CATEGORIES[0].key });
-        write('illustrations.html', { category: CATEGORIES[0].key });
+        write('index.html', { home: true });
+        write('illustrations.html', { gallery: 'all' });
         for (const c of CATEGORIES) {
-          write(`illustrations/${c.key}.html`, { category: c.key });
+          // the old category address: it moves to /illustrations?c=<category> in the app
+          write(`illustrations/${c.key}.html`, { gallery: c.key });
           for (const e of c.entries) write(`illustrations/${c.key}/${e.slug}.html`, { entry: e });
         }
         write('404.html', { missing: true });

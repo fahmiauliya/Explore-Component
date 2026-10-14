@@ -819,13 +819,13 @@ function mount({ stage, svg, read }, value) {
   const layer = mk("g", {}, g);
   const cubes = HOME.map(([x, y, a], i) => ({ i, home: [x, y, (a * Math.PI) / 180], grp: mk("g", {}, behind), last: "", on: false,
     x: spring(x, DRIFT), y: spring(y, DRIFT), a: spring((a * Math.PI) / 180, DRIFT) }));
-  let order = "", lit = -1, count = 0;
+  let order = "", count = 0;
   function drawCube(c) {
     const key = [c.x.x, c.y.x, c.a.x].map((v) => v.toFixed(3)).join();
     if (key === c.last) return;
     c.last = key; c.grp.replaceChildren();
     c.top = solid(c.grp, rect(c.x.x, c.y.x, H, H, CR, c.a.x), Z0, Z0 + 2 * H);
-    c.top.classList.toggle("hi", c.i === lit);
+    c.top.classList.toggle("hi", c.on);
   }
   // Separation: along the line between two cubes each reaches its square's support; keep them apart by
   // both plus GAP. Keep every cube clear of the magnet's footprint, and on the plate.
@@ -867,9 +867,8 @@ function mount({ stage, svg, read }, value) {
     const k = mode === "in" ? pull : mode === "lean" ? pull * 0.3 : DRIFT.k;
     for (const [s, t] of [[c.x, x], [c.y, y], [c.a, a]]) { s.t = t; s.k = k; s.c = 2 * Math.sqrt(k); }
   }
-  function light(i) {
-    lit = i;
-    cubes.forEach((c) => c.top?.classList.toggle("hi", c.i === i));
+  function light() {
+    cubes.forEach((c) => c.top?.classList.toggle("hi", c.on));
     field.forEach((f, j) => { f.classList.toggle("lo", count <= 2 * j); f.classList.toggle("sil", count > 2 * j + 1); });
   }
   // hit test: the pointer on the plane of the cubes' tops, against their RESTING footprints
@@ -882,10 +881,10 @@ function mount({ stage, svg, read }, value) {
   bag.add(pointer(stage, {
     move: (p) => {
       const i = hit(p);
-      if (i >= 0) { Object.assign(cubes[i], { on: true, slot: count++ }); light(i); read.textContent = `lead ${count}`; }
+      if (i >= 0) { Object.assign(cubes[i], { on: true, slot: count++ }); light(); read.textContent = `lead ${count}`; }
       cubes.forEach((c) => aim(c, c.on ? "in" : "lean")); B.wake();
     },
-    leave: () => { count = 0; cubes.forEach((c) => { c.on = false; aim(c, "home"); }); light(-1); read.textContent = "rest"; B.wake(); },
+    leave: () => { count = 0; cubes.forEach((c) => { c.on = false; aim(c, "home"); }); light(); read.textContent = "rest"; B.wake(); },
   }));
   bag.add(() => svg.replaceChildren());
   read.textContent = "rest";

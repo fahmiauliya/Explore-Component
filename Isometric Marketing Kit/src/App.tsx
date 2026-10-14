@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { CATEGORIES, boxOf, categoryOf, dataOf, find, isLoaded, loadCategory, type Category, type CustomProp, type Entry } from './figures';
 import { REPLACED } from './fintech';
 import { Illustration, figureOf } from './Illustration';
@@ -10,49 +10,63 @@ import type { Theme } from './tokens';
 import { RequestModal } from './RequestModal';
 import { DEFAULT_LOGO, logoFromFile } from './logo';
 import { setMeta } from './meta';
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Download, Send, Sliders, Socials } from './icons';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
 const pathOf = () => location.pathname.slice(BASE.length).replace(/^\/+|\/+$/g, '');
-const TAGLINE = 'Interactive components for product teams. Starting with line illustrations.';
+const ROLE = 'Interactive line illustrations';
 const LICENSE = 'Free for personal and commercial use.';
 /** The footer's "Made by Fahmi" link: empty shows plain text until there is one. */
 const MADE_BY_URL = '';
-/** Compo's sections, in the header nav. Illustrations is the first; more are added here as plain items. */
+/** Compo's sections, in the header after "Compo". Illustrations is the first; more are added here as plain items. */
 const SECTIONS = [{ key: 'illustrations', label: 'Illustrations' }] as const;
 const ILLUSTRATIONS = SECTIONS[0].key;
-/** The old request page: it moved to the bottom of the gallery, so its address leads there. */
+/** The old request page: its address leads to the gallery. */
 const REQUEST = 'request';
-/** Where things live: /illustrations/<category> and /illustrations/<category>/<slug>. */
-const galleryAt = (c: Category) => `${ILLUSTRATIONS}/${c}`;
-const pageOf = (e: Entry) => `${ILLUSTRATIONS}/${e.category}/${e.slug}`;
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
-const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** Whether a tab's figure files are in; starts loading them if not, and re-renders once they arrive. */
-function useCategory(key: Category) {
+/** The gallery's chips: All (the default), then each category. In All, Fintech comes first. */
+export type Chip = 'all' | Category;
+const ORDER: Category[] = ['fintech', 'marketing'];
+const CHIPS: Chip[] = ['all', ...ORDER];
+const chipLabel = (c: Chip) => (c === 'all' ? 'All' : categoryOf(c)!.label);
+const chipOf = (search: string): Chip => { const c = new URLSearchParams(search).get('c'); return c && categoryOf(c) ? (c as Category) : 'all'; };
+const listOf = (chip: Chip): Entry[] => (chip === 'all' ? ORDER.flatMap((k) => categoryOf(k)!.entries) : categoryOf(chip)!.entries);
+const withChip = (path: string, chip: Chip) => (chip === 'all' ? path : `${path}?c=${chip}`);
+/** Where things live: /illustrations[?c=<category>] and /illustrations/<category>/<slug>[?c=<chip>]; the chip rides along. */
+const galleryAt = (chip: Chip) => withChip(ILLUSTRATIONS, chip);
+const pageOf = (e: Entry, chip: Chip = 'all') => withChip(`${ILLUSTRATIONS}/${e.category}/${e.slug}`, chip);
+const pad = (n: number) => String(n).padStart(2, '0');
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+/** The newest illustrations (each replaced an older one): their cards say "(new)". */
+const FRESH = new Set(Object.values(REPLACED));
+
+/** Whether these categories' figure files are in; starts loading them if not, and re-renders once they arrive. */
+function useCategories(keys: Category[]) {
   const [, arrived] = useState(0);
-  useEffect(() => { if (!isLoaded(key)) loadCategory(key).then(() => arrived((n) => n + 1), () => {}); }, [key]);
-  return isLoaded(key);
+  const key = keys.join();
+  useEffect(() => { keys.forEach((k) => { if (!isLoaded(k)) loadCategory(k).then(() => arrived((n) => n + 1), () => {}); }); }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  return keys.every(isLoaded);
 }
 
 function useRoute() {
-  const [path, setPath] = useState(pathOf);
+  const read = () => `${pathOf()}${location.search}`;
+  const [at, setAt] = useState(read);
   useEffect(() => {
-    const sync = () => setPath(pathOf());
+    const sync = () => setAt(read());
     addEventListener('popstate', sync);
     return () => removeEventListener('popstate', sync);
   }, []);
-  // `keep` leaves the scroll where it is (switching tabs); `replace` rewrites the address instead of adding to history
+  // `keep` leaves the scroll where it is (switching chips); `replace` rewrites the address instead of adding to history
   const go = useCallback((to: string, { keep = false, replace = false } = {}) => {
     history[replace ? 'replaceState' : 'pushState'](null, '', `${BASE}/${to}`);
-    setPath(pathOf()); // from the address, so a query (?kind=change…) never reaches the route
+    setAt(read());
     if (!keep) scrollTo(0, 0);
   }, []);
-  return [path, go] as const;
+  return [at, go] as const;
 }
 
 function useTheme() {
-  const [theme, setTheme] = useState<Theme>(() => (document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'));
+  const [theme, setTheme] = useState<Theme>(() => (document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'));
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     try { localStorage.setItem('imk-theme', theme); } catch { /* the choice just isn't remembered */ }
@@ -64,153 +78,180 @@ type Go = (to: string, options?: { keep?: boolean; replace?: boolean }) => void;
 const plain = (e: MouseEvent) => !(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0);
 
 /** A link that moves inside the site without a reload, and still opens a new tab on a modified click. */
-function Link({ to, go, className, children, label, current }: { to: string; go: Go; className?: string; children: ReactNode; label?: string; current?: boolean }) {
+function Link({ to, go, className, children, label, current, style }: { to: string; go: Go; className?: string; children: ReactNode; label?: string; current?: boolean; style?: CSSProperties }) {
   const click = (e: MouseEvent) => { if (!plain(e)) return; e.preventDefault(); go(to); };
-  return <a href={`${BASE}/${to}`} className={className} onClick={click} aria-label={label} aria-current={current ? 'page' : undefined}>{children}</a>;
+  return <a href={`${BASE}/${to}`} className={className} style={style} onClick={click} aria-label={label} aria-current={current ? 'page' : undefined}>{children}</a>;
 }
 
 type Route =
-  | { kind: 'gallery'; category: Category }
-  | { kind: 'detail'; entry: Entry }
+  | { kind: 'home' }
+  | { kind: 'gallery'; chip: Chip }
+  | { kind: 'detail'; entry: Entry; chip: Chip }
   | { kind: 'missing' };
 
 /**
- * What an address shows, and where it moved to if it is an old one:
- * /illustrations[/<category>] is the gallery, /illustrations/<category>/<slug> a detail page. / and the older
- * addresses (/<category>, /<category>/<slug>, and the first site's /<slug>) are rewritten to these.
+ * What an address shows, and where it moved to if it is an old one: / is the home page, /illustrations[?c=…] the
+ * gallery, /illustrations/<category>/<slug>[?c=…] a detail page. The older addresses (/illustrations/<category>,
+ * /<category>, /<category>/<slug>, the first site's /<slug>, /request) are rewritten to these.
  */
-function resolve(path: string): { route: Route; to?: string } {
+function resolve(at: string): { route: Route; to?: string } {
+  const [path, search = ''] = at.split('?');
   const [first, ...rest] = path ? path.split('/') : [];
+  const chip = chipOf(search);
+  const moved = (to: string) => ({ ...resolve(to), to });
+  if (!first) return { route: { kind: 'home' } };
   if (first === ILLUSTRATIONS) {
     const [cat, slug, ...extra] = rest;
     if (extra.length) return { route: { kind: 'missing' } };
-    if (!cat) return { route: { kind: 'gallery', category: CATEGORIES[0].key } };
+    if (!cat) return { route: { kind: 'gallery', chip } };
     if (!categoryOf(cat)) return { route: { kind: 'missing' } };
-    if (!slug) return { route: { kind: 'gallery', category: cat as Category } };
+    if (!slug) return moved(galleryAt(cat as Category));
     const entry = find(cat, slug);
-    if (!entry && cat === 'fintech' && REPLACED[slug]) return { ...resolve(`${ILLUSTRATIONS}/${cat}/${REPLACED[slug]}`), to: `${ILLUSTRATIONS}/${cat}/${REPLACED[slug]}` };
-    return { route: entry ? { kind: 'detail', entry } : { kind: 'missing' } };
+    if (!entry && cat === 'fintech' && REPLACED[slug]) return moved(withChip(`${ILLUSTRATIONS}/${cat}/${REPLACED[slug]}`, chip));
+    return { route: entry ? { kind: 'detail', entry, chip } : { kind: 'missing' } };
   }
-  const moved = (to: string) => ({ ...resolve(to), to });
-  if (!first || (first === REQUEST && !rest.length)) return moved(ILLUSTRATIONS);
-  if (categoryOf(first) && rest.length <= 1) return moved([ILLUSTRATIONS, first, ...rest].join('/'));
+  if (first === REQUEST && !rest.length) return moved(ILLUSTRATIONS);
+  if (categoryOf(first) && rest.length <= 1) return moved(rest.length ? `${ILLUSTRATIONS}/${first}/${rest[0]}` : galleryAt(first as Category));
   const old = !rest.length && find(CATEGORIES[0].key, first);
   return old ? moved(pageOf(old)) : { route: { kind: 'missing' } };
 }
 
 export function App() {
-  const [path, go] = useRoute();
+  const [at, go] = useRoute();
   const [theme, setTheme] = useTheme();
-  // the request modal: opened from the header on any page; on an illustration's page it's "About" that one
+  // the request modal: opened from the header or the home page; focus goes back to whichever opened it
   const [requesting, setRequesting] = useState(false);
-  const requestButton = useRef<HTMLButtonElement>(null);
-  const closeRequest = useCallback(() => { setRequesting(false); requestAnimationFrame(() => requestButton.current?.focus()); }, []);
-  const { route, to } = resolve(path);
+  const opener = useRef<HTMLElement | null>(null);
+  const openRequest = useCallback(() => { opener.current = document.activeElement as HTMLElement | null; setRequesting(true); }, []);
+  const closeRequest = useCallback(() => { setRequesting(false); requestAnimationFrame(() => opener.current?.focus()); }, []);
+  const { route, to } = resolve(at);
   // an old address shows its new page at once, and the address is rewritten in place
   useEffect(() => { if (to) go(to, { replace: true, keep: true }); }, [to, go]);
   const entry = route.kind === 'detail' ? route.entry : undefined;
+  const chip = route.kind === 'gallery' || route.kind === 'detail' ? route.chip : 'all';
   // the tab title, description and share image follow the page (the built pages carry the same in their HTML)
-  useEffect(() => { setMeta(route.kind === 'detail' ? { entry: route.entry } : route.kind === 'gallery' ? { category: route.category } : { missing: true }); }, [route.kind, entry, route.kind === 'gallery' ? route.category : '']);
+  useEffect(() => {
+    setMeta(route.kind === 'detail' ? { entry: route.entry } : route.kind === 'gallery' ? { gallery: route.chip } : route.kind === 'home' ? { home: true } : { missing: true });
+  }, [route.kind, entry, chip]);
 
   return (
     <>
       <div className="page" inert={requesting}>
-      <header className="bar">
-        <div className="row">
-          <Link to={ILLUSTRATIONS} go={go} className="brand">Compo</Link>
-          <nav className="sections mono" aria-label="Sections">
-            {SECTIONS.map((s) => <Link key={s.key} to={s.key} go={go} className="tab" current={route.kind !== 'missing'}>{s.label}</Link>)}
-          </nav>
-          <button ref={requestButton} type="button" className="request-button mono" aria-haspopup="dialog" onClick={() => setRequesting(true)}>Request</button>
-          <div className="toggle" role="group" aria-label="Theme">
-            {(['dark', 'light'] as const).map((t) => (
-              <button key={t} type="button" className="mono" aria-pressed={theme === t} onClick={() => setTheme(t)}>{t}</button>
-            ))}
+        <header className="bar">
+          <div className="bar-row">
+            <nav className="bar-left" aria-label="Primary navigation">
+              <Link to="" go={go} className="brand" current={route.kind === 'home'}>Compo</Link>
+              {SECTIONS.map((s) => (
+                <Link key={s.key} to={s.key} go={go} className="bar-tab" current={route.kind === 'gallery' || route.kind === 'detail'}>{s.label}</Link>
+              ))}
+            </nav>
+            <div className="bar-right">
+              <button type="button" className="pill dark compact" aria-haspopup="dialog" onClick={openRequest}>Request <Send /></button>
+              <div className="theme-toggle" role="group" aria-label="Theme">
+                {(['dark', 'light'] as const).map((t) => (
+                  <button key={t} type="button" aria-pressed={theme === t} onClick={() => setTheme(t)}>{t === 'dark' ? 'Dark' : 'Light'}</button>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-      </header>
-      {entry ? <Detail key={pageOf(entry)} entry={entry} go={go} theme={theme} />
-        : route.kind === 'gallery' ? <Gallery category={route.category} go={go} /> : <Missing go={go} />}
-      <footer className="foot">
-        <div className="row mono muted">
-          Compo · {new Date().getFullYear()} · {MADE_BY_URL ? <a href={MADE_BY_URL} target="_blank" rel="noopener">Made by Fahmi</a> : 'Made by Fahmi'}
-        </div>
-      </footer>
+        </header>
+        {entry ? <Detail key={pageOf(entry, chip)} entry={entry} chip={chip} go={go} theme={theme} />
+          : route.kind === 'gallery' ? <Gallery chip={route.chip} go={go} />
+          : route.kind === 'home' ? <Home go={go} onRequest={openRequest} /> : <Missing go={go} />}
+        <footer className="site-footer">
+          <Socials />
+          <p className="made">Compo · {new Date().getFullYear()} · {MADE_BY_URL ? <a href={MADE_BY_URL} target="_blank" rel="noopener">Made by Fahmi</a> : 'Made by Fahmi'}</p>
+        </footer>
       </div>
       <RequestModal open={requesting} onClose={closeRequest} about={entry ? { name: entry.name, path: `/${pageOf(entry)}` } : null} />
     </>
   );
 }
 
-/** The gallery: a tab per category above the grid; switching fades the grid out and the other in, with no reload. */
-function Gallery({ category, go }: { category: Category; go: Go }) {
-  const [shown, setShown] = useState(category);
-  const [fading, setFading] = useState(false);
-  const ready = useCategory(shown);
-  useEffect(() => {
-    if (category === shown) return;
-    // the new tab's figures load while the grid fades out (they are usually in already: the tabs prefetch them)
-    let live = true;
-    const swap = () => { if (live) { setShown(category); setFading(false); } };
-    const loaded = loadCategory(category).catch(() => {});
-    if (reducedMotion()) loaded.then(swap);
-    else { setFading(true); Promise.all([loaded, new Promise((r) => setTimeout(r, 100))]).then(swap); }
-    return () => { live = false; };
-  }, [category, shown]);
-  const entries = categoryOf(shown)!.entries;
-  const prefetch = () => CATEGORIES.forEach((c) => { loadCategory(c.key).catch(() => {}); });
+/** The home page: the intro in the narrow column between the guide lines. */
+function Home({ go, onRequest }: { go: Go; onRequest: () => void }) {
   return (
-    <main>
-      <section className="row intro">
-        <h1>Compo</h1>
-        <p className="muted">{TAGLINE}</p>
-        <p className="license muted">{LICENSE}</p>
-      </section>
-      <div className="row">
-        <nav className="tabs mono" aria-label="Categories" onPointerEnter={prefetch} onFocus={prefetch}>
-          {CATEGORIES.map((c) => (
-            <Link key={c.key} to={galleryAt(c.key)} go={(to) => go(to, { keep: true })} className="tab" current={c.key === category}>
-              {c.label} <span className="muted">{c.entries.length}</span>
-            </Link>
-          ))}
-        </nav>
-        <ul className="grid" data-fading={fading || undefined}>
-          {entries.map((e) => <Cell key={pageOf(e)} entry={e} go={go} ready={ready} />)}
-        </ul>
+    <main className="home">
+      <div className="intro-panel">
+        <div className="intro-body">
+          <div className="intro-content">
+            <div className="identity">
+              <h1>Compo</h1>
+              <p>{ROLE}</p>
+            </div>
+            <div className="copy">
+              <p className="lead">Twenty line illustrations for marketing and fintech products, each one moving when you point at it.</p>
+              <p>Change a label, a code or a logo, then take it as a React component, or as SVG, PNG, GIF or video for slides and docs.</p>
+              <p>{LICENSE} Missing one you need? Ask for it, and it may be next.</p>
+            </div>
+            <div className="actions">
+              <button type="button" className="pill dark" aria-haspopup="dialog" onClick={onRequest}>Request <Send /></button>
+              <Link to={ILLUSTRATIONS} go={go} className="pill light">Browse <ArrowRight /></Link>
+              <Socials className="intro-socials" />
+            </div>
+          </div>
+        </div>
       </div>
     </main>
   );
 }
 
-/** One gallery cell: the whole cell links to the detail page; a touch on the drawing is a hover, not a click. */
-function Cell({ entry, go, ready }: { entry: Entry; go: Go; ready: boolean }) {
+/** The gallery: the chips (All, Fintech, Marketing) above the cards. A chip changes the address and the grid at once, without scrolling. */
+function Gallery({ chip, go }: { chip: Chip; go: Go }) {
+  const ready = useCategories(chip === 'all' ? ORDER : [chip]);
+  const entries = listOf(chip);
+  const prefetch = () => CATEGORIES.forEach((c) => { loadCategory(c.key).catch(() => {}); });
+  return (
+    <main className="gallery">
+      <h1 className="sr-only">Illustrations</h1>
+      <nav className="chips" aria-label="Filter illustrations" onPointerEnter={prefetch} onFocus={prefetch}>
+        {CHIPS.map((c) => (
+          <Link key={c} to={galleryAt(c)} go={(to) => go(to, { keep: true })} className={`pill compact chip ${c === chip ? 'dark' : 'light'}`} current={c === chip}>
+            {chipLabel(c)} <span className="chip-count">{listOf(c).length}</span>
+          </Link>
+        ))}
+      </nav>
+      <ul className="works-grid">
+        {entries.map((e) => <Cell key={pageOf(e)} entry={e} chip={chip} go={go} ready={ready} />)}
+      </ul>
+    </main>
+  );
+}
+
+/** One card: its caption above, the tile under it; the whole card links to the detail page; a touch on the drawing is a hover. */
+function Cell({ entry, chip, go, ready }: { entry: Entry; chip: Chip; go: Go; ready: boolean }) {
   const touchedArt = useRef(false);
   const click = (e: MouseEvent) => {
     if (touchedArt.current) { e.preventDefault(); return; }
     if (!plain(e)) return;
     e.preventDefault();
-    go(pageOf(entry));
+    go(pageOf(entry, chip));
   };
+  const fresh = FRESH.has(entry.slug);
+  const label = [chip === 'all' ? categoryOf(entry.category)!.label : '', entry.n, entry.topic].filter(Boolean).join(' · ');
   return (
-    <li>
+    <li className="card-item">
       <a
-        className="cell"
-        href={`${BASE}/${pageOf(entry)}`}
-        aria-label={`${entry.n} ${entry.name}, ${entry.topic}`}
+        className="card"
+        href={`${BASE}/${pageOf(entry, chip)}`}
+        aria-label={`${entry.name}, ${label}${fresh ? ', new' : ''}`}
         onPointerDown={(e) => { touchedArt.current = e.pointerType !== 'mouse' && !!(e.target as Element).closest('.stage'); }}
         onClick={click}
       >
-        {ready && <Illustration entry={entry} value={valueAt(figureOf(entry).range, 0.5)} aspect={5 / 4} lazy />}
-        <span className="corner tl mono muted">{entry.n} · {entry.topic}</span>
-        <span className="corner bl name">{entry.name}</span>
+        <span className="card-meta">
+          <span className="card-title">{entry.name}{entry.props?.length ? <Sliders className="card-icon" /> : null}</span>
+          <span className="card-sub"><span className="card-topic">{label}</span>{fresh && <span className="card-label">(new)</span>}</span>
+        </span>
+        <span className="tile cell">
+          {ready && <Illustration entry={entry} value={valueAt(figureOf(entry).range, 0.5)} aspect={300 / 343} lazy />}
+        </span>
       </a>
-      <span className="corner br open mono" aria-hidden="true">Open →</span>
     </li>
   );
 }
 
-function Detail({ entry, go, theme }: { entry: Entry; go: Go; theme: Theme }) {
-  const ready = useCategory(entry.category);
+function Detail({ entry, chip, go, theme }: { entry: Entry; chip: Chip; go: Go; theme: Theme }) {
+  const ready = useCategories([entry.category]);
   const figure = ready ? figureOf(entry) : null;
   const value = figure ? valueAt(figure.range, 0.5) : 0;
   // the Customize block's values (the box's letter): the illustration, every download and the snippet use them
@@ -218,8 +259,9 @@ function Detail({ entry, go, theme }: { entry: Entry; go: Go; theme: Theme }) {
   const attrs = dataOf(entry.props, custom);
   useEffect(() => { customOf.set(entry.slug, dataOf(entry.props, custom)); }, [entry.slug, custom]);
   useEffect(() => () => { customOf.delete(entry.slug); }, [entry.slug]);
-  const list = categoryOf(entry.category)!.entries, i = list.indexOf(entry), prev = list[(i + list.length - 1) % list.length], next = list[(i + 1) % list.length];
-  const at = pageOf;
+  // prev / next and the counter stay within the chip the page was opened from (All: all 20)
+  const list = listOf(chip), i = list.indexOf(entry), prev = list[(i + list.length - 1) % list.length], next = list[(i + 1) % list.length];
+  const at = (e: Entry) => pageOf(e, chip);
 
   // the left and right arrow keys step through the illustrations, unless a text field has them
   useEffect(() => {
@@ -232,26 +274,26 @@ function Detail({ entry, go, theme }: { entry: Entry; go: Go; theme: Theme }) {
     };
     addEventListener('keydown', key);
     return () => removeEventListener('keydown', key);
-  }, [go, prev, next]);
+  }, [go, prev, next]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <main className="row detail">
-      <nav className="navrow mono" aria-label="Illustrations">
-        <Link to={galleryAt(entry.category)} go={go} className="muted">← All illustrations</Link>
+    <main className="detail">
+      <nav className="detail-bar" aria-label="Illustrations">
+        <Link to={galleryAt(chip)} go={go} className="pill light back"><ArrowLeft />All illustrations</Link>
         <div className="steps">
-          <Link to={at(prev)} go={go} className="muted" label={`Previous: ${prev.name}`}>← Prev</Link>
-          <span>{entry.n} / {String(list.length).padStart(2, '0')}</span>
-          <Link to={at(next)} go={go} className="muted" label={`Next: ${next.name}`}>Next →</Link>
+          <Link to={at(prev)} go={go} className="round light" label={`Previous: ${prev.name}`}><ChevronLeft /></Link>
+          <span className="count">{pad(i + 1)} / {pad(list.length)}</span>
+          <Link to={at(next)} go={go} className="round light" label={`Next: ${next.name}`}><ChevronRight /></Link>
         </div>
       </nav>
       <div className="split">
-        <div className="view">
+        <div className="view tile">
           {figure && <Illustration entry={entry} value={value} aspect="box" keyboard data={attrs} box={boxOf(entry, attrs)} />}
         </div>
         <aside className="side">
-          <p className="mono muted">{entry.n} · {entry.topic}</p>
+          <p className="eyebrow">{categoryOf(entry.category)!.label} · {entry.n} · {entry.topic}</p>
           <h1>{entry.name}</h1>
-          <p className="means">{figure ? figure.means : '\u00a0'}</p>
+          <p className="means">{figure ? figure.means : ' '}</p>
           {figure && entry.props?.length ? <Customize entry={entry} values={custom} onChange={setCustom} /> : null}
           {figure && <Downloads entry={entry} value={value} theme={theme} custom={custom} />}
           <UseIt entry={entry} theme={theme} custom={custom} />
@@ -311,9 +353,9 @@ function Downloads({ entry, value, theme, custom }: { entry: Entry; value: numbe
   }
   return (
     <div className="downloads">
-      <button type="button" className="button primary block" onClick={() => run(react)} disabled={busy !== null}>{react.format}</button>
+      <button type="button" className="pill dark block" onClick={() => run(react)} disabled={busy !== null}>{react.format} <Download /></button>
       <details className="formats">
-        <summary className="mono">More formats</summary>
+        <summary className="pill light block">More formats</summary>
         <div className="dl-group">
           {more.map((row) => (
             <button key={row.key} type="button" className="button dl" onClick={() => run(row)} disabled={busy !== null} aria-live="polite">
@@ -350,7 +392,8 @@ function Customize({ entry, values, onChange }: { entry: Entry; values: Record<s
   const clean = (p: CustomProp, raw: string) => {
     const allowed = new RegExp(p.allow);
     const chars = Array.from(p.upper ? raw.toUpperCase() : raw).filter((c) => allowed.test(c));
-    return (p.max === 1 ? chars.slice(-1) : chars.slice(0, p.max)).join('');
+    const s = (p.max === 1 ? chars.slice(-1) : chars.slice(0, p.max)).join('');
+    return p.shape ? p.shape(s) : s;
   };
   return (
     <section className="customize" aria-labelledby="customize-title">
@@ -433,7 +476,7 @@ function Customize({ entry, values, onChange }: { entry: Entry; values: Record<s
             <div key={p.name} className="custom-field logo">
               <span className="logo-label">{p.label}</span>
               <div className="logo-row">
-                <span className="logo-preview" aria-hidden="true"><svg viewBox="-0.08 -0.08 1.16 1.16"><path d={v || DEFAULT_LOGO} /></svg></span>
+                <span className="logo-preview" aria-hidden="true">{(v || !p.blank) && <svg viewBox="-0.08 -0.08 1.16 1.16"><path d={v || DEFAULT_LOGO} /></svg>}</span>
                 <label className="button small upload">
                   Upload SVG
                   <input id={id} type="file" accept=".svg,image/svg+xml" className="sr-only" aria-describedby={`${id}-hint${logoError ? ` ${id}-error` : ''}`}
@@ -558,11 +601,11 @@ function UseIt({ entry, theme, custom }: { entry: Entry; theme: Theme; custom: R
 
 function Missing({ go }: { go: Go }) {
   return (
-    <main className="row missing">
-      <p className="mono muted">404</p>
+    <main className="missing">
+      <p className="eyebrow">404</p>
       <h1>Page not found</h1>
       <p className="muted">This page doesn’t exist, or it has moved.</p>
-      <Link to={ILLUSTRATIONS} go={go} className="more mono">← Back to Illustrations</Link>
+      <Link to={ILLUSTRATIONS} go={go} className="pill light back"><ArrowLeft />Back to Illustrations</Link>
     </main>
   );
 }

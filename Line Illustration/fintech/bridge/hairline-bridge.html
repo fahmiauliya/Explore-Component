@@ -719,12 +719,12 @@ var HL = (() => {
 </script>
 <script type="module" id="hl-figure">
 /**
- * Bridge: two grey cliffs, each on its own plate, an empty chasm between. Hover anywhere and the bridge builds:
- * n planks (data-installments, 3 to 12, default 5) drop one by one from the left cliff to the right, swinging level,
- * dividing the deck evenly with their ends OV onto the two cliff tops. On the last plank the loan is paid off: posts
- * rise, two rope rails string across, both cliffs brighten. data-goal (A-Z 0-9 space, 8 at most) flies as a flag on
- * the right cliff's far back corner; it brightens with the cliffs and gives one short ripple. Leaving takes it down in
- * reverse, rails first. A new count replays the build once (or rebuilds it, under the pointer).
+ * Bridge: two identical grey cliffs on one axis (x), end faces squared off across a straight chasm. Hover anywhere and
+ * the bridge builds: n planks (data-installments, 3 to 12, default 5) drop one by one from the left cliff to the right,
+ * swinging level, top flush with the cliff tops, filling the chasm exactly from face to face. On the last plank the loan
+ * is paid off: posts rise, two rope rails string across. data-goal (A-Z 0-9 space, 8 at most) flies as a flag on the
+ * right cliff's far back corner; it gives one short ripple. Bright: the plank being laid, then the flag (no goal: the last plank).
+ * Leaving takes it down in reverse, rails first. A new count replays the build once (or rebuilds it, under the pointer).
  *
  * The hit area is the whole figure's REST box on screen, which never moves. Planks run on 500ms tweens, rails on
  * 700ms; the stagger is the slider, in ms, capped so that n planks land within 1.6 s.
@@ -733,24 +733,23 @@ const STROKES = {"0":[0.952,"M0.429 -1 L0.286 -0.952 0.19 -0.81 0.143 -0.571 0.1
 const { Cam, fit, proj, tween, tset, tval, tdone, reducedMotion, disposer, mk, pointer, register } = HL;
 
 const Q = Math.PI / 2, EX = [1, 0, 0], EY = [0, 1, 0], PI2 = 2 * Math.PI;
-const PZ = 5, H = 26, ZT = PZ + H; // plate thickness, cliff height, top of both cliffs (the deck rests on it)
-// planks: clear gap between two, half length, thickness, corner, drop, swing, overlap on each cliff; stagger cap, tween ms
-const PG = 2, DY = 12, PT = 3.5, PR = 1.5, DROP = 10, TILT = 0.42, OV = 3, ZD = ZT + PT, CAP = 1100, DUR = 500;
-const GAP = 46, DL = GAP + 2 * OV, LC = 30, RC = 24, M = 8, LY = 29, RY = 28;
-const PX = (2 * M + LC + GAP + RC) / 2, GA = -PX + M + LC, GB = GA + GAP; // cliff faces at GA and GB
+// two identical cliffs along x, length LC, half width WC, height ZT, corner 4; the chasm, 0.45 LC, runs from face GA to GB
+const LC = 56, WC = 16, ZT = 26, GAP = 0.45 * LC, GA = -GAP / 2, GB = GAP / 2, XE = GB + LC;
+// planks: half length (across the bridge), thickness, corner, drop, swing; their tops flush with the cliffs'; cap, ms
+const DY = 12, PT = 3.5, PR = 1.5, DROP = 10, TILT = 0.42, CAP = 1100, DUR = 500;
 // rails: posts HP above the deck at ±RY0, 16 along each cliff from its face, ropes tied under their tops, sagging SAG
-const PR2 = 1.6, RY0 = 24.5, HP = 6, PH = PT + HP, ZR = ZD + HP - 0.5, SAG = HP / 3 - 0.5, XA = GA - 16, XB = GB + 16;
-// the flag: a pole, one thin line, at (FX, FY), clear of the back post on screen; the sheet in the plane x = FX flies to -y,
+const PR2 = 1.6, RY0 = 13.5, HP = 6, ZR = ZT + HP - 0.5, SAG = HP / 3 - 0.5, XA = GA - 16, XB = GB + 16;
+// the flag: a pole, one thin line, on the right cliff's far back corner (FX, FY); the sheet in the plane x = FX flies to -y,
 // ZF to ZF + FH; cap height TH, tracking TR, padding PU, PV; corner CN; the ripple's amplitude, wavelength, ms
-const FX = 48, FY = -26, ZF = 37.5, TH = 5, TR = 0.1, PU = 1.4, PV = 1.6, FH = TH + 2 * PV, ZP = ZF + FH + 0.8;
+const FX = XE - 3.5, FY = 3.5 - WC, ZF = ZT + 6.5, TH = 5, TR = 0.1, PU = 1.4, PV = 1.6, FH = TH + 2 * PV, ZP = ZF + FH + 0.8;
 const CN = 0.8, AMP = 2, LAM = 16, WAVE = 300;
 const GL = Object.fromEntries(Object.entries(STROKES).map(([c, [a, d]]) => [c, [a, d.split("M").filter(Boolean)
   .map((p) => p.replace("L", "").trim().split(/\s+/).reduce((o, x, i) => (i % 2 ? o[o.length - 1].push(+x) : o.push([+x]), o), []))]]));
 
 function mount({ stage, svg, read }, value) {
   const bag = disposer();
-  const C = Cam(45, 0.5, 2.1);
-  fit(C, [[-PX, -LY, 0], [PX, RY + M, 0], [-PX, LY + M, 0], [PX, -RY, 0], [-PX + M, -LY, ZT], [XA, -RY0, ZT + PH]], 200, 166);
+  const C = Cam(45, 0.5, 2.15), CUBE = [-1, 1].flatMap((a) => [-1, 1].flatMap((b) => [[a * XE, b * WC, 0], [a * XE, b * WC, ZT]]));
+  fit(C, CUBE, 200, 160); // the rest pose is symmetric about the chasm's centre: that point lands on (200, 160)
   const P = proj(C), O = P(0, 0, 0), J = (v) => { const q = P(...v); return [q[0] - O[0], q[1] - O[1]]; };
   const pt = (v) => P(...v).map((x) => x.toFixed(2)).join(","), cr = (u, v) => u[0] * v[1] - u[1] * v[0];
   const at3 = (c, e1, e2, r, f) => c.map((x, i) => x + r * (Math.cos(f) * e1[i] + Math.sin(f) * e2[i]));
@@ -790,21 +789,18 @@ function mount({ stage, svg, read }, value) {
   const mix = (p, q, t) => p.map((v, i) => v + (q[i] - v) * t);
   const cut = ([p0, p1, p2, p3], t) => { const a = mix(p0, p1, t), b = mix(p1, p2, t), e = mix(a, b, t), m = mix(e, mix(b, mix(p2, p3, t), t), t);
     return `M${pt(p0)}C${pt(a)} ${pt(e)} ${pt(m)}`; };
-  /** One side's rail: the near post, the rope, the far post, which hides the rope's end. */
-  const side = (y) => { const a = { x: XA, y, ...solid(g) }, el = mk("path", { class: "nf" }, g); return { posts: [a, { x: XB, y, ...solid(g) }], el, w: rope(y) }; };
+  /** One side's rail: the near post, the rope, the far post (each into its own layer), which hides the rope's end. */
+  const side = (y, pa, pr, pb) => { const a = { x: XA, y, ...solid(pa) }, el = mk("path", { class: "nf" }, pr); return { posts: [a, { x: XB, y, ...solid(pb) }], el, w: rope(y) }; };
 
-  // back to front: each plate and its cliff (apart along x), the back rail, the planks by ascending x, the front rail,
-  // then the flag, its text and its pole. Planks lie above both cliff tops and between the rails in every pose, so no
-  // cliff or back rail covers one and no plank the front rail; the flag stands clear of all of them on screen. Each
-  // plate stops flush with its cliff on the gap side and the back, so no plate edge shows in the chasm.
+  // back to front: the left cliff, the back rail's left post and rope, the planks by ascending x, the right cliff (it
+  // hides the last plank's end, sunk to its face), the back rail's right post, the front rail, then the flag, its text
+  // and its pole. A plank never reaches past GB, and above the deck projects clear of the right cliff; the back rope
+  // stays above the planks and the right cliff's back edge on screen; the flag stands clear of all of them.
   const g = mk("g", {}, svg);
-  block(GA - (LC + M) / 2, M / 2, (LC + M) / 2, LY + M / 2, PZ, PZ);
-  const left = block(GA - LC / 2, 0, LC / 2, LY, ZT, H);
-  block(GB + (RC + M) / 2, M / 2, (RC + M) / 2, RY + M / 2, PZ, PZ);
-  const right = block(GB + RC / 2, 0, RC / 2, RY, ZT, H);
-  const rails = [side(-RY0)], pg = mk("g", {}, g);
-  rails.push(side(RY0));
-  const rail = { rails, tw: tween(0), last: NaN };
+  block(GA - LC / 2, 0, LC / 2, WC, ZT, ZT);
+  const ba = mk("g", {}, g), br = mk("g", {}, g), pg = mk("g", {}, g);
+  block(GB + LC / 2, 0, LC / 2, WC, ZT, ZT);
+  const rail = { rails: [side(-RY0, ba, br, g), side(RY0, g, g, g)], tw: tween(0), last: NaN };
   const flag = mk("path", { class: "sil" }, g), ink = mk("path", { class: "nf sil" }, g), pole = mk("path", { class: "nf sil" }, g);
 
   /** Plank p at progress e (0 away, 1 laid): it drops from DROP above, swinging level about the bridge's axis, and
@@ -815,31 +811,31 @@ function mount({ stage, svg, read }, value) {
     if (Math.abs(e - p.last) < 1e-4) return;
     p.last = e;
     if (p.rails) {
-      const h = (1 - Math.max(0, 1 - e / 0.6) ** 2) * PH, t = Math.min(1, Math.max(0, (e - 0.45) / 0.55));
+      const h = (1 - Math.max(0, 1 - e / 0.6) ** 2) * HP, t = Math.min(1, Math.max(0, (e - 0.45) / 0.55));
       for (const r of p.rails) { set(r.el, t < 0.004 ? "" : cut(r.w, t)); r.posts.forEach((q) => put(q, h < 0.05 ? null : slab([q.x, q.y, ZT + h], EX, EY, PR2, PR2, PR2, h, 0.6))); }
       return;
     }
     const u = 1 - e, sc = 1 - Math.max(0, 1 - e / 0.3) ** 2, th = TILT * u;
-    put(p, e < 0.004 ? null : slab([p.xc, 0, ZD + DROP * u], EX, [0, Math.cos(th), Math.sin(th)], (p.W / 2) * sc, DY * sc, p.r * sc, PT * sc, p.ins * sc));
+    put(p, e < 0.004 ? null : slab([p.xc, 0, ZT + DROP * u], EX, [0, Math.cos(th), Math.sin(th)], (p.W / 2) * sc, DY * sc, p.r * sc, PT * sc, p.ins * sc));
   }
 
   let n = 0, planks = [], gone = [], goal = null, L = 0, text = [], box = [], flat = "";
-  /** n planks divide the deck evenly: width W, the same clear gap PG between every two, the ends OV onto each cliff.
-   * The old ones all lift away at once and are removed once gone. */
+  /** n planks fill the chasm evenly: width W, the same clear gap PG between every two (narrower as n grows), the first
+   * flush with face GA, the last with face GB. The old ones all lift away at once and are removed once gone. */
   function setN(k, now) {
-    planks.forEach((p) => tset(p.tw, 0, now, 0)); gone = gone.concat(planks); n = k;
-    const W = (DL - (n - 1) * PG) / n, r = Math.min(PR, 0.4 * W), ins = Math.min(1, r - 0.4);
-    planks = Array.from({ length: n }, (_, i) => ({ xc: GA - OV + i * (W + PG) + W / 2, W, r, ins, tw: tween(0, DUR), last: NaN, ...solid(pg) }));
+    planks.forEach((p) => { tset(p.tw, 0, now, 0); p.sil.classList.remove("hi"); }); gone = gone.concat(planks); n = k; hot = null;
+    const PG = Math.min(2, GAP / (3.5 * n)), W = (GAP - (n - 1) * PG) / n, r = Math.min(PR, 0.4 * W), ins = Math.min(1, r - 0.4);
+    planks = Array.from({ length: n }, (_, i) => ({ xc: GA + i * (W + PG) + W / 2, W, r, ins, tw: tween(0, DUR), last: NaN, ...solid(pg) }));
   }
   /** The goal as polylines in the flag's own [u, v] (u out from the pole, v up), the flag's length, the pole,
-   * and the hit area: the whole figure's rest box on screen (plates, cliffs, the posts' and the flag's tops), padded. */
+   * and the hit area: the whole figure's rest box on screen (the cliffs, the posts' and the flag's tops), padded. */
   function setGoal(s) {
     goal = s; text = []; flat = null;
     let x = PU;
     for (const c of s) { GL[c][1].forEach((q) => text.push(q.map(([gx, gy]) => [x + (gx - TR / 2) * TH, ZF + PV - gy * TH]))); x += (GL[c][0] - TR) * TH; }
     L = x + PU;
     set(pole, s ? `M${pt([FX, FY, ZT])}L${pt([FX, FY, ZP])}` : "");
-    const q = [[-PX, -LY, 0], [PX, RY + M, 0], [-PX, LY + M, 0], [PX, -RY, 0], [-PX, -LY, ZT], [PX, -RY, ZT], [XA, -RY0, ZT + PH], [XB, -RY0, ZT + PH]]
+    const q = CUBE.concat([XA, XB].flatMap((x) => [[x, -RY0, ZT + HP], [x, RY0, ZT + HP]]))
       .concat(s ? [[FX, FY, ZP], [FX, FY - L, ZF + FH]] : []).map((v) => P(...v));
     box = [0, 1].map((i) => [Math.min(...q.map((p) => p[i])) - 6, Math.max(...q.map((p) => p[i])) + 6]);
   }
@@ -860,11 +856,11 @@ function mount({ stage, svg, read }, value) {
       + `L${pt(W(L, z1 - CN))}` + C3([L, z1 - CN + k], [L - CN + k, z1], [L - CN, z1]) + edge(L - CN, 0, z1)); // open at the pole, which draws that edge
     set(ink, text.map((q) => "M" + q.map((p) => pt(W(...p))).join("L")).join(""));
   }
-  let on = false, act = false, demo = 0, wt = -1, state = -1, stag = value, seen = null;
-  /** 0 rest, 1 building, 2 paid off: the read-out; both cliffs and the flag are bright only once the bridge is whole. */
+  let on = false, act = false, demo = 0, wt = -1, state = -1, stag = value, seen = null, hot = null;
+  /** 0 rest, 1 building, 2 paid off: the read-out; the flag is bright only once the bridge is whole. */
   function status(k) {
     if (k === state) return; state = k;
-    [left, right, flag, ink].forEach((el) => el.classList.toggle("hi", k === 2));
+    [flag, ink, pole].forEach((el) => el.classList.toggle("hi", k === 2));
     read.textContent = ["rest", "building", "paid off"][k];
   }
   /** Building lays the planks still missing, left to right, a stagger apart; taking down drops the rails at once, then
@@ -901,7 +897,9 @@ function mount({ stage, svg, read }, value) {
     if (demo > 0 && now >= demo) { demo = 0; want(false, now); }
     draw(rail, tval(rail.tw, now));
     const s = wt < 0 ? 1 : Math.min(1, (now - wt) / WAVE); if (s >= 1) wt = -1; drawFlag(s);
-    status(act ? (rail.tw.to === 1 ? 2 : 1) : 0);
+    status(act ? (rail.tw.to === 1 ? 2 : 1) : 0); // bright: the plank last set going, or the last one once paid off without a goal
+    const h = !act ? null : state === 2 ? (goal ? null : planks[n - 1]) : planks.filter((p) => p.tw.to === 1 && now >= p.tw.t0 && !tdone(p.tw, now)).pop() || null;
+    if (h !== hot) { if (hot) hot.sil.classList.remove("hi"); if ((hot = h)) h.sil.classList.add("hi"); }
     return moving || !tdone(rail.tw, now) || demo !== 0 || wt >= 0;
   });
   const mo = new MutationObserver(() => B.wake()), F = ["data-installments", "data-goal"];

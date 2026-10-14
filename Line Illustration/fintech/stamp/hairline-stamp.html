@@ -724,8 +724,8 @@ var HL = (() => {
  * under a rounded block, a short neck and a round knob. Hover the figure and the stamp lifts, moves over the empty half,
  * presses straight down with a 6% squash of its block and neck, lifts and goes home. Where it pressed it leaves its own
  * mark, straight on the paper and centred on its footprint: a check, a word (data-text, Hershey single strokes)
- * or a logo (data-logo, unit-square path data, the Compo C by default), as the stage's data-mark says. The stamp is
- * bright on its way to the press; the mark fades in at the contact, bright, and fades out when the pointer leaves.
+ * or a logo (data-logo, unit-square path data, the Compo C by default), as the stage's data-mark says. The stamp's
+ * rubber face is bright on its way to the press; the mark fades in at the contact, bright, and fades out grey on leave.
  *
  * The hit area is the whole figure at rest, which never moves. The motion is a list of timed legs on eased curves; the
  * mark's opacity is one of the kernel's fade() masks, a level per twentieth. Every curve is a true Bézier of a world arc.
@@ -861,16 +861,16 @@ function mount({ stage, svg, read }, value) {
     on = v;
     const [x, y, z] = pose, L = lift, M = [MX, MY], H = [HX, HY], up = z < L - 0.01;
     read.textContent = v ? "stamping" : "rest";
-    light(stamp, v);
+    light(stamp.slice(0, 1), v); // only the rubber face, the part that will print
     if (v) plan([[[x, y, L], up ? (T.lift * (L - z)) / L : 0, IO], [[...M, L], far(pose, M) ? T.move : 0, IO], [[...M, DT], T.press, IN],
       [[...M, DT], T.squash, IO, true, contact], [[...M, L], T.up, IO], [[...H, L], T.back, IO], [[...H, 0], T.down, IO]], now);
     else {
       plan(far(pose, H) ? [[[x, y, L], up ? T.up : 0, IO], [[...H, L], T.back, IO], [[...H, 0], T.down, IO]] : [[[...H, 0], (T.down * z) / L, IO]], now);
-      fadeTo(0, T.out, now);
+      fadeTo(0, T.out, now); light([[mark, "nf lo"]], false); // grey at once; it fades out grey
     }
   }
   const hover = (v) => { if (v !== want) { want = v; B.wake(); } };
-  function contact(now) { // the press: the mark fades in under the rubber, bright; the bright leaves the stamp
+  function contact(now) { // the press: the mark fades in under the rubber, bright; the bright leaves the rubber
     read.textContent = "approved"; light(stamp, false); light([[mark, "nf lo"]], true); op = [0, 1, now, T.in];
   }
 
