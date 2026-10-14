@@ -153,13 +153,10 @@ function mount({ stage, svg, read }, value) {
       tset(b.s, a < 0 ? 1 : i === a ? grow : SHRINK, now, Math.abs(i - from) * STEP);
       b.edge.classList.toggle("hi", i === a);
     });
-    // at rest the mouth is bright: where everything enters
-    bands[0].mouth.classList.toggle("hi", a < 0);
     read.textContent = a < 0 ? "rest" : `stage ${a + 1}`;
     B.wake();
   }
 
-  bands[0].mouth.classList.add("hi");
   bag.add(pointer(stage, { move: (p) => setActive(hit(p)), leave: () => setActive(-1) }));
   bag.add(() => svg.replaceChildren());
   read.textContent = "rest";

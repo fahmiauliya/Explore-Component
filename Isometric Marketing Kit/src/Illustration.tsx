@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Entry, Target } from './figures';
+import { lower } from './meta';
 import { loadFigure, loadKernel, mountFigure, pointAt, type Figure, type Handle } from './hairline';
 
 /** One kernel for the page: one frame loop, which only runs the figures on screen. */
@@ -14,21 +15,37 @@ export function figureOf(entry: Entry) {
 type Props = {
   entry: Entry;
   value: number;
-  onRead: (text: string) => void;
+  onRead?: (text: string) => void;
   /** A gallery cell's height over its width; or 'box', a detail box of any shape. */
   aspect: number | 'box';
   /** The detail view: every hover target becomes a keyboard stop. */
   keyboard?: boolean;
+  /** A gallery cell: the figure mounts only once the cell comes within 400px of the screen (and then stays). */
+  lazy?: boolean;
+  /** Values the figure reads from its host's data attributes, live (the box's letter: { mark: 'A' } → data-mark). */
+  data?: Record<string, string>;
+  /** The extent to fit instead of the entry's own (boxOf: grown by a custom value that reaches further). */
+  box?: Entry['box'];
 };
 
-export function Illustration({ entry, value, onRead, aspect, keyboard }: Props) {
+export function Illustration({ entry, value, onRead, aspect, keyboard, lazy, data, box }: Props) {
   const host = useRef<HTMLDivElement>(null), handle = useRef<Handle | null>(null);
   const first = useRef(value), read = useRef(onRead);
   read.current = onRead;
+  const [near, setNear] = useState(!lazy || typeof IntersectionObserver === 'undefined');
 
   useEffect(() => {
+    if (near) return;
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { setNear(true); io.disconnect(); } }, { rootMargin: '400px 0px' });
+    io.observe(host.current!);
+    return () => io.disconnect();
+  }, [near]);
+
+  useEffect(() => {
+    if (!near) return;
     const stage = host.current!;
-    const h = mountFigure(HL, stage, figureOf(entry), first.current, (text) => read.current(text));
+    for (const [k, v] of Object.entries(dataRef.current ?? {})) stage.setAttribute(`data-${k}`, v);
+    const h = mountFigure(HL, stage, figureOf(entry), first.current, (text) => read.current?.(text), labelOf(entry));
     handle.current = h;
     // Touch: a tap holds its hover after the finger lifts (the kernel would let go after 1.4 s); a tap anywhere else lets go.
     let held = false;
@@ -42,29 +59,53 @@ export function Illustration({ entry, value, onRead, aspect, keyboard }: Props) 
       h.destroy();
       handle.current = null;
     };
-  }, [entry]);
+  }, [entry, near]);
   useEffect(() => { handle.current?.set(value); }, [value]);
+  const dataRef = useRef(data);
+  dataRef.current = data;
+  const dataKey = JSON.stringify(data ?? {});
+  useEffect(() => {
+    const stage = host.current;
+    if (stage) for (const [k, v] of Object.entries(data ?? {})) stage.setAttribute(`data-${k}`, v);
+  }, [dataKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="plane" style={plane(entry, aspect)}>
+    <div className="plane" style={plane(entry, aspect, box)}>
       <div ref={host} className="stage" />
       {keyboard && <Stops stage={host} targets={entry.targets} />}
     </div>
   );
 }
 
+/** What a screen reader hears: "Funnel illustration: conversion". */
+export const labelOf = (entry: Entry) => `${entry.name} illustration: ${lower(entry.topic)}`;
+
+/** How big a figure looks: its rest pose's area (as a square's side) is this share of the safe size, so a tall balloon,
+ *  a flat map and a squat safe read as the same size; a long, flat one stops at CAP of the safe size across. */
+const OPTICAL = 0.84, CAP = 1.1;
+
 /**
- * Where the 400 × 320 drawing sits: its extent over every state is scaled to the safe area and centred, in container
- * units so it holds at every size. A gallery cell: 60% of the width, never closer than 48px to an edge or the labels.
- * A detail box: 70% of its smaller side.
+ * Where the 400 × 320 drawing sits, in container units so it holds at every size. Its rest pose is sized by OPTICAL
+ * against the safe area (a gallery cell: 60% of its width, clear of the labels; a detail box: 62% of its smaller side)
+ * and centred; then, if a moving state (the balloon's flight, the box's open flaps) would leave the cell or reach the
+ * labels, it is made smaller or nudged until every state stays inside.
  */
-function plane(entry: Entry, aspect: number | 'box'): React.CSSProperties {
-  const [x0, y0, x1, y1] = entry.box, m = Math.max(x1 - x0, y1 - y0);
-  // the labels sit 24px in and are 16px tall: 40px + 48px clear above and below the drawing
-  const safe = aspect === 'box' ? '70cqmin' : `min(60cqw, 100cqw - 96px, ${100 * aspect}cqw - 176px)`;
-  const midY = aspect === 'box' ? '50cqh' : `${50 * aspect}cqw`;
-  const at = (centre: string, c: number) => `calc(${centre} - ${safe} * ${(c / m).toFixed(5)})`;
-  return { width: `calc(${safe} * ${(400 / m).toFixed(5)})`, left: at('50cqw', (x0 + x1) / 2), top: at(midY, (y0 + y1) / 2) };
+function plane(entry: Entry, aspect: number | 'box', box = entry.box): React.CSSProperties {
+  const [r0, r1, r2, r3] = entry.rest, [a0, a1, a2, a3] = box;
+  const k = Math.min(OPTICAL / Math.sqrt((r2 - r0) * (r3 - r1)), CAP / Math.max(r2 - r0, r3 - r1));
+  const gallery = aspect !== 'box';
+  // the labels sit 24px in and are 16px tall: 48px clear above and below a gallery drawing; a detail box has none
+  const safe = gallery ? `min(60cqw, 100cqw - 96px, ${100 * aspect}cqw - 176px)` : '62cqmin';
+  const H = gallery ? `${100 * aspect}cqw` : '100cqh', inset = gallery ? 48 : 24, n = (v: number) => v.toFixed(4);
+  // px per viewBox unit
+  const scale = `min(${safe} * ${n(k)}, (${H} - ${2 * inset}px) / ${n(a3 - a1)}, (100cqw - 48px) / ${n(a2 - a0)})`;
+  const at = (lo: string, mid: string, hi: string) => `clamp(${lo}, ${mid}, ${hi})`;
+  return {
+    ['--s' as string]: scale,
+    width: 'calc(400 * var(--s))',
+    left: at(`24px - var(--s) * ${n(a0)}`, `50cqw - var(--s) * ${n((r0 + r2) / 2)}`, `100cqw - 24px - var(--s) * ${n(a2)}`),
+    top: at(`${inset}px - var(--s) * ${n(a1)}`, `${H} / 2 - var(--s) * ${n((r1 + r3) / 2)}`, `${H} - ${inset}px - var(--s) * ${n(a3)}`),
+  };
 }
 
 /** Invisible stops over the hover targets: Tab moves between them and focus acts as hover. The pointer passes through. */

@@ -92,8 +92,8 @@ function mount({ stage, svg, read }, value) {
   // cubes beyond the magnet's far arm paint before it; the rest after it
   const behind = mk("g", {}, g);
   solid(g, U, Z0, Z0 + T);
-  // the pole pieces: the last POLE of each arm, bright at rest, where the leads go
-  const poles = [-1, 1].map((sg) => mk("path", { d: rect(XE - POLE / 2, (sg * (RO + RI)) / 2, POLE / 2, (RO - RI) / 2, RC).map((s, n) => emit(s, Z0 + T, !n, false)).join("") + "Z", class: "sil hi" }, g));
+  // the pole pieces: the last POLE of each arm, where the leads go
+  [-1, 1].forEach((sg) => mk("path", { d: rect(XE - POLE / 2, (sg * (RO + RI)) / 2, POLE / 2, (RO - RI) / 2, RC).map((s, n) => emit(s, Z0 + T, !n, false)).join("") + "Z", class: "sil" }, g));
 
   // the cubes, re-sorted back to front as they move
   const layer = mk("g", {}, g);
@@ -150,7 +150,6 @@ function mount({ stage, svg, read }, value) {
   function light(i) {
     lit = i;
     cubes.forEach((c) => c.top?.classList.toggle("hi", c.i === i));
-    poles.forEach((p) => p.classList.toggle("hi", i < 0));
     field.forEach((f, j) => { f.classList.toggle("lo", count <= 2 * j); f.classList.toggle("sil", count > 2 * j + 1); });
   }
   // hit test: the pointer on the plane of the cubes' tops, against their RESTING footprints

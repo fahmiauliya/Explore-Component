@@ -1,4 +1,4 @@
-import type { Entry } from '../figures';
+import { boxOf, type Entry } from '../figures';
 import { loadFigure, loadKernel, mountFigure, pointAt } from '../hairline';
 import { TOKENS, hairlineVars, type Theme } from '../tokens';
 
@@ -6,6 +6,9 @@ import { TOKENS, hairlineVars, type Theme } from '../tokens';
  * What every download draws from: the figure in a hidden same-origin frame whose clock, frame loop and colour
  * transitions advance only when told to, so each frame of a video, and each state of an image, is exact.
  */
+
+/** The values a detail page's Customize block has set (the box's letter), by slug: every download draws with them. */
+export const customOf = new Map<string, Record<string, string>>();
 
 /** The figure, unchanged, in a hidden frame on a virtual clock. */
 export async function openScene(entry: Entry, theme: Theme, value: number) {
@@ -30,10 +33,8 @@ export async function openScene(entry: Entry, theme: Theme, value: number) {
   const HL = loadKernel(win), figure = loadFigure(entry.source, HL, win);
   const stage = doc.createElement('div');
   stage.style.width = '400px';
+  for (const [k, v] of Object.entries(customOf.get(entry.slug) ?? {})) stage.setAttribute(`data-${k}`, v);
   for (const [k, v] of Object.entries(hairlineVars(theme))) stage.style.setProperty(`--hairline-${k}`, v);
-  const tint = doc.createElement('style');
-  tint.textContent = '[data-hairline] > svg .dot.off { fill: var(--hairline-tint); }';
-  doc.head.append(tint);
   doc.body.append(stage);
   let status = 'rest';
   const handle = mountFigure(HL, stage, figure, value, (text) => { status = text; });
@@ -108,7 +109,7 @@ export function rasterSvg(scene: Scene, w: number, h: number, stroke?: number) {
 
 /** The drawing's extent over every state, with a margin, as a viewBox. */
 export function cropOf(entry: Entry, margin: number) {
-  const [x0, y0, x1, y1] = entry.box, m = Math.max(x1 - x0, y1 - y0) * margin;
+  const [x0, y0, x1, y1] = boxOf(entry, customOf.get(entry.slug)), m = Math.max(x1 - x0, y1 - y0) * margin;
   return [x0 - m, y0 - m, x1 - x0 + 2 * m, y1 - y0 + 2 * m].map((v) => Math.round(v * 10) / 10) as [number, number, number, number];
 }
 
@@ -117,7 +118,7 @@ export function cropOf(entry: Entry, margin: number) {
  * centred. With a background the theme's is painted first; without one the frame stays transparent.
  */
 export async function drawScene(ctx: CanvasRenderingContext2D, scene: Scene, entry: Entry, theme: Theme, safe: number, background: boolean) {
-  const W = ctx.canvas.width, H = ctx.canvas.height, [x0, y0, x1, y1] = entry.box;
+  const W = ctx.canvas.width, H = ctx.canvas.height, [x0, y0, x1, y1] = boxOf(entry, customOf.get(entry.slug));
   const k = (Math.min(W, H) * safe) / Math.max(x1 - x0, y1 - y0);
   const img = new Image();
   img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(rasterSvg(scene, 400 * k, 320 * k));
@@ -133,6 +134,12 @@ export async function drawScene(ctx: CanvasRenderingContext2D, scene: Scene, ent
  */
 export function demoOf(entry: Entry) {
   const LEAD = 0.6, TAIL = 2, seconds = entry.seconds ?? 8;
+  if (entry.repeat) {
+    // one step per hover: hover, leave, hover again … and one more hover that resets it, so the loop ends at rest
+    const at = entry.targets[0].at, n = entry.repeat.length + 1, dwell = (seconds - LEAD - TAIL) / n;
+    const script: { t: number; at?: [number, number] }[] = Array.from({ length: n }, (_, i) => [{ t: LEAD + i * dwell, at }, { t: LEAD + (i + 0.55) * dwell }]).flat();
+    return { seconds, script };
+  }
   const stops = entry.targets.map((t) => t.at);
   if (entry.returnTo) stops.push(entry.targets.find((t) => t.label === entry.returnTo)!.at);
   const dwell = (seconds - LEAD - TAIL) / stops.length;

@@ -87,7 +87,7 @@ See the [component documentation](Training%20Capacity/README.md) for the export 
 
 ## Line Illustration
 
-A study built on [`@lucasmarkes/hairline`](https://hairline.lucasmarkes.com): isometric line figures that respond to the pointer. Currently a gallery of all twenty-seven figures.
+A study built on [`@lucasmarkes/hairline`](https://hairline.lucasmarkes.com): isometric line figures that respond to the pointer. Ten Marketing figures live in `figures/` and ten Fintech figures in `fintech/`, one folder each.
 
 ```sh
 cd "Line Illustration"
@@ -102,7 +102,7 @@ See the [component documentation](Line%20Illustration/README.md).
 
 ## Isometric Marketing Kit
 
-A website for the ten line illustrations. They run live in a gallery, each opens on its own page with its intensity slider, and each downloads as a self-contained React component (`.jsx`, React only) or as a 1080 × 1080, 60 fps MP4 demo loop rendered in the browser. Dark and light themes share one set of colour tokens with the illustrations.
+Compo, a website for code components; its first section, Illustrations, holds twenty line illustrations in two tabs, Marketing and Fintech (`/illustrations/marketing`, `/illustrations/fintech`). They run live in a gallery, grey at rest with only the hovered part highlighted, and each opens on its own page (`/illustrations/fintech/pneumatic-tube`), with no status labels. A Request modal in the header emails what visitors want drawn next through Resend. Each downloads as a self-contained React component (`.jsx`, React only), a 1080 × 1080, 60 fps MP4 demo loop, SVG states, a PNG, a GIF, or a transparent WebM or PNG sequence, all rendered in the browser. It deploys on Vercel from `github.com/fahmiauliya/Compo`. Dark and light themes share one set of colour tokens with the illustrations.
 
 ```sh
 cd "Isometric Marketing Kit"
@@ -110,7 +110,7 @@ npm ci
 npm run dev
 ```
 
-Preview: http://localhost:5190/
+Preview: http://localhost:5190/illustrations
 
 See the [component documentation](Isometric%20Marketing%20Kit/README.md).
 

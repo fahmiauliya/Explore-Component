@@ -135,7 +135,7 @@ function mount({ stage, svg, read }, value) {
     glasses.forEach((gl, i) => {
       gl.vol.t = REST[i] + (k < 0 ? 0 : i === k ? shift : -shift / (2 * (N - 1)));
       valves[i].turn.t = i === k ? 1 : 0;
-      gl.edge.classList.toggle("hi", i === k); gl.level.classList.toggle("hi", k < 0 ? i === 1 : i === k);
+      gl.edge.classList.toggle("hi", i === k); gl.level.classList.toggle("hi", i === k);
     });
     tankVol.t = TANK.rest - (k < 0 ? 0 : (shift / 2) * (gi / ti));
     read.textContent = k < 0 ? "rest" : `channel ${k + 1}`;

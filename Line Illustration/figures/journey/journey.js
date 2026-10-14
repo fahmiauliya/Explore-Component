@@ -2,7 +2,7 @@
  * Journey: a paper map folded in three equal panels, zig-zag, lying on a small plate. One smooth route runs across
  * all three panels and curls back toward its start; five dots sit on it (discover, consider, buy, use, return) and a
  * map pin stands on it. Hover a dot: the pin travels along the route to it, forward or back; the route behind the
- * pin turns solid and bright, the route ahead stays dashed and dim, and the dot brightens. On leave the pin stays.
+ * pin turns solid, the route ahead stays dashed and dim, and the dot brightens. On leave the pin stays.
  *
  * The route is drawn in the unfolded map and carried onto each panel by that panel's own affine map, split exactly
  * at the folds, so it is one continuous curve lying on the paper. Hit areas are the five dots, which never move.
@@ -98,12 +98,12 @@ function mount({ stage, svg, read }, value) {
   const upTo = ({ j, t }) => route.slice(0, j).map((r, i) => curve(r.w, i === 0)).join("") + curve(split(route[j].w, t)[0], j === 0);
 
   // back to front: the plate, the three panels (all face the camera, so none hides another), the dim dashed route,
-  // the bright travelled route over it, the dots, the pin
+  // the solid travelled route over it, the dots, the pin
   const g = mk("g", {}, svg);
   box(PLATE.hx, PLATE.hy, PLATE.r, 0, Z0).forEach((d, i) => path(g, d, i ? "nf sil" : "sil"));
   [0, 1, 2].forEach((p) => path(g, [[XS[p], -HALF, ZS[p]], [XS[p + 1], -HALF, ZS[p + 1]], [XS[p + 1], HALF, ZS[p + 1]], [XS[p], HALF, ZS[p]]].map(([x, y, z], i) => `${i ? "L" : "M"}${pt([x, y, Z0 + z])}`).join("") + "Z"));
   path(g, route.map((r, i) => curve(r.w, i === 0)).join(""), "nf dash");
-  const trail = path(g, "", "nf hi");
+  const trail = path(g, "", "nf");
   const dots = DOTS.map((q) => { const p = panelOf(q[0]); return { el: path(g, arc(onPanel(p, q), across(p), EY, DOT, 0, 4 * Q, true) + "Z", "dot m"), at: P(...onPanel(p, q)) }; });
   const pin = mk("g", {}, g);
 

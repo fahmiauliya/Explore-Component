@@ -121,7 +121,7 @@ function mount({ stage, svg, read }, value) {
   mk("path", { d: bell, class: "sil" }, g);
   // the mouth faces the viewer: the near half of its rim (the far half is the outline), and the lip's opening
   mk("path", { d: ring(MOUTH, RM, m0, m1, true), class: "nf" }, g);
-  const lip = mk("path", { d: offset(P(...W(MOUTH, 0, 0)), RM - LIP / 2, -(LIP / 2) * (TUBE / (RW / 2)), 0, 2 * Math.PI), class: "nf hi" }, g);
+  mk("path", { d: offset(P(...W(MOUTH, 0, 0)), RM - LIP / 2, -(LIP / 2) * (TUBE / (RW / 2)), 0, 2 * Math.PI), class: "nf" }, g);
 
   // each ring one path, filled with the plate: its outer edge, and its inner edge wound the other way
   const layer = mk("g", {}, g);
@@ -150,7 +150,6 @@ function mount({ stage, svg, read }, value) {
     if (on !== lit) {
       lit = on;
       ringsOut.forEach((rg, i) => rg.band.classList.toggle("hi", i === on));
-      lip.classList.toggle("hi", on < 0); // at rest the lip is bright: where the sound starts
     }
     // nearer rings paint later: coaxial rings cross with the one farther along the axis in front
     const sorted = ringsOut.slice().sort((a, b) => a.last - b.last), key = sorted.map((rg) => ringsOut.indexOf(rg)).join();

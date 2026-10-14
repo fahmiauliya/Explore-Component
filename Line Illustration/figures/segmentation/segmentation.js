@@ -102,8 +102,7 @@ function mount({ stage, svg, read }, value) {
     });
     START.forEach((s, j) => { const phi = al + s, m = (HUB + RIN) / 2;
       walls[j].replaceChildren(); box(m * Math.cos(phi), m * Math.sin(phi), (RIN - HUB) / 2, T / 2, 0.5, phi, FLOOR, ZT).forEach((d, i) => mk("path", { d, class: i ? "nf sil" : "sil" }, walls[j])); });
-    const hc = lit < 0 ? "hi" : "sil";
-    hub.replaceChildren(); mk("path", { d: cyl([0, 0, FLOOR], HUB, [0, 0, ZT], HUB), class: hc }, hub); mk("path", { d: arc([0, 0, ZT], EX, EY, HUB, FR, FR + 2 * Q, true), class: `nf ${hc}` }, hub);
+    hub.replaceChildren(); mk("path", { d: cyl([0, 0, FLOOR], HUB, [0, 0, ZT], HUB), class: "sil" }, hub); mk("path", { d: arc([0, 0, ZT], EX, EY, HUB, FR, FR + 2 * Q, true), class: "nf sil" }, hub);
     // order: nodes 0-3 compartments, 4-7 walls, 8 hub. A wall is a vertical half-plane through the centre, so the side
     // the camera is on says which of its two compartments is in front; the hub hides the ends of the back walls only.
     const nodes = [...comps.map((c) => c.g), ...walls, hub], before = nodes.map(() => []);

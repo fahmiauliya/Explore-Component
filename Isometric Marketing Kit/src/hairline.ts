@@ -1,4 +1,5 @@
 import kernelSource from './vendor/hairline-kernel.js?raw';
+import { FIGURE_CSS } from './tokens';
 
 export type Read = { textContent: string };
 export type Handle = { set: (value: number) => void; destroy: () => void };
@@ -34,11 +35,19 @@ export function valueAt(range: [number, number, number], i: number) {
 }
 
 /** Mounts a figure into a host element the way the bench does: data-hairline, a 400 × 320 svg and a read-out. */
-export function mountFigure(HL: Kernel, host: HTMLElement, figure: Figure, value: number, onRead: (text: string) => void): Handle {
+/** `label` names it for screen readers ("Funnel illustration: conversion"); without one, the figure's own sentence. */
+export function mountFigure(HL: Kernel, host: HTMLElement, figure: Figure, value: number, onRead: (text: string) => void, label = figure.means): Handle {
   HL.inject(host.ownerDocument);
+  const doc = host.ownerDocument;
+  if (!doc.querySelector('style[data-figure-css]')) {
+    const style = doc.createElement('style');
+    style.setAttribute('data-figure-css', '');
+    style.textContent = FIGURE_CSS;
+    doc.head.append(style);
+  }
   host.setAttribute('data-hairline', figure.name);
   host.setAttribute('role', 'img');
-  host.setAttribute('aria-label', figure.means);
+  host.setAttribute('aria-label', label);
   const svg = HL.mk('svg', { viewBox: '0 0 400 320', 'aria-hidden': 'true' }, host) as SVGSVGElement;
   let text = '';
   const read: Read = {

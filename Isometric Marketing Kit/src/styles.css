@@ -3,7 +3,10 @@
   color-scheme: dark;
   --bg: #0A0B0D; --surface: #0F1013; --border: #1F2125; --dim: #3A3D42; --mid: #52565C; --stroke: #6B6F76;
   --hi: #F2F3F5; --text: #E6E7E9; --muted: #8A8E95;
-  --tint: #3A3D42;
+  /* soft tint fills: between the background and the darkest line, never a solid block */
+  --tint: #1A1C1F;
+  /* form errors only */
+  --danger: #F07A6F;
 }
 :root[data-theme="light"] {
   color-scheme: light;
@@ -11,6 +14,7 @@
   --hi: #111214; --text: #17181A; --muted: #6B6D6A;
   /* soft tint fills (the spotlight's cone, the glasses' liquid): close to the background, always lighter than any line */
   --tint: #EEEEEB;
+  --danger: #B93B2E;
 }
 :root {
   /* the illustrations fill their solid parts with the cell's own background, so hidden lines stay hidden */
@@ -24,7 +28,8 @@
 @media (max-width: 1023px) { :root { --margin: 32px; } }
 @media (max-width: 639px) { :root { --margin: 16px; } }
 [data-hairline] {
-  --hairline-plate: var(--plate); --hairline-lo: var(--dim); --hairline-mid: var(--mid); --hairline-edge: var(--stroke); --hairline-hi: var(--hi);
+  /* one grey for every line at rest; only the part being interacted with turns --hi */
+  --hairline-tint: var(--tint); --hairline-plate: var(--plate); --hairline-lo: var(--stroke); --hairline-mid: var(--stroke); --hairline-edge: var(--stroke); --hairline-hi: var(--hi);
   --hairline-stroke: 1; /* 1px at every size: the kernel's strokes do not scale */
 }
 
@@ -47,17 +52,14 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline: 1px solid 
 .row { width: 100%; max-width: 1440px; margin: 0 auto; padding: 0 var(--margin); }
 
 /* the theme crossfades: strokes keep the kernel's 260 ms, fills follow over 200 ms; nothing restarts */
-[data-hairline] > svg :is(path, polygon, ellipse, line) { transition: stroke 260ms cubic-bezier(0.5, 0, 0.1, 1), fill var(--fade); }
-[data-hairline] > svg .dot.off { fill: var(--tint); }
+[data-hairline] > svg :is(path, polygon, ellipse, line) { transition: stroke 200ms cubic-bezier(0.5, 0, 0.1, 1), fill var(--fade); }
 
 /* header: 56px, the name and the count on the left, the theme on the right; the same on every page */
 .bar { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--border); transition: background-color var(--fade), border-color var(--fade); }
 .bar { height: 56px; }
 .bar .row { display: flex; align-items: center; gap: 16px; height: 100%; }
 .brand { font-size: 14px; font-weight: 500; white-space: nowrap; }
-.count { white-space: nowrap; }
-@media (max-width: 479px) { .count { display: none; } }
-.toggle { margin-left: auto; display: flex; border: 1px solid var(--border); transition: border-color var(--fade); }
+.toggle { margin-left: 16px; display: flex; border: 1px solid var(--border); transition: border-color var(--fade); }
 .toggle button { height: 32px; padding: 0 16px; border: 0; background: transparent; color: var(--muted); cursor: pointer; transition: background-color var(--fade), color var(--fade); }
 .toggle button + button { border-left: 1px solid var(--border); }
 .toggle button[aria-pressed="true"] { background: var(--surface); color: var(--text); }
@@ -68,21 +70,36 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline: 1px solid 
 .intro p { max-width: 440px; font-size: 14px; }
 
 /* the gallery: 4:5 cells sharing hairlines, like a table */
-.grid { list-style: none; margin: 0 0 64px; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 1px solid var(--border); border-left: 1px solid var(--border); transition: border-color var(--fade); }
+/* the category tabs above the grid: mono labels with their counts; the current one in the text colour, underlined in the highlight */
+.tabs { display: flex; gap: 24px; margin-bottom: 16px; }
+/* the header's section nav (Illustrations, and later more): the same mono tabs */
+.sections { display: flex; gap: 24px; margin-left: 24px; }
+.sections .tab { padding: 4px 0 5px; }
+.tab { padding: 4px 0 6px; border-bottom: 1px solid transparent; color: var(--muted); transition: color var(--fade), border-color var(--fade); }
+.tab:hover { color: var(--text); }
+.tab[aria-current="page"] { color: var(--text); border-bottom-color: var(--hi); }
+.tab:focus-visible { outline: 1px solid var(--hi); outline-offset: 4px; }
+.tab .muted { margin-left: 4px; }
+/* switching tabs: the grid fades out, swaps, and fades back in (about 200 ms in all) */
+.grid[data-fading] { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .grid { transition: border-color var(--fade); } }
+.grid { list-style: none; margin: 0 0 96px; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 1px solid var(--border); border-left: 1px solid var(--border); transition: opacity 100ms ease, border-color var(--fade); }
 @media (max-width: 1279px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 639px) { .grid { grid-template-columns: minmax(0, 1fr); } }
 .grid > li { min-width: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); transition: border-color var(--fade); }
 .cell { position: relative; display: block; aspect-ratio: 4 / 5; overflow: hidden; container-type: inline-size; background: var(--plate); transition: background-color var(--fade); }
-.cell:hover, .cell:focus-visible { --plate: var(--surface); }
+.grid > li:hover > .cell, .cell:focus-visible { --plate: var(--surface); }
 .cell:focus-visible { outline: 1px solid var(--hi); outline-offset: -1px; }
 .corner { position: absolute; z-index: 1; pointer-events: none; }
 .tl { top: 24px; left: 24px; }
-.tr { top: 24px; right: 24px; color: var(--text); font-variant-numeric: tabular-nums; }
 .bl { bottom: 24px; left: 24px; }
 .br { bottom: 24px; right: 24px; }
 .name { font-size: 14px; font-weight: 500; line-height: 16px; }
-.open, .status { opacity: 0; transition: opacity var(--fade); }
-.cell:hover .open, .cell:focus-visible .open, .cell:hover .status, .cell:focus-visible .status, .cell[data-active] .status { opacity: 1; }
+/* "Open →" shows on hover; clicks pass through to the cell's link */
+.grid > li { position: relative; }
+.open { opacity: 0; transition: opacity var(--fade); }
+.grid > li:hover .open, .grid > li:focus-within .open { opacity: 1; }
+@media (hover: none) { .open { opacity: 1; } }
 
 /* the drawing in its cell: placed by its measured extent (see Illustration.tsx) */
 .plane { position: absolute; }
@@ -132,4 +149,172 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline: 1px solid 
 
 .foot { border-top: 1px solid var(--border); transition: border-color var(--fade); }
 .foot .row { padding-top: 32px; padding-bottom: 32px; }
+
+.link { padding: 0; border: 0; background: none; font: inherit; color: var(--muted); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.link:hover { color: var(--text); }
+.trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+/* header: "Request" opens the request modal; it sits before the theme toggle */
+.request-button { margin-left: auto; padding: 4px 0 5px; border: 0; border-bottom: 1px solid transparent; background: none; color: var(--muted); cursor: pointer; transition: color var(--fade), border-color var(--fade); }
+.request-button:focus-visible { color: var(--text); border-bottom-color: var(--hi); }
+@media (hover: hover) { .request-button:hover { color: var(--text); border-bottom-color: var(--hi); } }
+.request-button:focus-visible { outline: 1px solid var(--hi); outline-offset: 2px; }
+@media (max-width: 399px) { .sections { display: none; } }
+@media (max-width: 479px) { .toggle { margin-left: 12px; } .toggle button { padding: 0 8px; } .bar .row { gap: 12px; } }
+
+/* the request modal: a centred dialog over a dimmed page; a bottom sheet below 640px */
+.rq-layer { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; }
+.rq-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.4); opacity: 0; transition: opacity var(--rq-out) ease; }
+:root[data-theme="dark"] .rq-backdrop { background: rgba(0, 0, 0, 0.6); }
+.rq-dialog { position: relative; width: 480px; max-width: calc(100% - 32px); padding: 32px; background: var(--bg); border: 1px solid var(--border);
+  opacity: 0; transform: scale(0.98); transition: opacity var(--rq-out) ease, transform var(--rq-out) ease; }
+.rq-layer.shown .rq-backdrop { opacity: 1; transition-duration: var(--rq-in); }
+.rq-layer.shown .rq-dialog { opacity: 1; transform: none; transition-duration: var(--rq-in); }
+.rq-dialog h2 { font-size: 16px; font-weight: 500; line-height: 24px; margin: 0 40px 4px 0; }
+.rq-dialog > p { font-size: 14px; margin: 0 0 20px; }
+.rq-thanks { color: var(--text); padding: 12px 0 4px; }
+.rq-close { position: absolute; top: 24px; right: 24px; width: 32px; height: 32px; padding: 0; border: 0; background: none; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; transition: color var(--fade); }
+.rq-close:hover { color: var(--text); }
+.rq-form { display: flex; flex-direction: column; gap: 4px; }
+.rq-tag { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 2px 0 8px; margin-bottom: 8px; font-size: 12px; letter-spacing: 0.06em; border: 1px solid var(--border); color: var(--text); }
+.rq-tag button { width: 20px; height: 20px; padding: 0; border: 0; background: none; color: var(--muted); font: 14px/1 var(--sans); cursor: pointer; }
+.rq-tag button:hover { color: var(--text); }
+.rq-field { display: flex; flex-direction: column; gap: 4px; }
+.rq-field textarea, .rq-field input { width: 100%; padding: 11px 12px; font: inherit; font-size: 14px; line-height: 20px; color: var(--text); background: var(--bg);
+  border: 1px solid var(--border); outline: none; appearance: none; transition: border-color var(--fade), background-color var(--fade); }
+.rq-field textarea { resize: none; display: block; }
+.rq-field input { height: 44px; }
+.rq-field ::placeholder { color: var(--muted); }
+.rq-field textarea:hover, .rq-field input:hover { border-color: var(--stroke); }
+.rq-field textarea:focus-visible, .rq-field input:focus-visible { border-color: var(--hi); }
+.rq-field.invalid textarea, .rq-field.invalid input { border-color: var(--danger); }
+.rq-error { min-height: 16px; margin: 0; font-size: 12px; line-height: 16px; color: var(--danger); }
+.button.rq-send { width: 100%; height: 44px; margin-top: 8px; text-align: center; font-weight: 500; background: var(--hi); color: var(--bg); border-color: var(--hi); }
+.button.rq-send:hover:not(:disabled) { background: var(--text); border-color: var(--text); color: var(--bg); }
+.button.rq-send:disabled { color: var(--bg); opacity: 0.6; }
+.rq-failed { margin-top: 6px; }
+.rq-confirm { padding: 16px; border: 1px solid var(--border); background: var(--surface); }
+.rq-confirm p { margin: 0 0 12px; font-size: 14px; }
+.rq-confirm-actions { display: flex; gap: 8px; }
+.button.rq-small { width: auto; height: 36px; padding: 0 14px; font-size: 14px; }
+.button.primary-ish { border-color: var(--stroke); }
+/* every control in the dialog: a visible 1px highlight ring, 2px out */
+.rq-dialog button:focus-visible, .rq-dialog textarea:focus-visible, .rq-dialog input:focus-visible { outline: 1px solid var(--hi); outline-offset: 2px; }
+@media (max-width: 639px) {
+  .rq-layer { place-items: end stretch; padding: 0; }
+  .rq-dialog { width: 100%; max-width: none; border-width: 1px 0 0; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); transform: translateY(100%); }
+  .rq-layer.shown .rq-dialog { transform: none; }
+  .rq-close { top: 16px; right: 8px; }
+}
+@media (prefers-reduced-motion: reduce) { .rq-dialog, .rq-layer.shown .rq-dialog { transform: none !important; } .rq-backdrop, .rq-dialog { transition-property: opacity !important; transition-duration: var(--rq-in) !important; } }
+
+/* links in the site's mono voice, underlined by a hairline */
+.more { display: inline-block; padding: 4px 0 5px; border-bottom: 1px solid var(--border); transition: border-color var(--fade), color var(--fade); }
+.more:hover { border-bottom-color: var(--hi); }
+.more:focus-visible { outline: 1px solid var(--hi); outline-offset: 4px; }
+
+/* detail: the React download first, the rest folded away */
+.button.primary.block { height: 44px; text-align: center; background: var(--hi); color: var(--bg); border-color: var(--hi); font-weight: 500; }
+.button.primary.block:hover:not(:disabled) { background: var(--text); border-color: var(--text); }
+.button.primary.block:disabled { color: var(--bg); opacity: 0.6; }
+.button.primary.block:focus-visible { outline: 1px solid var(--hi); outline-offset: 3px; }
+.formats summary { display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 2px; cursor: pointer; list-style: none;
+  font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); transition: color var(--fade), border-color var(--fade); }
+.formats summary::-webkit-details-marker { display: none; }
+.formats summary::after { content: "+"; font-size: 14px; }
+.formats[open] summary::after { content: "−"; }
+.formats summary:hover { color: var(--text); }
+.formats summary:focus-visible { outline: 1px solid var(--hi); outline-offset: 2px; }
+.formats .dl-group { padding-top: 8px; }
+.formats .note { margin: 4px 0 0; }
+
+/* detail: "Customize", the figure's own settings (the box's letter) */
+.side .customize { margin-top: 24px; display: flex; flex-direction: column; gap: 12px; }
+.customize h2 { font-size: 11px; line-height: 16px; font-weight: 400; text-transform: uppercase; letter-spacing: 0.08em; margin: 0; }
+.custom-field { display: flex; align-items: center; gap: 12px; font-size: 14px; }
+.custom-field input { width: 40px; height: 40px; padding: 0; text-align: center; font: 500 16px/1 var(--sans); text-transform: uppercase; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 0; outline: none; transition: border-color var(--fade), background-color var(--fade); }
+.custom-field input::placeholder { color: var(--muted); }
+.custom-field input:hover { border-color: var(--stroke); }
+.custom-field input:focus-visible { border-color: var(--hi); }
+.custom-hint { font-size: 12px; }
+/* a text field (the receipt's name, its total): label and counter above, the input across, the hint under */
+.custom-field.wide { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: baseline; }
+.custom-field.wide input { grid-column: 1 / -1; width: 100%; height: 40px; padding: 0 12px; text-align: left; font: 400 14px/20px var(--sans); text-transform: none; }
+.custom-field.wide .custom-hint { grid-column: 1 / -1; }
+.custom-field.wide.short input { width: 96px; text-transform: uppercase; letter-spacing: 0.06em; }
+.custom-count { font-variant-numeric: tabular-nums; text-transform: none; letter-spacing: 0; }
+/* the jars' budget: a row per jar (number, label, percent), then the total and Reset */
+.custom-field.jars { display: flex; flex-direction: column; gap: 8px; align-self: stretch; }
+.jar-row { display: grid; grid-template-columns: 16px minmax(0, 1fr) 84px; gap: 8px; align-items: center; }
+.jar-row input { height: 40px; padding: 0 10px; font: 400 14px/20px var(--sans); color: var(--text); background: var(--bg); border: 1px solid var(--border); outline: none; transition: border-color var(--fade); width: 100%; }
+.jar-row .jar-label { text-transform: uppercase; letter-spacing: 0.06em; }
+.jar-row input:hover { border-color: var(--stroke); }
+.jar-row input:focus-visible { border-color: var(--hi); outline: 1px solid var(--hi); outline-offset: 2px; }
+.jar-pct { display: flex; align-items: center; gap: 6px; }
+.jar-pct input { text-align: right; font-variant-numeric: tabular-nums; }
+.jar-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.jar-total { font-size: 12px; }
+.jar-total.bad { color: var(--danger); }
+/* a segmented control (the stamp's mark): one row of square mono options, the chosen one filled */
+.custom-field.segment-row { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; align-self: stretch; flex-wrap: wrap; }
+.segment { display: inline-flex; border: 1px solid var(--border); transition: border-color var(--fade); }
+.segment button { height: 32px; padding: 0 14px; border: 0; background: var(--bg); color: var(--muted); cursor: pointer; transition: background-color var(--fade), color var(--fade); }
+.segment button + button { border-left: 1px solid var(--border); }
+.segment button:hover { color: var(--text); }
+.segment button[aria-checked="true"] { background: var(--surface); color: var(--text); box-shadow: inset 0 -1px 0 var(--hi); }
+.segment button:focus-visible { outline: 1px solid var(--hi); outline-offset: 2px; position: relative; z-index: 1; }
+/* a stepper (the bridge's installments): – value +, square buttons, the value focusable for the arrow keys */
+.custom-field.stepper-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; align-self: stretch; }
+.stepper { display: inline-flex; align-items: stretch; border: 1px solid var(--border); transition: border-color var(--fade); }
+.stepper button { width: 36px; height: 36px; padding: 0; border: 0; background: var(--bg); color: var(--text); font: 400 16px/1 var(--sans); cursor: pointer; transition: background-color var(--fade), color var(--fade); }
+.stepper button:hover:not(:disabled) { background: var(--surface); }
+.stepper button:disabled { color: var(--muted); opacity: 0.5; cursor: default; }
+.stepper-value { min-width: 40px; display: grid; place-items: center; font: 500 14px/1 var(--sans); font-variant-numeric: tabular-nums; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+.stepper button:focus-visible, .stepper-value:focus-visible { outline: 1px solid var(--hi); outline-offset: 2px; position: relative; z-index: 1; }
+/* a switch (show the logo): its label, then a track whose knob slides over when it's on; square, like every corner here */
+.custom-field.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; align-self: stretch; }
+.switch { position: relative; width: 32px; height: 18px; padding: 0; border: 1px solid var(--stroke); background: var(--bg); cursor: pointer;
+  transition: background-color var(--fade), border-color var(--fade); }
+.switch .knob { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; background: var(--stroke); transition: transform var(--fade), background-color var(--fade); }
+.switch[aria-checked="true"] { background: var(--hi); border-color: var(--hi); }
+.switch[aria-checked="true"] .knob { transform: translateX(14px); background: var(--bg); }
+.switch:hover { border-color: var(--text); }
+.switch:focus-visible { outline: 1px solid var(--hi); outline-offset: 3px; }
+/* the logo: a preview of the line logo, Upload SVG (a file input under a button) and Reset */
+.custom-field.logo { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.logo-row { display: flex; align-items: center; gap: 12px; }
+.logo-preview { width: 40px; height: 40px; border: 1px solid var(--border); background: var(--bg); display: grid; place-items: center; transition: border-color var(--fade); }
+.logo-preview svg { width: 30px; height: 30px; overflow: visible; }
+.logo-preview path { fill: none; stroke: var(--text); stroke-width: 1; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+.button.upload { display: inline-flex; align-items: center; cursor: pointer; font-size: 14px; }
+.button.upload:focus-within { outline: 1px solid var(--hi); outline-offset: 2px; }
+
+/* detail: "Use it", a snippet to copy and the props */
+.use { margin-top: 24px; display: flex; flex-direction: column; gap: 8px; }
+.use h2 { font-size: 11px; line-height: 16px; font-weight: 400; text-transform: uppercase; letter-spacing: 0.08em; margin: 0; }
+.snippet { position: relative; border: 1px solid var(--border); background: var(--surface); transition: border-color var(--fade), background-color var(--fade); }
+.use-head { display: flex; align-items: center; justify-content: space-between; }
+.snippet pre { margin: 0; padding: 12px; overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 18px; color: var(--text); }
+.copy-code { height: 28px; padding: 0 10px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted); background: var(--bg); border: 1px solid var(--border); cursor: pointer; transition: color var(--fade), border-color var(--fade); }
+.copy-code:hover { color: var(--text); border-color: var(--stroke); }
+.copy-code:focus-visible { outline: 1px solid var(--hi); outline-offset: 2px; }
+.props { width: 100%; border-collapse: collapse; font-size: 12px; line-height: 18px; }
+.props th, .props td { text-align: left; padding: 8px 0; border-bottom: 1px solid var(--border); font-weight: 400; transition: border-color var(--fade); }
+.props th { color: var(--text); width: 40%; }
+/* prop names and types are code: their real case, never the mono labels' capitals */
+.props .mono, .snippet code { text-transform: none; letter-spacing: 0; }
+
+/* 404 */
+.missing { padding-top: 96px; padding-bottom: 160px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.missing h1 { font-size: 16px; font-weight: 500; }
+.missing p { font-size: 14px; margin: 0; }
+.missing .more { margin-top: 16px; }
+
+.intro .license { font-size: 13px; }
+.foot a { color: inherit; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border); }
+.foot a:hover { color: var(--text); text-decoration-color: var(--hi); }
+
 @media (prefers-reduced-motion: reduce) { * { transition-duration: 0ms !important; } }
