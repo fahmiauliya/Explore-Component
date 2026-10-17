@@ -1,8 +1,11 @@
 // Takes a screenshot of every site in src/data/references.js and saves it as
 // public/previews/<slug>.webp (640 x 400). Re-running only captures new links.
 //
-//   npm run previews          capture missing ones
-//   npm run previews:force    capture everything again
+//   npm run previews                      capture missing ones
+//   npm run previews:force                capture everything again
+//   npm run previews -- --only lapa-ninja,saaspo-com   only these slugs (implies --force)
+//   npm run previews -- --headed          use your installed Google Chrome in a visible
+//                                         window; many bot checks (Cloudflare) pass this way
 //
 // Needs Chromium once: npx playwright install chromium
 
@@ -16,10 +19,18 @@ import { getSlug } from '../src/lib/references.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = resolve(ROOT, 'public/previews');
-const FORCE = process.argv.includes('--force');
+const HEADED = process.argv.includes('--headed');
+const onlyArg = process.argv.find((a) => a.startsWith('--only'));
+const ONLY = onlyArg ? (onlyArg.includes('=') ? onlyArg.split('=')[1] : process.argv[process.argv.indexOf(onlyArg) + 1] || '').split(',').filter(Boolean) : null;
+const FORCE = process.argv.includes('--force') || Boolean(ONLY);
+
+// Ad and tracker hosts are blocked so banners don't end up in the screenshots.
+const AD_HOSTS = /doubleclick|googlesyndication|adsystem|adservice|googleads|adnxs|taboola|outbrain|carbonads|buysellads|ethicalads|pagead|criteo|rubiconproject|pubmatic|openx|adroll|media\.net/i;
+// Text that means we are looking at a bot check instead of the site.
+const CHALLENGE = /just a moment|security verification|not a bot|checking your browser|verifying/i;
 
 const CONCURRENCY = 3;
-const SITE_TIMEOUT = 30_000;
+const SITE_TIMEOUT = HEADED ? 60_000 : 30_000;
 const VIEWPORT = { width: 1280, height: 800 };
 const OUTPUT = { width: 640, height: 400 };
 const USER_AGENT =
@@ -33,6 +44,7 @@ for (const tab of tabs) {
     for (const item of section.items) {
       if (seen.has(item.url)) continue;
       seen.add(item.url);
+      if (ONLY && !ONLY.includes(getSlug(item.url))) continue;
       items.push(item);
     }
   }
@@ -50,9 +62,15 @@ async function capture(browser, item) {
     return;
   }
 
-  const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1, userAgent: USER_AGENT });
+  const context = await browser.newContext({
+    viewport: VIEWPORT,
+    deviceScaleFactor: 1,
+    locale: 'en-US',
+    ...(HEADED ? {} : { userAgent: USER_AGENT }),
+  });
   const page = await context.newPage();
   page.setDefaultTimeout(SITE_TIMEOUT);
+  await page.route(/.*/, (route) => (AD_HOSTS.test(route.request().url()) ? route.abort() : route.continue()));
 
   // Whole-site timeout so a slow page never blocks the run.
   const timer = new Promise((_, reject) => setTimeout(() => reject(new Error('timed out after 30s')), SITE_TIMEOUT));
@@ -63,6 +81,13 @@ async function capture(browser, item) {
         await page.goto(item.url, { waitUntil: 'load', timeout: SITE_TIMEOUT });
         await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
         await page.waitForTimeout(1500);
+        // Give a bot check a few seconds to clear; refuse to save the challenge page itself.
+        for (let i = 0; i < 8; i += 1) {
+          const text = await page.evaluate(() => `${document.title} ${document.body?.innerText.slice(0, 400) || ''}`);
+          if (!CHALLENGE.test(text)) break;
+          if (i === 7) throw new Error('blocked by a bot check (try --headed, or add your own image)');
+          await page.waitForTimeout(2500);
+        }
         const png = await page.screenshot({ type: 'png', fullPage: false });
         await sharp(png).resize(OUTPUT.width, OUTPUT.height, { fit: 'cover' }).webp({ quality: 75 }).toFile(file);
       })(),
@@ -79,7 +104,11 @@ async function capture(browser, item) {
 }
 
 async function main() {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch(
+    HEADED
+      ? { channel: 'chrome', headless: false, args: ['--disable-blink-features=AutomationControlled'] }
+      : { headless: true }
+  );
   const queue = [...items];
 
   // Run a few sites at a time.

@@ -35,10 +35,13 @@ Each card shows a screenshot of its site. The images are made automatically.
 
 The file name is the URL without `https://` and `www.`, with everything that isn't a letter or digit turned into `-`. Example: `https://www.awwwards.com` becomes `awwwards-com.webp`.
 
-Some sites show cookie banners or block automatic browsers. For those you can:
+Some sites block automatic browsers with a bot check. The script refuses to save the check page and reports `✗ name: blocked by a bot check`. For those:
 
-- drop your own 16:10 image in `public/previews/` with the same file name, or
-- set `image: '/previews/my-image.jpg'` on the item in the data file.
+1. Try again with your installed Google Chrome in a visible window, which passes most checks:
+   `npm run previews -- --headed --only lapa-ninja,saaspo-com` (slugs are the file names without `.webp`).
+2. If a site still blocks, drop your own 16:10 image in `public/previews/` with the same file name, or set `image: '/previews/my-image.jpg'` on the item in the data file. A screenshot of the page in the Wayback Machine works well for this.
+
+Ad and tracker requests are blocked during capture so banners don't end up in the images.
 
 If a local image is missing, the card falls back to the thum.io screenshot service (free, limited to about 1,000 loads a month), and after that to a gray placeholder with the favicon and domain. The step that worked is remembered per item, so failed images are not requested again.
 
