@@ -9,6 +9,7 @@ import Footer from './components/Footer.jsx';
 import SearchDialog from './components/SearchDialog.jsx';
 import RandomDialog from './components/RandomDialog.jsx';
 import RequestDialog from './components/RequestDialog.jsx';
+import VisualsCanvas from './components/canvas/VisualsCanvas.jsx';
 
 const allItems = flattenItems();
 
@@ -71,7 +72,9 @@ export default function App() {
         setDialog(null);
         return;
       }
-      if (!mod && !e.altKey && /^[1-4]$/.test(e.key) && !typing && !dialog) {
+      // 1–4 switch tabs, except while typing or while the Visuals canvas has focus.
+      const inCanvas = Boolean(e.target?.closest?.('[data-canvas]'));
+      if (!mod && !e.altKey && /^[1-4]$/.test(e.key) && !typing && !dialog && !inCanvas) {
         const next = tabs[Number(e.key) - 1];
         if (next) selectTab(next.id);
       }
@@ -102,11 +105,15 @@ export default function App() {
         <div ref={contentRef} className="content-anchor" />
         <Tabs activeTab={tab.id} onSelectTab={selectTab} />
 
-        <div className="content container--wide">
-          {tab.sections.map((section) => (
-            <ReferenceSection key={section.id} section={section} items={itemsBySection.get(section.id) || []} />
-          ))}
-        </div>
+        {tab.id === 'visuals' ? (
+          <VisualsCanvas />
+        ) : (
+          <div className="content container--wide">
+            {tab.sections.map((section) => (
+              <ReferenceSection key={section.id} section={section} items={itemsBySection.get(section.id) || []} />
+            ))}
+          </div>
+        )}
       </main>
 
       <Footer />

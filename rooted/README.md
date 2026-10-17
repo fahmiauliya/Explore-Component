@@ -47,6 +47,16 @@ If a local image is missing, the card falls back to the thum.io screenshot servi
 
 Commit the generated images so the live site serves them as normal files.
 
+## The Visuals canvas
+
+The Visuals tab is a free board instead of a grid. Its link cards come from the same data file; the first visit lays them out in one row per section under a label.
+
+- **Move around:** drag empty space, hold Space and drag, or scroll. Pinch or ⌘/Ctrl + scroll to zoom (25–200%). The zoom bar in the top-right has −, +, a snap-to-grid toggle and fit-to-content.
+- **Select:** click, Shift + click, Shift + drag for a box, ⌘/Ctrl + A. Drag to move, corner handles to resize, arrow keys to nudge (Shift for 8px). Hold Alt/Option to drag without snapping.
+- **Add:** "+ Label" (presets or custom text; double-click a label to rename it) and "Upload image" (also drag files onto the board, or paste). Images are scaled to at most 1600px and stored as WebP.
+- **Arrange:** the toolbar at the bottom and the right-click menu offer Edit, Duplicate (⌘D), Open link, Bring to front (⌘]), Send to back (⌘[), Align and Distribute, Lock (⌘L) and Remove. ⌘Z / ⌘⇧Z undo and redo.
+- **Saving:** every change is saved in the visitor's own browser (layout in localStorage, images in IndexedDB). Other people don't see those changes. "Reset canvas" in the right-click menu on empty space restores the default. If the data file gains or loses a Visuals link, the board picks that up on the next load without touching labels or uploaded images.
+
 ## Change the intro text
 
 The three intro lines under the header live in `src/components/Intro.jsx`. The footer text lives in `src/components/Footer.jsx`.
@@ -76,6 +86,7 @@ rooted/
     lib/references.js       helpers (slug, search, random, counts)
     lib/platform.js         ⌘ vs Ctrl labels
     components/             header, intro, tabs, cards, preview image, dialogs, footer
+    components/canvas/      the Visuals board: canvas, items, toolbars, menu, snapping, storage
   scripts/capture-previews.mjs   screenshot script
   public/previews/          generated screenshots
 ```
