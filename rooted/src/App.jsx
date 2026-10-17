@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { tabs } from './data/references.js';
-import { flattenItems, tabFromHash } from './lib/references.js';
+import { flattenItems, tabFromHash, tagLabel, tagSlug } from './lib/references.js';
+import { TagFilterContext } from './components/Card.jsx';
+import { CloseIcon } from './components/Icons.jsx';
 import Header from './components/Header.jsx';
 import Intro from './components/Intro.jsx';
 import Tabs from './components/Tabs.jsx';
@@ -17,6 +19,15 @@ export default function App() {
   // The active tab follows the URL hash (#websites, #components, ...).
   const [tabId, setTabId] = useState(() => tabFromHash(window.location.hash));
   const [dialog, setDialog] = useState(null); // null | 'search' | 'random' | 'request'
+  // Tag filter for the current tab, mirrored in the URL as ?tag=slug.
+  const [tag, setTagState] = useState(() => new URLSearchParams(window.location.search).get('tag') || null);
+  const setTag = useCallback((slug) => {
+    setTagState(slug);
+    const url = new URL(window.location.href);
+    if (slug) url.searchParams.set('tag', slug);
+    else url.searchParams.delete('tag');
+    window.history.replaceState(null, '', url);
+  }, []);
   const contentRef = useRef(null);
 
   const tab = tabs.find((t) => t.id === tabId) || tabs[0];
@@ -42,14 +53,15 @@ export default function App() {
   // Switch tab: update the hash (so back/forward works) and jump to the list
   // if the reader has already scrolled past the intro.
   const selectTab = useCallback((id) => {
+    // eslint-disable-next-line no-use-before-define
     const target = tabs.some((t) => t.id === id) ? id : tabs[0].id;
+    setTag(null);
     if (window.location.hash !== `#${target}`) {
       window.location.hash = target;
     } else {
       setTabId(target);
     }
-    const top = contentRef.current?.getBoundingClientRect().top ?? 0;
-    if (top < 68) contentRef.current.scrollIntoView({ block: 'start' });
+    if (window.scrollY > 0) window.scrollTo({ top: 0 });
   }, []);
 
   // Hash -> state (handles back/forward and direct links).
@@ -76,7 +88,8 @@ export default function App() {
         return;
       }
       if (e.key === 'Escape') {
-        setDialog(null);
+        if (dialog) setDialog(null);
+        else if (tag && !e.target?.closest?.('[data-canvas]')) setTag(null);
         return;
       }
       // 1–4 switch tabs, except while typing or while the Visuals canvas has focus.
@@ -88,7 +101,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [dialog, selectTab]);
+  }, [dialog, selectTab, tag, setTag]);
 
   function goHome() {
     selectTab(tabs[0].id);
@@ -97,8 +110,19 @@ export default function App() {
 
   const closeDialog = () => setDialog(null);
 
+  // Sections of the current tab, filtered by the active tag (empty ones hidden).
+  const sections = tab.sections
+    .map((section) => ({ section, items: (itemsBySection.get(section.id) || []).filter((it) => !tag || (it.tags || []).some((t) => tagSlug(t) === tag)) }))
+    .filter(({ items }) => items.length > 0);
+
+  // Push the page down while the filter chip is shown.
+  useEffect(() => {
+    document.body.classList.toggle('has-filter', Boolean(tag) && !isCanvas);
+    return () => document.body.classList.remove('has-filter');
+  }, [tag, isCanvas]);
+
   return (
-    <>
+    <TagFilterContext.Provider value={{ tag, setTag }}>
       <Header
         onLogo={goHome}
         onOpenSearch={() => setDialog('search')}
@@ -110,15 +134,27 @@ export default function App() {
         {!isCanvas && <Intro onOpenRequest={() => setDialog('request')} />}
 
         <div ref={contentRef} className="content-anchor" />
-        <Tabs activeTab={tab.id} onSelectTab={selectTab} floating={isCanvas} />
+        <Tabs activeTab={tab.id} onSelectTab={selectTab} />
+
+        {tag && !isCanvas && (
+          <div className="tag-chip floating" role="status">
+            <span>
+              Tag: <strong className="tag-chip__name">{tagLabel(tag)}</strong>
+            </span>
+            <button type="button" className="icon-button" onClick={() => setTag(null)} aria-label="Clear tag filter (Esc)" title="Clear filter (Esc)">
+              <CloseIcon width={14} height={14} />
+            </button>
+          </div>
+        )}
 
         {isCanvas ? (
           <VisualsCanvas />
         ) : (
           <div className="content container--wide">
-            {tab.sections.map((section) => (
-              <ReferenceSection key={section.id} section={section} items={itemsBySection.get(section.id) || []} />
+            {sections.map(({ section, items }) => (
+              <ReferenceSection key={section.id} section={section} items={items} />
             ))}
+            {sections.length === 0 && <p className="content__empty">No references with this tag in {tab.label}.</p>}
           </div>
         )}
       </main>
@@ -128,6 +164,6 @@ export default function App() {
       <SearchDialog open={dialog === 'search'} onClose={closeDialog} />
       <RandomDialog open={dialog === 'random'} onClose={closeDialog} />
       <RequestDialog open={dialog === 'request'} onClose={closeDialog} />
-    </>
+    </TagFilterContext.Provider>
   );
 }

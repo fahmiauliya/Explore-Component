@@ -8,7 +8,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), texta
 // header (title + subtitle on the left, close button on the right).
 // `position` is 'top' (search) or 'center'. `flush` removes the panel padding.
 // Esc is handled once, globally, in App.jsx; this only handles the backdrop click.
-export default function Modal({ open, onClose, label, labelledBy, title, subtitle, position = 'center', width = 440, flush = false, children }) {
+export default function Modal({ open, onClose, label, labelledBy, title, subtitle, position = 'center', width = 440, minHeight, flush = false, children }) {
   const panelRef = useRef(null);
   const returnFocusRef = useRef(null);
   const titleId = labelledBy || (title ? `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-title` : undefined);
@@ -51,7 +51,7 @@ export default function Modal({ open, onClose, label, labelledBy, title, subtitl
       <div
         ref={panelRef}
         className={`modal${flush ? ' modal--flush' : ''}`}
-        style={{ maxWidth: width }}
+        style={{ maxWidth: width, minHeight }}
         role="dialog"
         aria-modal="true"
         aria-label={titleId ? undefined : label}

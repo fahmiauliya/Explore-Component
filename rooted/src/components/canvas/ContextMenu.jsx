@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronRightIcon } from '../Icons.jsx';
+import { CheckIcon, ChevronRightIcon } from '../Icons.jsx';
 
 // A white menu at (x, y) in screen pixels. Entries are
 //   { label, icon?, shortcut?, onSelect, disabled?, danger?, checked?, submenu? }  or 'divider'.
@@ -135,8 +135,11 @@ export default function ContextMenu({ x, y, entries, onClose, label = 'Menu', ab
             }}
             onClick={() => activate(entry, i)}
           >
-            <span className="cmenu__icon">{entry.icon ? <entry.icon /> : null}</span>
+            <span className="cmenu__icon">
+              {entry.swatch ? <span className="cmenu__swatch" style={{ background: entry.swatch }} /> : entry.icon ? <entry.icon /> : null}
+            </span>
             <span className="cmenu__label">{entry.label}</span>
+            {entry.selected && <CheckIcon width={14} height={14} />}
             {entry.checked !== undefined && <span className="cmenu__hint">{entry.checked ? 'On' : 'Off'}</span>}
             {entry.shortcut && <span className="cmenu__hint num">{entry.shortcut}</span>}
             {entry.submenu && <ChevronRightIcon width={14} height={14} />}

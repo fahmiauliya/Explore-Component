@@ -2,13 +2,16 @@ import { useRef, useState } from 'react';
 import { ChevronDownIcon, CloseIcon, ImageIcon, LockIcon, PencilIcon, PlusIcon, TrashIcon, UnlockIcon } from '../Icons.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { alignEntries } from './alignEntries.jsx';
+import ColorPopover from './ColorPopover.jsx';
+import { labelColors } from './labelColors.js';
 
 export const LABEL_PRESETS = ['Font', 'Color', 'Image style', 'Illustration style', 'Texture', 'Icon'];
 
 // Bottom-center bar. Shows the add tools, or the selection tools while
 // something is selected (the switch crossfades).
-export default function ToolBar({ selectionCount, canEdit, allLocked, onAddLabel, onUploadFiles, onEdit, onAlign, onToggleLock, onDelete, onClearSelection }) {
+export default function ToolBar({ selectionCount, canEdit, allLocked, labelColor, onPickColor, onAddLabel, onUploadFiles, onEdit, onAlign, onToggleLock, onDelete, onClearSelection }) {
   const [menu, setMenu] = useState(null); // { x, y, kind: 'label' | 'align' }
+  const [colorOpen, setColorOpen] = useState(false);
   const fileRef = useRef(null);
   const labelBtn = useRef(null);
   const alignBtn = useRef(null);
@@ -35,6 +38,14 @@ export default function ToolBar({ selectionCount, canEdit, allLocked, onAddLabel
           <button type="button" className="cbar__btn" onClick={onEdit} disabled={!canEdit} aria-label="Edit" title="Edit">
             <PencilIcon />
           </button>
+          {labelColor !== undefined && (
+            <span className="cbar__color">
+              <button type="button" className="cbar__btn" onClick={() => setColorOpen((o) => !o)} aria-label="Label color" title="Label color" aria-haspopup="dialog" aria-expanded={colorOpen}>
+                <span className="color-dot" style={{ background: labelColors(labelColor).bg }} />
+              </button>
+              {colorOpen && <ColorPopover active={labelColor} onPick={(c) => { onPickColor(c); setColorOpen(false); }} onClose={() => setColorOpen(false)} />}
+            </span>
+          )}
           <button ref={alignBtn} type="button" className="cbar__btn cbar__text" onClick={() => openMenu('align', alignBtn)} disabled={selectionCount < 2} aria-label="Align" title="Align" aria-haspopup="menu" aria-expanded={menu?.kind === 'align'}>
             Align
             <ChevronDownIcon width={12} height={12} />

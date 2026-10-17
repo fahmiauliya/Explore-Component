@@ -11,6 +11,7 @@ import {
   GridIcon,
   ImageIcon,
   LockIcon,
+  PaletteIcon,
   PencilIcon,
   ResetIcon,
   SendBackIcon,
@@ -30,12 +31,18 @@ import { alignEntries } from './alignEntries.jsx';
 import { buildDefaultItems, mergeWithData, LABEL_H } from './defaultLayout.js';
 import * as storage from './useCanvasStorage.js';
 import { bounds, snapMove, snapResize, snapValue } from './snapping.js';
+import { LABEL_PRESETS_COLORS } from './labelColors.js';
 
 const visualsTab = tabs.find((t) => t.id === 'visuals');
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2;
 const ZOOM_STEP = 0.1;
 const IMAGE_W = 280;
+const DROP_COLS = 4;
+const DROP_GAP = 16;
+const MAX_DROP = 20;
+const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'];
+const TYPE_ERROR = 'Only PNG, JPG, WebP, GIF or AVIF up to 10MB';
 const HINT_KEY = 'rooted:visuals-hint:v1';
 // Space kept clear by "fit": the floating header + tabs on top, the bars at the bottom.
 const SAFE = { top: 128, bottom: 88, side: 48 };
@@ -72,6 +79,10 @@ export default function VisualsCanvas() {
   const [cursor, setCursor] = useState(''); // '' | 'grab' | 'grabbing'
   const [dialog, setDialog] = useState(null); // { type: 'reset' } | { type: 'image', id, caption, url }
   const [ready, setReady] = useState(false);
+  const [pending, setPending] = useState([]); // skeletons while dropped images are processed
+  const [dropping, setDropping] = useState(false);
+  const dragDepth = useRef(0);
+  const colorInput = useRef(null);
   const [hint, setHint] = useState(() => {
     try {
       return !localStorage.getItem(HINT_KEY);
@@ -392,7 +403,7 @@ export default function VisualsCanvas() {
     (text) => {
       const c = viewCenterWorld();
       const id = newId('label');
-      const item = { id, type: 'label', text: text || 'Label', x: snapValue(c.x - 40), y: snapValue(c.y - LABEL_H / 2), w: 80, h: LABEL_H, z: maxZ() + 1, locked: false };
+      const item = { id, type: 'label', text: text || 'Label', color: 'gray', x: snapValue(c.x - 40), y: snapValue(c.y - LABEL_H / 2), w: 80, h: LABEL_H, z: maxZ() + 1, locked: false };
       commit([...itemsRef.current, item]);
       setSelection([id]);
       if (!text) setEditingId(id);
@@ -401,34 +412,48 @@ export default function VisualsCanvas() {
     [commit, setSelection, setEditingId]
   );
 
+  // Add image files. `at` is the world point to start from (drop point) or null
+  // for the centre of the view. Images are laid out in a grid of 4, 280px wide.
+  // Skeletons show while files are processed; then everything is committed at
+  // once, so one undo removes the whole batch.
   const addFiles = useCallback(
     async (files, at) => {
       const valid = [];
+      let rejected = 0;
       for (const f of files) {
-        if (!f.type.startsWith('image/')) showToast(`${f.name} isn't an image.`);
-        else if (f.size > storage.MAX_FILE_BYTES) showToast(`${f.name} is larger than 10MB.`);
+        if (!IMAGE_TYPES.includes(f.type) || f.size > storage.MAX_FILE_BYTES) rejected += 1;
         else valid.push(f);
       }
+      if (rejected) showToast(TYPE_ERROR);
+      if (valid.length > MAX_DROP) {
+        showToast(`Up to ${MAX_DROP} images at a time; adding the first ${MAX_DROP}.`);
+        valid.length = MAX_DROP;
+      }
       if (!valid.length) return;
+
       const origin = at || viewCenterWorld();
-      let x = origin.x;
+      const slot = (i) => ({ x: snapValue(origin.x + (i % DROP_COLS) * (IMAGE_W + DROP_GAP)), y: snapValue(origin.y + Math.floor(i / DROP_COLS) * (IMAGE_W * 0.625 + DROP_GAP)) });
+      const batch = `${Date.now()}`;
+      setPending(valid.map((f, i) => ({ id: `${batch}-${i}`, ...slot(i), w: IMAGE_W, h: Math.round(IMAGE_W * 0.625) })));
+
       let z = maxZ();
       const added = [];
       const urls = {};
       let saveFailed = false;
-      for (const f of valid) {
+      for (let i = 0; i < valid.length; i += 1) {
+        const f = valid[i];
         try {
           const { blob, width, height } = await storage.processImageFile(f);
           const key = storage.newImageKey();
           if (!(await storage.putImage(key, blob))) saveFailed = true;
           urls[key] = URL.createObjectURL(blob);
           const w = IMAGE_W;
-          added.push({ id: newId('image'), type: 'image', imageKey: key, ratio: width / height, x: snapValue(x), y: snapValue(origin.y), w, h: Math.round(w * height / width), z: ++z, locked: false });
-          x += w + 16;
+          added.push({ id: newId('image'), type: 'image', imageKey: key, ratio: width / height, ...slot(i), w, h: Math.round((w * height) / width), z: ++z, locked: false });
         } catch {
           showToast(`Couldn't read ${f.name}.`);
         }
       }
+      setPending([]);
       if (saveFailed) showToast("Couldn't save in this browser.");
       if (!added.length) return;
       setImages((prev) => ({ ...prev, ...urls }));
@@ -436,6 +461,17 @@ export default function VisualsCanvas() {
       setSelection(added.map((it) => it.id));
     },
     [commit, setSelection, showToast]
+  );
+
+  // ---- label colors ----
+  const selectedLabels = () => itemsRef.current.filter((it) => it.type === 'label' && selectionRef.current.includes(it.id));
+  const setLabelColor = useCallback(
+    (color) => {
+      const ids = new Set(selectedLabels().map((it) => it.id));
+      if (!ids.size) return;
+      commit(itemsRef.current.map((it) => (ids.has(it.id) ? { ...it, color } : it)));
+    },
+    [commit]
   );
 
   const openLink = (item) => item.url && window.open(item.url, '_blank', 'noopener,noreferrer');
@@ -721,6 +757,19 @@ export default function VisualsCanvas() {
     const allLocked = chosen.length > 0 && chosen.every((it) => it.locked);
     const entries = [];
     if (one && one.type !== 'link') entries.push({ label: 'Edit', icon: PencilIcon, onSelect: startEdit });
+    const labels = chosen.filter((it) => it.type === 'label');
+    if (labels.length) {
+      const current = labels[0].color || 'gray';
+      entries.push({
+        label: 'Color',
+        icon: PaletteIcon,
+        submenu: [
+          ...LABEL_PRESETS_COLORS.map((p) => ({ label: p.name, swatch: p.bg, selected: current === p.id, onSelect: () => setLabelColor(p.id) })),
+          'divider',
+          { label: 'Custom…', swatch: LABEL_PRESETS_COLORS.some((p) => p.id === current) ? 'linear-gradient(135deg, #f87171, #facc15, #4ade80, #60a5fa, #c084fc)' : current, selected: !LABEL_PRESETS_COLORS.some((p) => p.id === current), onSelect: () => colorInput.current?.click() },
+        ],
+      });
+    }
     entries.push({ label: 'Duplicate', icon: CopyIcon, shortcut: mod('D'), onSelect: duplicateSelected });
     if (one?.url) entries.push({ label: 'Open link', icon: ExternalLinkIcon, onSelect: () => openLink(one) });
     entries.push({ label: 'Bring to front', icon: BringFrontIcon, shortcut: mod(']'), onSelect: bringToFront });
@@ -730,7 +779,7 @@ export default function VisualsCanvas() {
     entries.push('divider');
     entries.push({ label: 'Remove', icon: TrashIcon, danger: true, shortcut: 'Del', disabled: allLocked, onSelect: deleteSelected });
     return entries;
-  }, [menu, snapGrid, addLabel, fitToContent, zoomTo, startEdit, duplicateSelected, bringToFront, sendToBack, align, toggleLock, deleteSelected]);
+  }, [menu, snapGrid, addLabel, fitToContent, zoomTo, startEdit, duplicateSelected, bringToFront, sendToBack, align, toggleLock, deleteSelected, setLabelColor]);
 
   // ---- keyboard (only while the canvas has focus) ----
   function onKeyDown(e) {
@@ -789,11 +838,30 @@ export default function VisualsCanvas() {
     }
   }
 
-  // ---- files: drop and paste ----
+  // ---- files: drag over, drop and paste ----
+  const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes('Files');
+  function onDragEnter(e) {
+    e.preventDefault();
+    dragDepth.current += 1;
+    if (hasFiles(e)) setDropping(true);
+  }
+  function onDragLeave() {
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setDropping(false);
+  }
   function onDrop(e) {
     e.preventDefault();
+    dragDepth.current = 0;
+    setDropping(false);
     const files = [...e.dataTransfer.files];
-    if (files.length) addFiles(files, toWorld(e.clientX, e.clientY));
+    if (files.length) {
+      addFiles(files, toWorld(e.clientX, e.clientY));
+      return;
+    }
+    const types = [...e.dataTransfer.types];
+    if (types.includes('text/uri-list') || types.includes('text/html') || types.includes('text/plain')) {
+      showToast('Save the image to your computer first, then drop the file.');
+    }
   }
   function onPaste(e) {
     const files = [...(e.clipboardData?.files || [])];
@@ -824,7 +892,9 @@ export default function VisualsCanvas() {
         onContextMenu={onCanvasContextMenu}
         onKeyDown={onKeyDown}
         onKeyUp={onKeyUp}
+        onDragEnter={onDragEnter}
         onDragOver={(e) => e.preventDefault()}
+        onDragLeave={onDragLeave}
         onDrop={onDrop}
         onPaste={onPaste}
       >
@@ -849,12 +919,30 @@ export default function VisualsCanvas() {
             ))}
         </div>
 
+        {pending.length > 0 && (
+          <div className="canvas__world canvas__world--pending" style={{ transform: `translate(${view.panX}px, ${view.panY}px) scale(${view.zoom})` }} aria-hidden="true">
+            {pending.map((p) => (
+              <div key={p.id} className="skeleton" style={{ transform: `translate(${p.x}px, ${p.y}px)`, width: p.w, height: p.h }} />
+            ))}
+          </div>
+        )}
+        {dropping && (
+          <div className="drop-overlay" aria-hidden="true">
+            <div className="drop-overlay__pill floating">
+              <ImageIcon />
+              Drop images to add them
+            </div>
+          </div>
+        )}
+
         <Guides guides={overlay.guides} spacings={overlay.spacings} box={overlay.box} handles={handles} toScreen={toScreen} zoom={view.zoom} onHandlePointerDown={onHandlePointerDown} />
 
         <ToolBar
           selectionCount={selection.length}
           canEdit={!!single && single.type !== 'link'}
           allLocked={selectedItems.length > 0 && selectedItems.every((it) => it.locked)}
+          labelColor={selectedItems.some((it) => it.type === 'label') ? (selectedItems.find((it) => it.type === 'label').color || 'gray') : undefined}
+          onPickColor={setLabelColor}
           onAddLabel={addLabel}
           onUploadFiles={(files) => addFiles(files, null)}
           onEdit={startEdit}
@@ -889,6 +977,7 @@ export default function VisualsCanvas() {
         )}
       </div>
 
+      <input ref={colorInput} type="color" className="visually-hidden" tabIndex={-1} aria-hidden="true" defaultValue="#AABBCC" onChange={(e) => setLabelColor(e.target.value)} />
       {menu && <ContextMenu x={menu.x} y={menu.y} entries={menuEntries} onClose={() => setMenu(null)} label={menu.kind === 'item' ? 'Item menu' : 'Canvas menu'} />}
 
       <Modal open={dialog?.type === 'reset'} onClose={() => setDialog(null)} title="Reset the canvas?" subtitle="Your layout and uploaded images in this browser will be removed." width={420}>

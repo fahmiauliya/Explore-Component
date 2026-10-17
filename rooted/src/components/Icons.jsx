@@ -357,3 +357,14 @@ export const DistributeVIcon = alignBase(
     <rect x="8" y="9" width="8" height="6" rx="1" />
   </>
 );
+
+export function PaletteIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2 0-1.2-1-1.5-1-2.5S14 15 15.5 15H17a4 4 0 0 0 4-4c0-4.5-4-8-9-8Z" />
+      <circle cx="7.5" cy="11.5" r="1" />
+      <circle cx="10.5" cy="7.5" r="1" />
+      <circle cx="15" cy="8" r="1" />
+    </svg>
+  );
+}

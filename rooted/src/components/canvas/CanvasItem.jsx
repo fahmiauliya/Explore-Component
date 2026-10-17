@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
-import { CardBody } from '../Card.jsx';
+import Card from '../Card.jsx';
 import { LockIcon } from '../Icons.jsx';
+import { labelColors } from './labelColors.js';
 
 // One thing on the board: a label, a link card or an uploaded image.
 // Positioning is done by the parent (world coordinates); this only draws it.
@@ -42,11 +43,13 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
     }
   }
 
+  const chip = item.type === 'label' ? labelColors(item.color) : null;
   const style = {
     transform: `translate(${item.x}px, ${item.y}px)`,
     width: item.type === 'label' ? 'auto' : item.w,
     height: item.type === 'image' ? item.h : 'auto',
     zIndex: dragging ? 100000 : item.z,
+    ...(chip ? { background: chip.bg, color: chip.text } : {}),
   };
 
   return (
@@ -88,11 +91,7 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
           <span className="citem__label">{item.text}</span>
         ))}
 
-      {item.type === 'link' && (
-        <span className="card">
-          <CardBody item={{ ...item, key: item.id }} />
-        </span>
-      )}
+      {item.type === 'link' && <Card item={{ ...item, key: item.id }} interactive={false} />}
 
       {item.type === 'image' && (
         <>

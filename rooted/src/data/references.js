@@ -4,7 +4,9 @@
 // How to add a reference (one site):
 //   Find the right tab and section below and add a line like:
 //     { name: 'Site name', url: 'https://example.com', description: 'One short line.', tags: ['Tag', 'Tag'] },
-//   `tags` is optional: 2 or 3 short words shown as pills at the top of the card.
+//   `tags` is optional: 2 or 3 short words shown as chips at the top of the card.
+//   Clicking a chip filters the tab by that tag.
+//   `added: 'YYYY-MM-DD'` is optional: items added in the last 14 days show a "New" chip.
 //   Then run `npm run previews` once so the card image gets captured.
 //
 // How to add a section:

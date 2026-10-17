@@ -4,7 +4,7 @@ import { getDomain, getSlug } from '../../lib/references.js';
 
 export const CARD_W = 280;
 export const CARD_H = 268; // 280-wide card: 175px screenshot + text block (measured after render)
-export const LABEL_H = 21; // 14px text at line-height 1.5
+export const LABEL_H = 33; // 13px chip: 6px padding + 19.5px line + 6px padding + border
 const GAP = 24; // between cards
 const LABEL_GAP = 12; // label -> cards
 const GROUP_GAP = 64;
@@ -38,7 +38,7 @@ export function buildDefaultItems(tab) {
   let y = 0;
   let z = 1;
   for (const section of tab.sections) {
-    items.push({ id: `label:${section.id}`, type: 'label', text: section.title, x: 0, y, w: 80, h: LABEL_H, z: z++, locked: false });
+    items.push({ id: `label:${section.id}`, type: 'label', text: section.title, color: 'black', x: 0, y, w: 80, h: LABEL_H, z: z++, locked: false });
     y += LABEL_H + LABEL_GAP;
     section.items.forEach((item, i) => {
       items.push(linkItem(item, section, i * (CARD_W + GAP), y, z++));
@@ -57,7 +57,9 @@ export function mergeWithData(saved, tab) {
 
   let items = saved.filter((it) => it.type !== 'link' || dataLinks.has(it.url));
   // Refresh name/description/image from the data file so edits there show up.
+  // Labels saved before colors existed: group labels become Black, others Gray.
   items = items.map((it) => {
+    if (it.type === 'label' && !it.color) return { ...it, color: tab.sections.some((sec) => it.id === `label:${sec.id}`) ? 'black' : 'gray' };
     if (it.type !== 'link') return it;
     const { item, section } = dataLinks.get(it.url);
     return { ...it, name: item.name, description: item.description, tags: item.tags, image: item.image, sectionId: section.id };
@@ -84,7 +86,7 @@ export function mergeWithData(saved, tab) {
           y = label.y + label.h + LABEL_GAP;
         } else {
           y = bottom + GROUP_GAP;
-          items.push({ id: `label:${section.id}`, type: 'label', text: section.title, x: 0, y, w: 80, h: LABEL_H, z: z++, locked: false });
+          items.push({ id: `label:${section.id}`, type: 'label', text: section.title, color: 'black', x: 0, y, w: 80, h: LABEL_H, z: z++, locked: false });
           y += LABEL_H + LABEL_GAP;
           bottom = y + CARD_H;
         }

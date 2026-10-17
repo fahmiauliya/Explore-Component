@@ -19,7 +19,8 @@ Everything lives in one file: `src/data/references.js`. The comment at the top s
 
 - **Add a reference:** find the tab and section, then add a line like
   `{ name: 'Site', url: 'https://example.com', description: 'One short line.', tags: ['Tag', 'Tag'] }`.
-  `tags` is optional: 2 or 3 short words shown as pills at the top of the card.
+  `tags` is optional: 2 or 3 short words shown as chips at the top of the card. Clicking a chip filters the tab by that tag (the filter also lives in the URL as `?tag=gallery`).
+- **"New" chip:** add `added: 'YYYY-MM-DD'` to an item. For 14 days after that date the card shows a "New" chip. Leave it out on older items.
 - **Add a section:** inside a tab's `sections`, add `{ id, title, description, items: [] }`. The label and count appear automatically. The section `description` is kept in the data but is not shown on the page.
 - **Add a social link:** add to `socials`. Allowed ids: `x`, `linkedin`, `instagram`, `threads`, `website`.
 
@@ -53,7 +54,8 @@ The Visuals tab is a full-screen board instead of a grid, under the floating hea
 
 - **Move around:** drag empty space, hold Space and drag, or scroll. Pinch or ⌘/Ctrl + scroll to zoom (25–200%). The zoom bar has −, +, a snap-to-grid toggle and fit-to-content.
 - **Select:** click, Shift + click, Shift + drag for a box, ⌘/Ctrl + A. Drag to move, corner handles to resize, arrow keys to nudge (Shift for 8px). Hold Alt/Option to drag without snapping.
-- **Add:** "+ Label" (presets or custom text; double-click a label to rename it) and "Upload image" (also drag files onto the board, or paste). Images are scaled to at most 1600px and stored as WebP.
+- **Add:** "+ Label" (presets or custom text; double-click a label to rename it) and "Upload image" (also drag files onto the board, or paste). PNG, JPG, WebP, GIF and AVIF up to 10MB, 20 per drop; images are scaled to at most 1600px and stored as WebP.
+- **Label colors:** labels are chips with 9 preset colors plus a custom color. Change them from the color dot in the selection bar or "Color" in the right-click menu. The color is saved with the label.
 - **Arrange:** the toolbar at the bottom and the right-click menu offer Edit, Duplicate (⌘D), Open link, Bring to front (⌘]), Send to back (⌘[), Align and Distribute, Lock (⌘L) and Remove. ⌘Z / ⌘⇧Z undo and redo.
 - **Saving:** every change is saved in the visitor's own browser (layout in localStorage, images in IndexedDB). Other people don't see those changes. "Reset canvas" in the right-click menu on empty space restores the default. If the data file gains or loses a Visuals link, the board picks that up on the next load without touching labels or uploaded images.
 

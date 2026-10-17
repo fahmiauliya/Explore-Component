@@ -74,6 +74,36 @@ export function randomItem(excludeKey) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+// "Image style" -> "image-style" (used in ?tag= and for matching).
+export function tagSlug(tag) {
+  return String(tag).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+// Items added within the last 14 days get a "New" chip.
+export function isNew(added, now = Date.now()) {
+  if (!added) return false;
+  const t = Date.parse(added);
+  if (Number.isNaN(t)) return false;
+  const age = now - t;
+  return age >= 0 && age <= 14 * 24 * 60 * 60 * 1000;
+}
+
+// Find the display text of a tag from its slug (first match in the data).
+export function tagLabel(slug) {
+  for (const item of allItems) for (const tag of item.tags || []) if (tagSlug(tag) === slug) return tag;
+  return slug;
+}
+
+// "https://www.example.com/path/" -> "example.com/path" for duplicate checks.
+export function normalizeUrl(url) {
+  try {
+    const u = new URL(url);
+    return `${u.hostname.replace(/^www\./, '')}${u.pathname.replace(/\/+$/, '')}`.toLowerCase();
+  } catch {
+    return String(url).trim().toLowerCase();
+  }
+}
+
 // Tab id <-> URL hash helpers (#websites, #components, #open-source, #visuals).
 export function tabFromHash(hash) {
   const id = (hash || '').replace(/^#/, '');
