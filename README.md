@@ -11,7 +11,8 @@ Code Explore/
 ├── Line Illustration/
 ├── Liquid Transform Navigation/
 ├── Space Signal Scan/
-└── Training Capacity/
+├── Training Capacity/
+└── rooted/
 ```
 
 Each component keeps its own source, dependencies, previews, and exports.
@@ -174,3 +175,18 @@ npm run dev
 Preview: http://localhost:5193/ (bird ↔ manta) · http://localhost:5193/?view=bird (the bird alone)
 
 See the [component documentation](Dot%20Illustration/README.md).
+
+
+## Rooted
+
+A free website that lists design references in four tabs (Websites, Components, Open Source, Visuals) with section filters, search (⌘K), a random pick (⌘E), a request form and a 320 × 200 preview image that follows the cursor over each card. React + Vite, plain JavaScript and one CSS file; Geist at 400 and 500 only; all content in one data file. Screenshots for the hover previews are captured by `npm run previews` (headless Chromium via Playwright, resized to 640 × 400 WebP) and committed in `public/previews/`.
+
+```sh
+cd rooted
+npm ci
+npm run dev
+```
+
+Preview: http://localhost:5194/
+
+See the [site documentation](rooted/README.md).
