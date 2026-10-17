@@ -402,26 +402,38 @@ a {
 .card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
   min-width: 0;
+  padding: var(--space-4);
+  border-radius: var(--space-3);
+  background: var(--surface);
   outline: none;
+  transition: background-color 0.3s ease-out;
 }
 
-.card__media {
+.card__tags {
   display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.card__tag {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  aspect-ratio: 16 / 10;
-  border-radius: var(--space-3);
-  overflow: hidden;
-  background: var(--surface);
-  transition: background-color 0.3s ease-out;
+  height: 22px;
+  padding: 0 var(--space-2);
+  border-radius: 999px;
+  background: #fff;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 /* The screenshot floats as a smaller panel in the middle of the gray tile. */
 .card__frame {
   display: block;
-  width: 72%;
+  width: 76%;
+  margin: var(--space-2) auto;
   aspect-ratio: 16 / 10;
   border-radius: var(--space-2);
   overflow: hidden;
@@ -462,8 +474,8 @@ a {
   color: var(--muted);
 }
 
-.card:hover .card__media,
-.card:focus-visible .card__media {
+.card:hover,
+.card:focus-visible {
   background: #ececec;
 }
 
@@ -477,8 +489,8 @@ a {
   text-decoration-color: var(--text);
 }
 
-/* Keyboard focus: outline around the screenshot box, not the whole card. */
-.card:focus-visible .card__media {
+/* Keyboard focus: outline around the whole tile. */
+.card:focus-visible {
   outline: 2px solid var(--text);
   outline-offset: 2px;
 }

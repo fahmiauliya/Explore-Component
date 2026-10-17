@@ -18,7 +18,8 @@ Open http://localhost:5194/. To make a production build: `npm run build` (output
 Everything lives in one file: `src/data/references.js`. The comment at the top shows the shape.
 
 - **Add a reference:** find the tab and section, then add a line like
-  `{ name: 'Site', url: 'https://example.com', description: 'One short line.' }`.
+  `{ name: 'Site', url: 'https://example.com', description: 'One short line.', tags: ['Tag', 'Tag'] }`.
+  `tags` is optional: 2 or 3 short words shown as pills at the top of the card.
 - **Add a section:** inside a tab's `sections`, add `{ id, title, description, items: [] }`. The label and count appear automatically. The section `description` is kept in the data but is not shown on the page.
 - **Add a social link:** add to `socials`. Allowed ids: `x`, `linkedin`, `instagram`, `threads`, `website`.
 
