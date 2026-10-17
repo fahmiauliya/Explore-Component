@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { searchItems } from '../lib/references.js';
 import Modal from './Modal.jsx';
-import SiteIcon from './SiteIcon.jsx';
-import Kbd from './Kbd.jsx';
 import { SearchIcon } from './Icons.jsx';
 
 function openSite(url) {
@@ -46,7 +44,7 @@ export default function SearchDialog({ open, onClose }) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} label="Search references" position="top" width={560}>
+    <Modal open={open} onClose={onClose} label="Search references" position="top" width={520}>
       <div className="search">
         <div className="search__field">
           <SearchIcon />
@@ -64,7 +62,7 @@ export default function SearchDialog({ open, onClose }) {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
           />
-          <Kbd>Esc</Kbd>
+          <span className="hint" aria-hidden="true">Esc</span>
         </div>
 
         {results.length === 0 ? (
@@ -74,21 +72,15 @@ export default function SearchDialog({ open, onClose }) {
             {results.map((item, i) => (
               <li key={item.key} id={`search-opt-${i}`} role="option" aria-selected={i === active}>
                 <a
-                  className={`search__row${i === active ? ' is-active' : ''}`}
+                  className={`row${i === active ? ' is-active' : ''}`}
                   href={item.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   tabIndex={-1}
                   onMouseEnter={() => setActive(i)}
                 >
-                  <span className="list-card__icon">
-                    <SiteIcon name={item.name} domain={item.domain} />
-                  </span>
-                  <span className="list-card__text">
-                    <span className="list-card__name">{item.name}</span>
-                    <span className="list-card__desc">{item.description}</span>
-                  </span>
-                  <span className="tag">{item.tabLabel}</span>
+                  <span className="row__name">{item.name}</span>
+                  <span className="row__desc">{item.tabLabel} · {item.sectionTitle}</span>
                 </a>
               </li>
             ))}

@@ -179,7 +179,7 @@ See the [component documentation](Dot%20Illustration/README.md).
 
 ## Rooted
 
-A free website that lists design references in four tabs (Websites, Components, Open Source, Visuals) with section filters, search (⌘K), a random pick (⌘E), a request form and a 320 × 200 preview image that follows the cursor over each card. React + Vite, plain JavaScript and one CSS file; Geist at 400 and 500 only; all content in one data file. Screenshots for the hover previews are captured by `npm run previews` (headless Chromium via Playwright, resized to 640 × 400 WebP) and committed in `public/previews/`.
+A free website that lists design references as one centered 600px column of plain text rows in four tabs (Websites, Components, Open Source, Visuals), with search (⌘K), a random pick (⌘E), a request form and a 320 × 200 preview image that follows the cursor over each row. React + Vite, plain JavaScript and one CSS file; Geist at 400 and 500 only; all content in one data file. Screenshots for the hover previews are captured by `npm run previews` (headless Chromium via Playwright, resized to 640 × 400 WebP) and committed in `public/previews/`.
 
 ```sh
 cd rooted

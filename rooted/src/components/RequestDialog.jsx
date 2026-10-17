@@ -35,7 +35,7 @@ export default function RequestDialog({ open, onClose }) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} labelledBy="request-title" width={440}>
+    <Modal open={open} onClose={onClose} labelledBy="request-title" width={420}>
       {sent ? (
         <div className="thanks">
           <span className="thanks__icon" aria-hidden="true"><CheckIcon width={20} height={20} /></span>

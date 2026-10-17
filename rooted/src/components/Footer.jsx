@@ -1,58 +1,36 @@
-import { socials, tabs } from '../data/references.js';
+import { socials } from '../data/references.js';
 import { socialIcons } from './Icons.jsx';
-import Kbd, { ModKbd } from './Kbd.jsx';
+import { modLabel } from '../lib/platform.js';
 
-export default function Footer({ onSelectTab }) {
+export default function Footer() {
   const year = new Date().getFullYear();
   return (
-    <footer className="footer">
-      <div className="footer__inner container">
-        <div className="footer__brand">
-          <p className="footer__name">Rooted</p>
-          <p className="footer__tagline">Free design references, curated by Fahmi Auliya.</p>
-          <div className="socials">
-            {socials.map((s) => {
-              const Icon = socialIcons[s.id] || socialIcons.website;
-              return (
-                <a
-                  key={s.id}
-                  className="icon-button"
-                  href={s.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={s.label}
-                  title={s.label}
-                >
-                  <Icon />
-                </a>
-              );
-            })}
-          </div>
-          <p className="footer__copy">© {year} Rooted</p>
+    <footer className="footer container">
+      <div className="footer__inner">
+        <p className="footer__label">Connect</p>
+        <p>Rooted is curated by Fahmi Auliya. Say hi or follow along for new references.</p>
+        <div className="socials">
+          {socials.map((s) => {
+            const Icon = socialIcons[s.id] || socialIcons.website;
+            return (
+              <a
+                key={s.id}
+                className="icon-button"
+                href={s.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={s.label}
+                title={s.label}
+              >
+                <Icon />
+              </a>
+            );
+          })}
         </div>
-
-        <div className="footer__col">
-          <p className="footer__label">Shortcuts</p>
-          <ul className="footer__list">
-            <li><ModKbd k="K" /> Search</li>
-            <li><Kbd>1</Kbd>–<Kbd>4</Kbd> Switch tabs</li>
-            <li><ModKbd k="E" /> Random reference</li>
-            <li><Kbd>Esc</Kbd> Clear filter or close</li>
-          </ul>
-        </div>
-
-        <div className="footer__col">
-          <p className="footer__label">Browse</p>
-          <ul className="footer__list">
-            {tabs.map((tab) => (
-              <li key={tab.id}>
-                <button type="button" className="text-button" onClick={() => onSelectTab(tab.id)}>
-                  {tab.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <p className="footer__small">
+          {modLabel('K')} search · 1–4 switch tabs · {modLabel('E')} random · Esc close
+        </p>
+        <p className="footer__small">© {year} Rooted</p>
       </div>
     </footer>
   );

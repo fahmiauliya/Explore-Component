@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { tabs } from './data/references.js';
-import { countItems, flattenItems, tabFromHash } from './lib/references.js';
+import { flattenItems, tabFromHash } from './lib/references.js';
 import Header from './components/Header.jsx';
-import Hero from './components/Hero.jsx';
-import FilterBar from './components/FilterBar.jsx';
+import Intro from './components/Intro.jsx';
+import Tabs from './components/Tabs.jsx';
 import ReferenceSection from './components/ReferenceSection.jsx';
 import Footer from './components/Footer.jsx';
 import CursorPreview, { PreviewProvider } from './components/CursorPreview.jsx';
@@ -16,18 +16,11 @@ const allItems = flattenItems();
 export default function App() {
   // The active tab follows the URL hash (#websites, #components, ...).
   const [tabId, setTabId] = useState(() => tabFromHash(window.location.hash));
-  const [sectionId, setSectionId] = useState(null); // null = "All"
   const [dialog, setDialog] = useState(null); // null | 'search' | 'random' | 'request'
   const previewRef = useRef(null);
   const contentRef = useRef(null);
 
   const tab = tabs.find((t) => t.id === tabId) || tabs[0];
-  const total = countItems(tab);
-  const visibleSections = useMemo(
-    () => tab.sections.map((section, i) => ({ section, number: i + 1 })).filter(({ section }) => !sectionId || section.id === sectionId),
-    [tab, sectionId]
-  );
-  const shown = visibleSections.reduce((sum, { section }) => sum + section.items.length, 0);
 
   // Items for the current tab, already flattened and tagged.
   const itemsBySection = useMemo(() => {
@@ -40,28 +33,22 @@ export default function App() {
     return map;
   }, [tab]);
 
-  // Switch tab: update the hash (so back/forward works) and jump to the content
-  // if the reader has already scrolled past the hero.
+  // Switch tab: update the hash (so back/forward works) and jump to the list
+  // if the reader has already scrolled past the intro.
   const selectTab = useCallback((id) => {
     const target = tabs.some((t) => t.id === id) ? id : tabs[0].id;
     if (window.location.hash !== `#${target}`) {
       window.location.hash = target;
     } else {
       setTabId(target);
-      setSectionId(null);
     }
     const top = contentRef.current?.getBoundingClientRect().top ?? 0;
-    if (top < 0) {
-      contentRef.current.scrollIntoView({ block: 'start' });
-    }
+    if (top < 0) contentRef.current.scrollIntoView({ block: 'start' });
   }, []);
 
   // Hash -> state (handles back/forward and direct links).
   useEffect(() => {
-    const onHash = () => {
-      setTabId(tabFromHash(window.location.hash));
-      setSectionId(null);
-    };
+    const onHash = () => setTabId(tabFromHash(window.location.hash));
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
@@ -88,11 +75,7 @@ export default function App() {
         return;
       }
       if (e.key === 'Escape') {
-        setDialog((d) => {
-          if (d) return null;
-          setSectionId(null);
-          return d;
-        });
+        setDialog(null);
         return;
       }
       if (!mod && !e.altKey && /^[1-4]$/.test(e.key) && !typing && !dialog) {
@@ -114,8 +97,6 @@ export default function App() {
   return (
     <PreviewProvider previewRef={previewRef}>
       <Header
-        activeTab={tab.id}
-        onSelectTab={selectTab}
         onLogo={goHome}
         onOpenSearch={() => setDialog('search')}
         onOpenRandom={() => setDialog('random')}
@@ -123,19 +104,19 @@ export default function App() {
       />
 
       <main>
-        <Hero onOpenRequest={() => setDialog('request')} />
+        <Intro onOpenRequest={() => setDialog('request')} />
 
         <div ref={contentRef} className="content-anchor" />
-        <FilterBar tab={tab} activeSection={sectionId} onSelectSection={setSectionId} shown={shown} total={total} />
+        <Tabs activeTab={tab.id} onSelectTab={selectTab} />
 
         <div className="content container">
-          {visibleSections.map(({ section, number }) => (
-            <ReferenceSection key={section.id} section={section} number={number} items={itemsBySection.get(section.id) || []} />
+          {tab.sections.map((section) => (
+            <ReferenceSection key={section.id} section={section} items={itemsBySection.get(section.id) || []} />
           ))}
         </div>
       </main>
 
-      <Footer onSelectTab={selectTab} />
+      <Footer />
 
       <CursorPreview ref={previewRef} />
       <SearchDialog open={dialog === 'search'} onClose={closeDialog} />

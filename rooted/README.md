@@ -1,6 +1,6 @@
 # Rooted
 
-A free website that lists design references in a clean, easy-to-scan way. Four tabs (Websites, Components, Open Source, Visuals), section filters, search, a random pick, and a preview image that follows the cursor.
+A free website that lists design references in a calm, centered, single-column list. Four tabs (Websites, Components, Open Source, Visuals), search, a random pick, a request form, and a preview image that follows the cursor over each row.
 
 Built with React + Vite, plain JavaScript and one CSS file. No backend.
 
@@ -19,14 +19,14 @@ Everything lives in one file: `src/data/references.js`. The comment at the top s
 
 - **Add a reference:** find the tab and section, then add a line like
   `{ name: 'Site', url: 'https://example.com', description: 'One short line.' }`.
-- **Add a section:** inside a tab's `sections`, add `{ id, title, description, items: [] }`. The pill, number and count appear automatically.
+- **Add a section:** inside a tab's `sections`, add `{ id, title, description, items: [] }`. The label and count appear automatically. The section `description` is kept in the data but is not shown on the page.
 - **Add a social link:** add to `socials`. Allowed ids: `x`, `linkedin`, `instagram`, `threads`, `website`.
 
-Tab counts, the "X of Y" counter, section numbers, search and the random pick all read from this file. Nothing is hard-coded.
+Tab counts, section counts, search and the random pick all read from this file. Nothing is hard-coded.
 
 ## Preview images
 
-When you hover a card, a screenshot of that site floats next to the cursor. The images are made automatically.
+When you hover a row, a screenshot of that site floats next to the cursor. The images are made automatically.
 
 1. Install Chromium once: `npx playwright install chromium`
 2. After adding links, run `npm run previews`. It opens each new site, takes a 640 × 400 screenshot and saves it as `public/previews/<slug>.webp`. Existing images are skipped.
@@ -45,7 +45,7 @@ Commit the generated images so the live site serves them as normal files.
 
 ## Change the intro text
 
-The hero title, subtitle and button live in `src/components/Hero.jsx`.
+The three intro lines under the header live in `src/components/Intro.jsx`. The footer text lives in `src/components/Footer.jsx`.
 
 ## Request form
 
@@ -58,7 +58,7 @@ The "Send a request" form does **not** send anything yet. It only shows a thank-
 | ⌘K / Ctrl K | Open or close search |
 | 1–4 | Switch tabs |
 | ⌘E / Ctrl E | Random reference |
-| Esc | Close a dialog, or clear the section filter |
+| Esc | Close a dialog |
 
 ## Files
 
@@ -67,10 +67,11 @@ rooted/
   index.html
   src/
     App.jsx                 state, hash routing, keyboard shortcuts
-    styles.css              all styles (CSS variables at the top)
+    styles.css              all styles (colors, type sizes and spacing scale at the top)
     data/references.js      ALL content
     lib/references.js       helpers (slug, search, random, counts)
-    components/             header, hero, filter bar, cards, cursor preview, dialogs, footer
+    lib/platform.js         ⌘ vs Ctrl labels
+    components/             header, intro, tabs, rows, cursor preview, dialogs, footer
   scripts/capture-previews.mjs   screenshot script
   public/previews/          generated screenshots
 ```
