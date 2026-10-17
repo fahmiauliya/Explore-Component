@@ -9,21 +9,26 @@ import type { TrackingValues } from '../tracking/dial';
  * The Sky version's drawing, and the chrome both versions share. On the Sky tab the subject's cells, held from the
  * stepped update, are drawn every screen frame as the Current version's very shapes in white, the three tones
  * told apart by opacity, each dot shimmering on a slow 3D noise over the grid and time, a pill sharing one value
- * along its length. Over the dots, on both tabs, the chrome: the tracking grid's four lines easing toward the
- * subject's bounds with a marker where they cross and the name and the bottom-right marker's coordinates along
- * them, the overlay's pins and labels, an edge text up the top-left corner (a template: the animal, its place in
- * the sequence, the grid and the rate fill in) and live tracking data in the bottom-right, refreshed once a second. The Sky tab draws it white with opacities over a cleared canvas; the
- * Current tab draws it over its own dots in solid navy, since it animates no opacity.
+ * along its length. Over the dots, on both tabs, the chrome: the tracking grid, four lines around the subject's
+ * loop box (the box of every pose of its loop, from its calibration) plus a padding, so they barely move while
+ * one animal shows; a line a filled cell would touch is pushed outward at once, and settles back slowly; between
+ * animals the box glides to the next one's over 0.8 s. Markers where the lines cross, the name and the
+ * bottom-right marker's coordinates along them, the overlay's pins and labels, an edge text up the top-left
+ * corner and live tracking data in the bottom-right, refreshed once a second. The Sky tab draws it in its own
+ * colours with opacities over a cleared canvas; the Current tab draws it over its own dots in solid colours.
  */
 export type Bounds = { c0: number; c1: number; r0: number; r1: number };
 export type Shapes = { dotSize: number; navyWidth: number };     // the Dot Bird panel's sizes, shared with the Current version
 export type Meta = { name: string; index: number; total: number; rate: number }; // the subject showing and the update rate, for the texts
-export type Palette = { ink: string; solid: boolean };            // the chrome's colour, and whether it may use opacity
+export type LoopBox = { width: number; height: number } | null;   // the subject's loop box as fractions of the frame, centred
+export type Palette = { ink: string; solid: boolean };            // the edge texts' colour, and whether the chrome may use opacity (the Sky tab) or not (Current)
 export const SKY_PALETTE: Palette = { ink: '#fff', solid: false };
 type Lines = { l: number; r: number; t: number; b: number };
+const SIDES = ['l', 'r', 't', 'b'] as const;
 const SPARKLE_EVERY = 4;                            // updates a sparkle stays on a cell
 const SPARKLE_SIZE = .55;                           // a sparkle's radius, × a dot's
 const FLOOR = .01;                                  // no dot ever goes below 1% opacity
+const GRID = { push: 2, guard: 2, speed: .05, switchSeconds: .8 };  // cells a pushed line lands beyond the outermost cell; cells a line keeps from the animal; the lines' top speed as a share of the frame's width a second; the glide between animals
 const CAPTION = { size: 11, inset: 6 };             // the caption's font size and its distance inside the lines, CSS px
 const TEXT = { margin: 12, name: '600 11px system-ui, sans-serif', data: '9.5px ui-monospace, Menlo, Consolas, monospace', line: 12, refresh: 1000 };
 const MARKER_TEXT = { gap: 8, lift: 5, drop: 12, name: '600 10px system-ui, sans-serif', data: '9.5px ui-monospace, Menlo, Consolas, monospace' };
@@ -44,15 +49,21 @@ const fixed = (value: number, digits: number, decimals: number, signed = false) 
   return `${sign}${int.padStart(digits, '0')}${decimals ? '.' + frac : ''}`;
 };
 const clock = (seconds: number) => [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, Math.floor(seconds) % 60].map(n => String(n).padStart(2, '0')).join(':');
+const easeInOut = (p: number) => p < .5 ? 4 * p * p * p : 1 - (-2 * p + 2) ** 3 / 2;
 
 export class SkyPresenter {
   overlay: TrackingOverlay | null = null;
   tracking: TrackingValues | null = null;
+  crossings = 0;                                    // updates at which a filled cell touched a line after the push: never, or a bug
   private cells: Uint8Array | null = null;
   private bounds: Bounds | null = null;
   private meta: Meta | null = null;
+  private loop: LoopBox = null;
+  private padding = 3;
   private updates = 0;
   private lines: Lines | null = null;
+  private switching = false;
+  private glide: { from: Lines; start: number } | null = null;
   private last = 0;
   private started = 0;
   private dataAt = -Infinity;
@@ -60,12 +71,36 @@ export class SkyPresenter {
   private markerAt = -Infinity;
   private marker = '';
 
-  /** The subject's new shape (at the stepped rate), the bounds the grid follows (null keeps the last) and what it is. */
-  shape(cells: Uint8Array, bounds: Bounds | null, meta?: Meta) {
+  /** The subject's new shape (at the stepped rate), the bounds the grid guards, what it is, and its loop box; the
+   * hard rule runs here, at the update: a line a filled cell touches or sits outside is pushed outward now. */
+  shape(cells: Uint8Array, bounds: Bounds | null, meta: Meta | undefined, grid: Grid, loop: LoopBox) {
     this.cells = cells.slice();
     if (bounds) this.bounds = bounds;
-    if (meta) this.meta = meta;
+    if (meta) { if (this.meta && meta.name !== this.meta.name) this.switching = true; this.meta = meta; }
+    this.loop = loop;
     this.updates++;
+    if (!bounds) return;
+    if (!this.lines) this.lines = this.target(grid);
+    const edge = this.edges(bounds, grid), push = GRID.push * grid.cell, lines = this.lines;
+    if (lines.l >= edge.l) lines.l = edge.l - push;
+    if (lines.r <= edge.r) lines.r = edge.r + push;
+    if (lines.t >= edge.t) lines.t = edge.t - push;
+    if (lines.b <= edge.b) lines.b = edge.b + push;
+    if (lines.l >= edge.l || lines.r <= edge.r || lines.t >= edge.t || lines.b <= edge.b) { this.crossings++; console.warn(`Grid: a filled cell touches a grid line at update ${this.updates}`); }
+  }
+
+  /** The filled cells' outer edges in frame pixels. */
+  private edges(bounds: Bounds, grid: Grid): Lines { return { l: grid.ox + bounds.c0 * grid.cell, r: grid.ox + (bounds.c1 + 1) * grid.cell, t: grid.oy + bounds.r0 * grid.cell, b: grid.oy + (bounds.r1 + 1) * grid.cell }; }
+
+  /** Where the lines want to be: the loop box plus the padding (the bounds plus the padding until a loop box is known),
+   * never closer to the animal than the guard. */
+  private target(grid: Grid): Lines {
+    const pad = this.padding * grid.cell, guard = GRID.guard * grid.cell;
+    let base: Lines;
+    if (this.loop) { const cx = grid.ox + grid.cols * grid.cell / 2, cy = grid.oy + grid.rows * grid.cell / 2, w = this.loop.width * grid.cols * grid.cell / 2, h = this.loop.height * grid.rows * grid.cell / 2; base = { l: cx - w - pad, r: cx + w + pad, t: cy - h - pad, b: cy + h + pad }; }
+    else { const e = this.edges(this.bounds!, grid); base = { l: e.l - pad, r: e.r + pad, t: e.t - pad, b: e.b + pad }; }
+    const e = this.edges(this.bounds!, grid);
+    return { l: Math.min(base.l, e.l - guard), r: Math.max(base.r, e.r + guard), t: Math.min(base.t, e.t - guard), b: Math.max(base.b, e.b + guard) };
   }
 
   /** One screen frame of the Sky version. With `still`, nothing moves: no shimmer, fixed sparkles, the lines on their target, the text frozen. */
@@ -119,6 +154,7 @@ export class SkyPresenter {
     const dt = this.last && !still ? Math.min(.1, (now - this.last) / 1000) : 0;
     this.last = now;
     if (!this.started) this.started = now;
+    this.padding = v.Grid.padding;
     const overlay = this.tracking?.Overlay.tracking ? this.overlay : null, tracking = this.tracking!;
     overlay?.drawNodes(ctx, tracking, palette.solid);
     this.gridLines(ctx, grid, v, dt, still, now, palette);
@@ -126,21 +162,41 @@ export class SkyPresenter {
     this.text(ctx, grid, now, v, still, palette);
   }
 
-  /** The tracking grid: four lines easing toward the subject's bounds, markers where they cross, the texts at the markers, and the caption. */
+  /** The lines for this frame: on their target when still; gliding to the next animal's box after a switch (0.8 s,
+   * ease in and out); otherwise settling toward the target at no more than 5% of the frame a second, 95% of the way
+   * in `return` seconds; and never inside the guard around the animal. */
+  private move(grid: Grid, v: SkyValues, dt: number, still: boolean, now: number) {
+    const target = this.target(grid), lines = this.lines!;
+    if (still) { Object.assign(lines, target); return; }
+    if (this.switching) { this.switching = false; this.glide = { from: { ...lines }, start: now }; }
+    if (this.glide) {
+      const p = Math.min(1, (now - this.glide.start) / 1000 / GRID.switchSeconds), e = easeInOut(p);
+      for (const side of SIDES) lines[side] = this.glide.from[side] + (target[side] - this.glide.from[side]) * e;
+      if (p >= 1) this.glide = null;
+    } else {
+      const k = 1 - Math.exp(-3 * dt / v.Grid.return), most = GRID.speed * grid.width * dt;
+      for (const side of SIDES) lines[side] += Math.max(-most, Math.min(most, (target[side] - lines[side]) * k));
+    }
+    // Whatever moved them, the lines stay outside the guard around the animal.
+    const e = this.edges(this.bounds!, grid), guard = GRID.guard * grid.cell;
+    lines.l = Math.min(lines.l, e.l - guard); lines.r = Math.max(lines.r, e.r + guard); lines.t = Math.min(lines.t, e.t - guard); lines.b = Math.max(lines.b, e.b + guard);
+  }
+
+  /** The tracking grid: four lines, markers where they cross, the texts at the markers, the loop box when asked, and the caption. */
   private gridLines(ctx: CanvasRenderingContext2D, grid: Grid, v: SkyValues, dt: number, still: boolean, now: number, palette: Palette) {
     const g = v.Grid;
     if (!g.enabled || !this.bounds) return;
-    // The lines' target: the subject's bounds plus the padding; they ease toward it, 95% of the way in `follow` seconds.
-    const { c0, c1, r0, r1 } = this.bounds, pad = g.padding;
-    const target: Lines = { l: grid.ox + (c0 - pad) * grid.cell, r: grid.ox + (c1 + 1 + pad) * grid.cell, t: grid.oy + (r0 - pad) * grid.cell, b: grid.oy + (r1 + 1 + pad) * grid.cell };
-    if (!this.lines || still) this.lines = target;
-    else { const k = 1 - Math.exp(-3 * dt / g.follow); for (const key of ['l', 'r', 't', 'b'] as const) this.lines[key] += (target[key] - this.lines[key]) * k; }
+    if (!this.lines) this.lines = this.target(grid);
+    this.move(grid, v, dt, still, now);
+    const colours = palette.solid ? v['Grid Current'] : v['Grid Sky'], opacity = palette.solid ? 1 : v['Grid Sky'].opacity;
+    const line = colours.line, marker = g.linkColors ? line : colours.marker, label = g.linkColors ? line : colours.label;
     // Crisp lines on the device's pixels, edge to edge, and a marker where they cross, on top.
     const px = grid.px, width = Math.max(1, Math.round(g.lineWidth * px)), snap = (value: number) => Math.round(value * px) + (width % 2 ? .5 : 0);
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.lineWidth = width;
-    ctx.strokeStyle = palette.solid ? palette.ink : `rgba(255,255,255,${g.opacity})`;
+    ctx.globalAlpha = opacity;
+    ctx.strokeStyle = line;
     ctx.beginPath();
     for (const x of [this.lines.l, this.lines.r]) { ctx.moveTo(snap(x), 0); ctx.lineTo(snap(x), ctx.canvas.height); }
     for (const y of [this.lines.t, this.lines.b]) { ctx.moveTo(0, snap(y)); ctx.lineTo(ctx.canvas.width, snap(y)); }
@@ -148,7 +204,8 @@ export class SkyPresenter {
     const m = v.Markers;
     if (m.enabled) {
       const size = Math.max(1, Math.round(m.size * px)), half = Math.floor(size / 2);
-      ctx.fillStyle = ctx.strokeStyle = palette.ink;
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = ctx.strokeStyle = marker;
       ctx.lineWidth = 1;
       for (const x of [this.lines.l, this.lines.r]) for (const y of [this.lines.t, this.lines.b]) {
         const x0 = Math.round(x * px) - half, y0 = Math.round(y * px) - half;
@@ -156,11 +213,22 @@ export class SkyPresenter {
       }
     }
     ctx.restore();
+    // The loop box, to check the grid against: a faint dashed rectangle.
+    if (g.showLoopBox && this.loop) {
+      const cx = grid.ox + grid.cols * grid.cell / 2, cy = grid.oy + grid.rows * grid.cell / 2, w = this.loop.width * grid.cols * grid.cell, h = this.loop.height * grid.rows * grid.cell;
+      ctx.save();
+      ctx.globalAlpha = .5;
+      ctx.strokeStyle = label;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(cx - w / 2, cy - h / 2, w, h);
+      ctx.restore();
+    }
     // At the markers, moving with them: the name above the top line from 8 px right of the top-left marker, and the
     // bottom-right marker's own coordinates below the bottom line, ending 8 px left of it, refreshed once a second.
     if (v.Text.name && this.meta) {
       ctx.save();
-      ctx.fillStyle = palette.ink;
+      ctx.fillStyle = label;
       ctx.font = MARKER_TEXT.name;
       if ('letterSpacing' in ctx) ctx.letterSpacing = '0.14em';
       ctx.textBaseline = 'alphabetic';
@@ -171,7 +239,7 @@ export class SkyPresenter {
       if (now - this.markerAt >= TEXT.refresh || (still && !this.marker)) { this.markerAt = now; this.marker = `X ${fixed(this.lines.r, 4, 2)}  Y ${fixed(this.lines.b, 4, 2)}`; }
       ctx.save();
       ctx.globalAlpha = palette.solid ? 1 : .8;
-      ctx.fillStyle = palette.ink;
+      ctx.fillStyle = label;
       ctx.font = MARKER_TEXT.data;
       ctx.textAlign = 'right';
       ctx.textBaseline = 'alphabetic';
@@ -181,8 +249,8 @@ export class SkyPresenter {
     if (!v.Extras.caption || !v.Extras.captionText) return;
     // The caption reads upward, its baseline just inside the right line, starting just above the bottom line.
     ctx.save();
-    ctx.globalAlpha = palette.solid ? 1 : g.opacity;
-    ctx.fillStyle = palette.ink;
+    ctx.globalAlpha = opacity;
+    ctx.fillStyle = label;
     ctx.font = `italic ${CAPTION.size}px system-ui, sans-serif`;
     ctx.translate(this.lines.r - CAPTION.inset, this.lines.b - CAPTION.inset);
     ctx.rotate(-Math.PI / 2);

@@ -36,11 +36,14 @@ const BASE_PANEL = {
   },
   Grid: {
     enabled: true,
-    opacity: [.7, 0, 1, .01],
     lineWidth: [1, 1, 4, 1],            // CSS px; drawn crisp at the device's pixels
-    padding: [2, 0, 6, .5],             // cells between the subject's bounds and the lines
-    follow: [.4, .05, 1.5, .01],        // seconds for the lines to catch up with the subject
+    padding: [3, 0, 6, .5],             // cells between the subject's loop box and the lines
+    return: [1.8, .5, 4, .1],           // seconds for a line pushed outward to settle back; a line never moves inward faster than 5% of the frame a second
+    linkColors: true,                   // markers and marker labels take the line colour
+    showLoopBox: false,                 // the subject's loop box, a faint dashed rectangle, to check the grid against
   },
+  'Grid Current': { line: '#A9B0CC', marker: '#A9B0CC', label: '#6B7394' },          // solid colours: the Current tab animates no opacity
+  'Grid Sky': { line: '#ffffff', marker: '#ffffff', label: '#ffffff', opacity: [.7, 0, 1, .01] },
   Text: {
     edge: 'OBJECT TRACKING · {grid} · {fps} FPS',  // up the top-left corner; {name} {seq} {grid} {fps} fill in live; empty draws nothing
     name: true,                         // the animal's name at the grid's top-left marker

@@ -10,8 +10,8 @@ import type { SkyValues } from './dial';
  * source that fails to load falls back to the dummy sky. Stars, when on, are drawn over any source. Under reduced
  * motion the clouds and the video stand still.
  */
-type Props = { sky: SkyValues['Sky']; extras: SkyValues['Extras']; still: boolean; travel?: boolean };  // travel: a running animal is on, the clouds stream past faster
-const TRAVEL = { pace: 3, ease: .8 };             // the clouds' speed while travelling, × the drift, and the seconds to ease there and back
+type Props = { sky: SkyValues['Sky']; extras: SkyValues['Extras']; still: boolean; travel?: number };  // travel: the clouds' pace while a running animal is on, × the drift (1: none)
+const TRAVEL = { ease: .8 };                      // the seconds to ease to a new pace and back
 const TILE = { width: 384, height: 192, period: 8 };  // a cloud tile: periodic across, so it scrolls without a seam
 // The cloud layers: each draws its tile this wide (× the frame's width) and tall (× its height), from this top
 // (× its height), drifting at this speed (CSS px a second at 585 px wide, × cloudSpeed), at this opacity.
@@ -49,7 +49,7 @@ function lighten(color: string, amount: number) {
   return `rgb(${channel(0)},${channel(2)},${channel(4)})`;
 }
 
-export function SkyBackground({ sky, extras, still, travel = false }: Props) {
+export function SkyBackground({ sky, extras, still, travel = 1 }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null), video = useRef<HTMLVideoElement>(null);
   const wanted = useRef(travel);
   wanted.current = travel;
@@ -75,7 +75,7 @@ export function SkyBackground({ sky, extras, still, travel = false }: Props) {
         // The drift accumulates at the current pace, which eases toward the travel pace and back.
         const dt = lastNow && !still ? Math.min(.1, (now - lastNow) / 1000) : 0;
         lastNow = now;
-        pace += ((wanted.current ? TRAVEL.pace : 1) - pace) * (1 - Math.exp(-dt / TRAVEL.ease));
+        pace += (wanted.current - pace) * (1 - Math.exp(-dt / TRAVEL.ease));
         scrolled += dt * pace;
         LAYERS.forEach((layer, k) => {
           const W = w * layer.width, H = h * layer.height, y = h * layer.top, speed = layer.speed * sky.cloudSpeed * w / 585;

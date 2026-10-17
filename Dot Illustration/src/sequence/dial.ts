@@ -21,8 +21,8 @@ const BASE_PANEL = {
   },
   Size: { bird: [0, -30, 30, 1], butterfly: [0, -30, 30, 1], manta: [0, -30, 30, 1], horse: [0, -30, 30, 1], fox: [0, -30, 30, 1] },  // % on the calibrated size
   Stride: {
-    horse: [.55, .4, .9, .01],          // seconds per stride: the clip's one gallop stride, played this fast
-    fox: [.4, .3, .7, .01],             // seconds per stride: the clip's one running stride
+    horse: [.9, .5, 1.4, .01],          // seconds per stride: the clip's one gallop stride, played this fast
+    fox: [.75, .4, 1.2, .01],           // seconds per stride: the clip's one running stride
   },
   Credits: {
     fox: 'Fox model by PixelMannen (CC0), rigging & animation by tomkranis (CC BY 4.0), glTF conversion by AsoboStudio & scurest (CC BY 4.0).',

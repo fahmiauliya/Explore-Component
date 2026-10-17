@@ -12,9 +12,8 @@ import type { Subject } from './renderer';
  * included.
  */
 export type Model = { group: THREE.Group; ready: boolean; duration: number; trackers: Tracker[]; setTime: (seconds: number) => void; stride: (u: number) => void; dispose: () => void; strides: () => { duration: number; footfalls: number[]; periods: number[]; strides: number } | null };
-export const TRAVEL = { forward: .2, bounce: .03 };  // a running animal's drift forward and back within a stride, and its bounce at each footfall, body units
 /** A loaded model as a subject: ready once its file has arrived; before that it renders nothing. */
-export type ModelSubject = Subject & { readonly ready: boolean; stride: (u: number) => void; dispose: () => void; strides: Model['strides'] };
+export type ModelSubject = Subject & { readonly ready: boolean; span: number; seek: (time: number, stride: number) => void; update: (time: number, step: number, stride: number) => void; dispose: () => void; strides: Model['strides'] };
 
 export function loadModel(url: string, clipName: string, length: number): Model {
   const group = new THREE.Group();
@@ -22,7 +21,7 @@ export function loadModel(url: string, clipName: string, length: number): Model 
   const skin = new THREE.MeshLambertMaterial({ color: 0xffff00, flatShading: true, side: THREE.DoubleSide });
   let mixer: THREE.AnimationMixer | null = null;
   const model: Model = { group, ready: false, duration: 1, trackers: [], setTime: () => {}, stride: () => {}, dispose: () => { skin.dispose(); mixer?.stopAllAction(); }, strides: () => null };
-  const body = new THREE.Group();                              // the travel's offsets, above the model's own placement
+  const body = new THREE.Group();
   group.add(body);
   // How many strides the clip holds: sample it and count each hoof's footfalls, the local minima of its height near the ground.
   model.strides = () => {
@@ -54,8 +53,8 @@ export function loadModel(url: string, clipName: string, length: number): Model 
     mixer = new THREE.AnimationMixer(scene);
     if (clip) { mixer.clipAction(clip).play(); model.duration = clip.duration; }
     model.setTime = seconds => { mixer!.setTime(((seconds % model.duration) + model.duration) % model.duration); };
-    // A stride's position u: the clip at that point, the body a little ahead or behind, and a bounce at each footfall.
-    model.stride = u => { model.setTime(((u % 1) + 1) % 1 * model.duration); body.position.x = TRAVEL.forward * Math.sin(2 * Math.PI * u); body.position.y = TRAVEL.bounce * Math.max(0, Math.cos(4 * Math.PI * u)) ** 2; };
+    // A stride's position u: the clip at that point. The animal stays in place; only its own animation moves.
+    model.stride = u => { model.setTime(((u % 1) + 1) % 1 * model.duration); };
     model.ready = true;
   });
   return model;

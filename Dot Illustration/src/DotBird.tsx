@@ -8,6 +8,8 @@ import { STILL, flapRate, poseAt, storyAt, FLAP } from './bird/motion';
 import { DotRenderer } from './dot/renderer';
 import { drawDots } from './dot/dots';
 import { note, reduced, sameGrid, startStepper } from './dot/stepper';
+import { CYCLES, calibrate } from './dot/calibrate';
+import { unit } from './dot/wave';
 import { SkyBackground } from './sky/SkyBackground';
 import { SkyPresenter, boundsOf } from './sky/presenter';
 import type { SkyValues, Tab } from './sky/dial';
@@ -54,7 +56,9 @@ export function DotBird({ sky, tab = 'Current', tracking = null }: { sky: SkyVal
   useEffect(() => {
     const renderer = new DotRenderer(), bird = makeBirdSubject(), presenter = new SkyPresenter(), overlay = new TrackingOverlay();
     presenter.overlay = overlay;
-    let pass = 0, previous = 0, flapTime = 0, pausedByUs = false, before: Uint8Array | null = null;
+    let pass = 0, previous = 0, flapTime = 0, pausedByUs = false, before: Uint8Array | null = null, calibrated = false;
+    const tones = (v: Values) => ({ empty: v.Tone.emptyLight, light: v.Tone.light, mid: v.Tone.mid, dark: v.Tone.dark });
+    const FLAPPING = { power: 1, spread: 0, bank: 0, glideAt: 0 };
     const overlayOn = () => { const { tab, tracking } = latest.current!; return !!tracking?.Overlay.tracking && (tab === 'Sky' || tracking.Overlay.showOnCurrent); };
     const trackers = (t: TrackingValues) => (bird.trackers ?? []).slice(0, Math.round(t.Points.count));
     const stop = startStepper({
@@ -69,11 +73,15 @@ export function DotBird({ sky, tab = 'Current', tracking = null }: { sky: SkyVal
         const story = storyAt(CLIPS.map(key => ({ key, at: timeline[key].at, started: timeline[key].started, current: timeline[key].current })), pass % Math.round(values.Motion.glideEvery) !== 0);
         // The flap's own time runs slower through a glide: integrated over playback, carried across the loop's wrap,
         // and restarted at the playhead by a seek.
-        if (step >= 0 && step < .5) flapTime += step * flapRate(story);
-        else if (wrapped) flapTime += (t + timeline.duration - previous) * flapRate(story);
+        // Each flap runs a little faster or slower than the last, ±5%, seeded by the flap's number.
+        const cycle = Math.floor(flapTime / values.Motion.flapDuration), pace = 1 + .05 * (unit(cycle + 1) * 2 - 1);
+        if (step >= 0 && step < .5) flapTime += step * flapRate(story) * pace;
+        else if (wrapped) flapTime += (t + timeline.duration - previous) * flapRate(story) * pace;
         else flapTime = t;
-        bird.pose(reduced.matches ? STILL : poseAt(t, flapTime, story, values.Motion, (noise(pass) - .5) * FLAP.variation));
-        const cells = renderer.render(bird, { empty: values.Tone.emptyLight, light: values.Tone.lightMid, mid: values.Tone.midDark }, values.Tone.lightAngle);
+        // The first update: the whole flap loop sets the bird's size and centre in the frame.
+        if (!calibrated) { calibrated = true; bird.studio.calibrate(calibrate(bird, renderer, grid, tones(values), values.Tone.lightAngle, values.Motion.flapDuration * CYCLES, time => bird.pose(poseAt(time, time, FLAPPING, values.Motion, FLAP.variation / 2 + .05)))); }   // at its biggest stroke
+        bird.pose(reduced.matches ? STILL : poseAt(t, flapTime, story, values.Motion, (noise(pass) - .5) * FLAP.variation + .05 * (unit(cycle * 7 + 4) * 2 - 1)));
+        const cells = renderer.render(bird, tones(values), values.Tone.lightAngle);
 
         // A flying bird is never still: two updates in a row (one step apart; seeks and stalls are not steps) with the same grid are a bug worth a warning.
         if (step > 0 && step < 1.5 / values.Motion.updateRate && sameGrid(before, cells)) console.warn(`DotBird: the grid did not change between updates at ${previous.toFixed(3)} s and ${t.toFixed(3)} s`);
@@ -81,7 +89,7 @@ export function DotBird({ sky, tab = 'Current', tracking = null }: { sky: SkyVal
         previous = t;
         // The overlay's pins: the same posed frame, projected, each locked to the nearest dot.
         if (overlayOn()) overlay.setPoints(project(trackers(latest.current!.tracking!), bird.studio.camera, grid, [bird.studio.scene]), cells, grid);
-        presenter.shape(cells, boundsOf(cells, grid.cols), { name: 'BIRD', index: 1, total: 1, rate: values.Motion.updateRate });
+        presenter.shape(cells, boundsOf(cells, grid.cols), { name: 'BIRD', index: 1, total: 1, rate: values.Motion.updateRate }, grid, bird.studio.loopBox());
         if (latest.current!.tab !== 'Sky') drawDots(ctx, cells, grid, { ...values.Colors, dotSize: values.Density.dotSize, navyWidth: values.Density.navyWidth });
       },
       every: (ctx, grid, now) => {

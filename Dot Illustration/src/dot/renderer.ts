@@ -5,15 +5,16 @@ import type { Tracker } from '../tracking/points';
 /*
  * The dot matrix's source: a subject, lit, rendered into a small hidden target of 4 × 4 pixels per cell, read back
  * and averaged into coverage and brightness per cell. The animal is the cells covered past a threshold; its tones
- * are dealt by brightness percentile inside it, so every animal shows all three: the darkest share navy, the
- * middle share bright, the brightest share light, and the silhouette's edge cells light whatever their brightness.
+ * are dealt by brightness percentile over the body inside its silhouette, so every animal shows all three: the
+ * darkest share navy, the middle share bright (the body's main colour), the brightest share light, and the
+ * silhouette's edge cells light whatever their brightness.
  * The visible canvas never sees the 3D scene, only these cells. Materials put brightness in the red channel; blue
  * is a mark for parts that are always navy (a thin tail), and a subject's highlights are points put on exactly one
  * light cell each.
  */
 export const SUPERSAMPLE = 4;                       // target pixels per cell, each way
 export const NAVY_MARK = .15;                       // a cell this much covered by a blue-marked part is navy whatever its ink
-export const EDGE_COVERAGE = .6;                    // a cell covered less than this is on the silhouette
+export const EDGE_COVERAGE = .5;                    // a cell covered less than this is the silhouette's rim
 
 export type Tones = { empty: number; light: number; mid: number; dark: number };  // the coverage a cell needs to count, and the three shares (any scale)
 export const enum Cell { Empty, Light, Mid, Dark }
@@ -70,18 +71,18 @@ export class DotRenderer {
       cells[k] = this.coverage[k] >= tones.empty ? Cell.Mid : Cell.Empty;
       if (blue / block >= NAVY_MARK) marked.push(k);
     }
-    // The animal's cells by brightness: the darkest share navy, then the middle share bright, the rest light.
-    const inside: number[] = [];
-    for (let k = 0; k < cells.length; k++) if (cells[k] !== Cell.Empty) inside.push(k);
-    inside.sort((a, b) => this.brightness[a] - this.brightness[b]);
-    const total = Math.max(1e-6, tones.light + tones.mid + tones.dark), navy = Math.round(inside.length * tones.dark / total), bright = Math.round(inside.length * tones.mid / total);
-    inside.forEach((k, i) => { cells[k] = i < navy ? Cell.Dark : i < navy + bright ? Cell.Mid : Cell.Light; });
-    // The silhouette: a cell on the edge, or only partly covered, is light.
-    for (const k of inside) {
+    // The silhouette, the partly covered rim, is light; the body is the rest.
+    const body: number[] = [];
+    for (let k = 0; k < cells.length; k++) {
+      if (cells[k] === Cell.Empty) continue;
       const c = k % cols, r = (k - c) / cols;
-      const edge = this.coverage[k] < EDGE_COVERAGE || c === 0 || r === 0 || c === cols - 1 || r === rows - 1 || cells[k - 1] === Cell.Empty || cells[k + 1] === Cell.Empty || cells[k - cols] === Cell.Empty || cells[k + cols] === Cell.Empty;
-      if (edge) cells[k] = Cell.Light;
+      const edge = this.coverage[k] < EDGE_COVERAGE || c === 0 || r === 0 || c === cols - 1 || r === rows - 1;
+      if (edge) cells[k] = Cell.Light; else body.push(k);
     }
+    // The body's cells by brightness: the darkest share navy, then the middle share bright, the rest light.
+    body.sort((a, b) => this.brightness[a] - this.brightness[b]);
+    const total = Math.max(1e-6, tones.light + tones.mid + tones.dark), navy = Math.round(body.length * tones.dark / total), bright = Math.round(body.length * tones.mid / total);
+    body.forEach((k, i) => { cells[k] = i < navy ? Cell.Dark : i < navy + bright ? Cell.Mid : Cell.Light; });
     for (const k of marked) cells[k] = Cell.Dark;
     // A highlight is one light dot on the cell its point falls in, unless the subject is there.
     for (const point of subject.highlights ?? []) {

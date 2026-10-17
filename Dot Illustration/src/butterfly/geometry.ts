@@ -11,14 +11,14 @@ import { asym, lagged, unit } from '../dot/wave';
  * hindwings a little behind, the body bobs on each downstroke and drifts. Lengths are in body lengths.
  */
 export const BUTTERFLY = {
-  flap: .3,                    // seconds per flap
+  flap: .5,                    // seconds per flap
   fold: 88,                    // the forewings' angle when clapped up, degrees; 0 is spread wide
   power: .35,                  // the fling open's share of the cycle: fast; the close takes the rest
   hindLag: .7,                 // the hindwings' lag, radians
   curl: .1,                    // the wing tips' bend, body lengths, lagging the stroke
   bob: .05,                    // the body's dip on each downstroke
   stroke: 8,                   // the body pitches up this much through the downstroke, degrees
-  erratic: { lift: .14, heading: 16 },   // the sudden lifts and drops each cycle, body lengths, and the heading's wobble, degrees
+  erratic: { lift: .06, heading: 10, every: 2 },   // the lifts and drops and the heading's wobble, body lengths and degrees, a new one every so many flaps
   antennaeLag: 3,              // updates the antennae are behind
   drift: { amount: .08, period: 2.3 }, pitch: { amount: 5, period: 3.1 }, roll: { amount: 3, period: 2.7 },
   fore: { span: .85, along: 8, across: 5 }, hind: { span: .55, along: 7, across: 4 },
@@ -119,8 +119,8 @@ export function buildButterfly(): Butterfly {
       const fore = fold * (.5 + .5 * Math.cos(phase)), hind = fold * .9 * (.5 + .5 * Math.cos(phase - BUTTERFLY.hindLag));
       const curl = BUTTERFLY.curl * Math.sin(phase - .9);
       for (const side of sides) { side.fore.rotation.x = -fore; side.hind.rotation.x = -hind; side.foreWing.update(curl); side.hindWing.update(curl * .7); }
-      // Each cycle picks a new lift or drop and a new heading, reached smoothly within the cycle: erratic, not jittery.
-      const cycle = Math.floor(u), f = u - cycle, smooth = f * f * (3 - 2 * f);
+      // Every few flaps pick a new lift or drop and a new heading, reached smoothly over those flaps: wandering, not jittery.
+      const slow = u / BUTTERFLY.erratic.every, cycle = Math.floor(slow), f = slow - cycle, smooth = f * f * (3 - 2 * f);
       const lift = (c: number) => (unit(c * 13 + 5) - .5) * BUTTERFLY.erratic.lift, heading = (c: number) => (unit(c * 17 + 9) - .5) * BUTTERFLY.erratic.heading;
       const time = u * BUTTERFLY.flap, w = 2 * Math.PI * time;
       group.position.y = BUTTERFLY.drift.amount * Math.sin(w / BUTTERFLY.drift.period) + lift(cycle) + (lift(cycle + 1) - lift(cycle)) * smooth - BUTTERFLY.bob * Math.max(0, -s);
