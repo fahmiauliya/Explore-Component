@@ -1,0 +1,94 @@
+/* Dashboard view, Figma 483:23065: the top-left corner of a 2.049× app window on a light ground. */
+/* More specific than styles.css's `.artboard`, which loads after this file. */
+.artboard.artboard-dashboard{background:linear-gradient(90deg,rgba(197,197,197,.38),rgba(197,197,197,.38)),linear-gradient(180deg,#fff,#d6d6d6)}
+/* The window's outline: Figma draws the frame's inner highlight over its inside stroke, so the stroke, white at
+   17% over the dark body (about 75 grey), reads about 120 grey along the top and 100 down the left, where the
+   highlight is half as strong. The highlight is the ::after below, reaching over the border, and the content is
+   clipped by its own box, since a box's inset shadow stops at its padding edge. */
+.dash-window{position:absolute;left:174px;top:91px;width:2950px;height:1843.75px;border:2.049px solid rgba(255,255,255,.17);border-radius:32.778px;background:linear-gradient(180deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.3) 100%),linear-gradient(90deg,#261f29,#261f29),linear-gradient(90deg,#1c1917,#1c1917);box-shadow:-4px -4px 30px 0 rgba(0,0,0,.12),0 8.194px 10.243px 2.049px rgba(0,0,0,.1),0 4.097px 4.097px 0 rgba(0,0,0,.25),0 0 0 1.024px rgba(0,0,0,.55);font:500 26.632px/32.778px Inter,Arial,sans-serif;color:#1c1917}
+.dash-clip{position:absolute;inset:0;border-radius:30.729px;overflow:hidden}
+.dash-window::after{content:'';position:absolute;inset:-2.049px;border-radius:32.778px;pointer-events:none;box-shadow:inset 0 2.049px 4.097px 0 rgba(255,255,255,.35),inset 0 -3.073px 2.049px 0 rgba(0,0,0,.15)}
+.dash-window p{margin:0}
+.dash-window svg{display:block;max-width:none}
+/* The soft light behind the sidebar: Figma's blurred ellipse, its blur reaching 295 px past its box. */
+.dash-glow{position:absolute;left:198.71px;top:50%;width:202.813px;height:475.278px;translate:0 -50%}
+.dash-glow svg{position:absolute;left:-295px;top:-295px;width:792.812px;height:1065.28px}
+/* The white panel: sidebar beside an empty page, with a white inner glow along its top-left edges. */
+.dash-panel{position:absolute;left:124.96px;top:50%;translate:0 -50%;width:2822.986px;height:1819.167px;border:2.049px solid rgba(0,0,0,.15);border-radius:20.486px;background:#fff;box-shadow:0 0 4.097px -2.049px rgba(0,0,0,.15),0 0 12.292px 0 rgba(0,0,0,.1);display:flex;align-items:center;overflow:hidden}
+.dash-panel::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 8.194px 8.194px 8.194px 0 #fff}
+.dash-sidebar{position:relative;flex:none;width:409.722px;height:1819.167px;background:#fdfcfc;display:flex;flex-direction:column;align-items:flex-start;overflow:hidden}
+.dash-space{flex:1 0 0;min-width:1px;height:1819.167px;background:#fff;border-left:2.049px solid rgba(0,0,0,.06)}
+/* Menu rows are Figma's auto-layout stacks. */
+.dash-header{width:100%;padding:12.292px 20.486px}
+.dash-header-inner{width:100%;padding:8.194px 0;border-radius:16.389px}
+.dash-menu{width:100%;display:flex;gap:16.389px;align-items:center;padding:16.389px 20.486px;border-radius:12.292px;position:relative}
+.dash-menu-head{height:57.361px;padding:0 12.292px;border-radius:16.389px}
+.dash-menu-sub{padding:0 4.097px}
+.dash-clip{overflow:hidden}
+.dash-row{width:100%;padding:0 12.292px}
+.dash-icon{position:relative;flex:none;width:32.778px;height:32.778px}
+.dash-icon-dim{opacity:.5}
+.dash-icon svg{position:absolute;left:0;top:0;width:32.778px;height:32.778px}
+.dash-label{flex:1 0 0;min-width:1px;display:flex;align-items:center;padding:0 4.097px}
+.dash-label p{flex:1 0 0;min-width:1px;word-break:break-word}
+.dash-label-company{color:#44403b}
+.dash-slot{flex:none;width:28.681px;height:28.681px}
+.dash-slot-chevron{display:grid;place-items:center}
+.dash-slot-chevron svg{width:20.486px;height:20.486px}
+.dash-nav{flex:1 0 0;min-height:1px;width:100%;display:flex;flex-direction:column;gap:24.583px;align-items:flex-start}
+.dash-nav-items{flex:1 0 0;min-height:1px;width:100%;display:flex;flex-direction:column;gap:8.194px;align-items:flex-start}
+.dash-group{position:relative;width:100%;display:flex;flex-direction:column;align-items:flex-start}
+/* The selected item: a white pill with a hairline border and a soft bevel. Figma exports the border as
+   rgba(0,0,0,.6) but renders it at about a fifth of that; the rendered design is what is matched here. */
+.dash-pill{position:relative;flex:1 0 0;min-width:1px;display:flex;align-items:center;padding:16.389px 20.486px;border:1.024px solid rgba(0,0,0,.2);border-radius:12.292px;background:linear-gradient(180deg,rgba(255,255,255,.2) 50%,rgba(230,230,230,.2) 100%),#fff}
+.dash-pill::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 1.024px 1.024px 0 rgba(255,255,255,.6),inset 0 -1.024px 1.024px 0 rgba(0,0,0,.2),inset 0 0 1.024px 0 rgba(0,0,0,.2)}
+.dash-pill p{flex:1 0 0;min-width:1px;word-break:break-word}
+.dash-line{position:absolute;left:47.12px;top:88.09px;width:2.049px;height:223.299px;background:#e0e0e0}
+.dash-indicator{position:absolute;left:47.12px;top:81.94px;width:2.049px;height:32.778px;border-radius:4.097px;background:#000}
+.dash-tutorials{width:100%;padding:32.778px}
+.dash-tutorials-box{width:100%;padding:0 20.486px;border:2.049px solid #000}
+.dash-tutorials-menu{width:100%;display:flex;flex-direction:column;gap:16.389px;justify-content:center;padding:24.583px 20.486px;border-radius:16.389px}
+.dash-tutorials-title{min-width:100%;width:min-content;color:#000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-tutorials-text{min-width:100%;width:min-content;font-weight:400;color:#777169}
+/* The company tile: a dark glass square with a deep-red rim, light sweeps in blend modes, and the logo. */
+.dash-tile{position:relative;flex:none;width:32.778px;height:32.778px;border-radius:6.146px;overflow:hidden}
+.dash-tile>div{position:absolute}
+.dash-tile svg{position:absolute;left:0;top:0}
+.dash-tile-subtract{left:-6.83px;top:13.77px;width:46.207px;height:27.201px;mix-blend-mode:hard-light}
+.dash-tile-subtract svg{left:-12.906px;top:-12.907px;width:72.0195px;height:53.0137px}
+.dash-tile-highlight-1{left:-8.42px;top:31.52px;width:49.395px;height:8.535px;mix-blend-mode:color-dodge}
+.dash-tile-highlight-1 svg{left:-8.787px;top:-8.786px;width:66.9671px;height:26.1077px}
+.dash-tile-highlight-2{left:-3.19px;top:26.97px;width:38.924px;height:13.999px;mix-blend-mode:plus-lighter}
+.dash-tile-highlight-2 svg{left:-8.4px;top:-8.4px;width:55.7224px;height:30.7976px}
+.dash-tile-rim{left:-.23px;top:-17.75px;width:32.778px;height:50.76px;border-radius:9.56px;background:rgba(0,0,0,.01);box-shadow:inset 0 0 4.416px -1.593px #ffa27d;pointer-events:none}
+.dash-tile-glass{left:-.23px;top:-.228px;width:32.778px;height:33.233px;border:.228px solid #d9d9d9;border-radius:9.56px;filter:blur(.455px);mix-blend-mode:hard-light}
+.dash-tile-central{left:-2.28px;top:-2.28px;width:36.42px;height:36.42px;border-radius:10.243px;opacity:.1;background:linear-gradient(270deg,rgba(255,255,255,.4) 0%,rgba(255,255,255,0) 20%,rgba(255,255,255,0) 79.951%,rgba(255,255,255,.4) 100%)}
+.dash-tile-logo{left:7.07px;top:8.93px;width:18.646px;height:14.917px;overflow:hidden}
+.dash-tile-logo svg{width:18.646px;height:14.917px}
+/* The rail: 65.556 px icon cells down the window's dark left edge. */
+.dash-rail{position:absolute;left:-2.05px;top:-2.05px;height:1843.75px;display:flex;flex-direction:column;gap:32.778px;align-items:center;padding:28.681px;overflow:hidden}
+.dash-rail-top{flex:1 0 0;min-height:1px;width:100%;display:flex;flex-direction:column;gap:16.389px;align-items:flex-start}
+.dash-rail-group,.dash-rail-bottom{display:flex;flex-direction:column;gap:16.389px;align-items:flex-start}
+.dash-rail-item{position:relative;flex:none;width:65.556px;height:65.556px;overflow:hidden}
+.dash-rail-bottom .dash-rail-item{border-radius:16.389px;overflow:visible}
+/* The flower's cell and frame let its glow spill, as Figma's do (only the logomark and notification frames clip):
+   the halo fades past the 32.778 px frame and the 65.556 px cell. */
+.dash-rail-flower,.dash-rail-flower .dash-rail-frame{overflow:visible}
+.dash-rail-item>svg,.dash-rail-frame{position:absolute;left:16.389px;top:16.389px;width:32.778px;height:32.778px}
+.dash-rail-frame{overflow:hidden}
+.dash-rail-divider{flex:none;width:65.556px;height:32.778px}
+.dash-logomark{position:absolute;left:1.206px;top:1.59px;width:30.404px;height:30.153px}
+.dash-notification{position:absolute;left:2.734px;top:1.708px;width:27.315px;height:29.36px}
+/* The icon style of the flower, for the rail: the large illustration's light is made for 443 px, not 33. The petal
+   halo and the big blurred centre are gone, the background light is a dark pink haze whose strength is a dial,
+   the discs are faint, the petals are narrowed across to leave gaps, and the centre keeps its stars and rays,
+   which are crisp at this scale (the blob was the light's white core). */
+.flower-variant-icon .layer-glow{display:none}
+.flower-variant-icon [data-motion="glow"] [data-name="Ellipse 43707"],.flower-variant-icon [data-motion="glow"] [data-name="Group 2147256414"]{display:none}
+.flower-variant-icon [data-motion="glow"] [data-name="Ellipse 43706"]{opacity:var(--icon-haze,.8)}
+.flower-variant-icon .ring>.flower-piece{opacity:var(--icon-haze,.8)}
+.flower-variant-icon .petal>.flower-piece{scale:var(--icon-petal-width,.98) 1}
+.flower-variant-icon [data-motion="sparkle"]>.flower-piece{scale:var(--icon-sparkle,1)}
+/* The flower icon is the whole flower frame at 32.778 / 442.986 of its size. */
+.flower-icon{position:absolute;left:0;top:0;width:442.986px;height:442.986px;transform-origin:0 0}
+.flower-icon .flower{left:0;top:0}

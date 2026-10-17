@@ -1,0 +1,23 @@
+{
+  "programs": [],
+  "stream_groups": [],
+  "streams": [
+    {
+      "width": 2082,
+      "height": 1560,
+      "pix_fmt": "yuv420p",
+      "r_frame_rate": "60/1",
+      "avg_frame_rate": "60/1",
+      "duration": "11.200000",
+      "nb_read_frames": "672"
+    }
+  ],
+  "loopSeconds": 11.2,
+  "loopBoundary": {
+    "same": true,
+    "maxDifference": 1,
+    "differingPixels": 19,
+    "differingShare": 0.00001
+  },
+  "decodedWithoutErrors": true
+}

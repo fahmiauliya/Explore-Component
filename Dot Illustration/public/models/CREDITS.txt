@@ -1,0 +1,17 @@
+Horse.glb
+  Source: three.js examples (github.com/mrdoob/three.js, examples/models/gltf/Horse.glb)
+  three.js is MIT licensed ("Copyright (c) 2010-2026 three.js authors").
+  Note: the model file itself carries no separate license note. A university course that
+  redistributes it says it is covered by the three.js MIT license. Not officially confirmed.
+  Animation: morph targets (15), clip "horse_A_", 1.50s gallop loop. No skeleton.
+  Orientation tested: rotate Y by -90deg to face left in side view.
+
+Fox.glb
+  Source: Khronos glTF Sample Assets (github.com/KhronosGroup/glTF-Sample-Assets, Models/Fox)
+  Model: PixelMannen - CC0 1.0
+  Rigging & animation: tomkranis - CC BY 4.0 (credit required)
+  glTF conversion: @AsoboStudio and @scurest - CC BY 4.0 (credit required)
+  Animations: "Survey" 3.42s, "Walk" 0.71s, "Run" 1.16s (skinned, 1 skeleton)
+  Orientation tested: rotate Y by -90deg to face left in side view.
+  Credit line to use: "Fox model by PixelMannen (CC0), rigging & animation by tomkranis (CC BY 4.0),
+  glTF conversion by AsoboStudio & scurest (CC BY 4.0)."

@@ -1,0 +1,414 @@
+{
+  "savedAt": "2026-10-15T16:24:18.727Z",
+  "panel": {
+    "Bud.perspective": 1000,
+    "Bud.shade": 0.82,
+    "Bud.desaturate": 0.9,
+    "Bloom.spacing": 0.1,
+    "Bloom.randomness": 1,
+    "Bloom.sheenSweep": 10,
+    "Open.tilt": 1.5,
+    "Open.turn": 1,
+    "Close.spacing": 0.1,
+    "Light.pulse": 0.03,
+    "Light.pulseHz": 0.6
+  },
+  "timeline": {
+    "budHold.at": 0,
+    "budHold.duration": 1,
+    "pressure.at": 1,
+    "pressure.duration": 0.6,
+    "pressure.transition": {
+      "type": "easing",
+      "duration": 0.6,
+      "ease": [
+        0.33,
+        1,
+        0.68,
+        1
+      ]
+    },
+    "pressure.from.glow": 0.32,
+    "pressure.from.glowBright": 1.1,
+    "pressure.from.stars": 0.22,
+    "pressure.from.starsBright": 1.1,
+    "pressure.to.glow": 0.36,
+    "pressure.to.glowBright": 1.3,
+    "pressure.to.stars": 0.25,
+    "pressure.to.starsBright": 1.4,
+    "bloom.outerPetals.at": 1.6,
+    "bloom.outerPetals.fold.delay": 0,
+    "bloom.outerPetals.fold.from": 66,
+    "bloom.outerPetals.fold.step1.duration": 0.75,
+    "bloom.outerPetals.fold.step1.transition": {
+      "type": "easing",
+      "duration": 1.16,
+      "ease": [
+        0.22,
+        1,
+        0.36,
+        1
+      ]
+    },
+    "bloom.outerPetals.fold.step1.to": -4,
+    "bloom.outerPetals.fold.step2.duration": 0.2,
+    "bloom.outerPetals.fold.step2.transition": {
+      "type": "easing",
+      "duration": 0.29,
+      "ease": [
+        0.45,
+        0,
+        0.55,
+        1
+      ]
+    },
+    "bloom.outerPetals.fold.step2.to": 0,
+    "bloom.outerPetals.twist.delay": 0,
+    "bloom.outerPetals.twist.duration": 0.95,
+    "bloom.outerPetals.twist.transition": {
+      "type": "easing",
+      "duration": 1.45,
+      "ease": [
+        0.22,
+        1,
+        0.36,
+        1
+      ]
+    },
+    "bloom.outerPetals.twist.from": -18,
+    "bloom.outerPetals.twist.to": 0,
+    "bloom.outerPetals.scale.delay": 0.05,
+    "bloom.outerPetals.scale.duration": 0.8,
+    "bloom.outerPetals.scale.transition": {
+      "type": "easing",
+      "duration": 1.2,
+      "ease": [
+        0.33,
+        1,
+        0.68,
+        1
+      ]
+    },
+    "bloom.outerPetals.scale.from": 0.92,
+    "bloom.outerPetals.scale.to": 1,
+    "bloom.innerPetals.at": 1.6,
+    "bloom.innerPetals.fold.delay": 0,
+    "bloom.innerPetals.fold.from": 72,
+    "bloom.innerPetals.fold.step1.duration": 0.75,
+    "bloom.innerPetals.fold.step1.transition": {
+      "type": "easing",
+      "duration": 1.16,
+      "ease": [
+        0.22,
+        1,
+        0.36,
+        1
+      ]
+    },
+    "bloom.innerPetals.fold.step1.to": 2,
+    "bloom.innerPetals.fold.step2.duration": 0.2,
+    "bloom.innerPetals.fold.step2.transition": {
+      "type": "easing",
+      "duration": 0.29,
+      "ease": [
+        0.45,
+        0,
+        0.55,
+        1
+      ]
+    },
+    "bloom.innerPetals.fold.step2.to": 0,
+    "bloom.innerPetals.twist.delay": 0,
+    "bloom.innerPetals.twist.duration": 0.95,
+    "bloom.innerPetals.twist.transition": {
+      "type": "easing",
+      "duration": 1.45,
+      "ease": [
+        0.22,
+        1,
+        0.36,
+        1
+      ]
+    },
+    "bloom.innerPetals.twist.from": -18,
+    "bloom.innerPetals.twist.to": 0,
+    "bloom.innerPetals.scale.delay": 0.05,
+    "bloom.innerPetals.scale.duration": 0.8,
+    "bloom.innerPetals.scale.transition": {
+      "type": "easing",
+      "duration": 1.2,
+      "ease": [
+        0.33,
+        1,
+        0.68,
+        1
+      ]
+    },
+    "bloom.innerPetals.scale.from": 0.92,
+    "bloom.innerPetals.scale.to": 1,
+    "lightSpill.at": 1.95,
+    "lightSpill.from.glow": 0.4,
+    "lightSpill.from.glowBright": 1.3,
+    "lightSpill.from.stars": 0.25,
+    "lightSpill.from.starsBright": 1.4,
+    "lightSpill.step1.duration": 1.3,
+    "lightSpill.step1.transition": {
+      "type": "easing",
+      "duration": 1.9,
+      "ease": [
+        0.22,
+        1,
+        0.36,
+        1
+      ]
+    },
+    "lightSpill.step1.to.glow": 1.1,
+    "lightSpill.step1.to.glowBright": 1.1,
+    "lightSpill.step1.to.stars": 1,
+    "lightSpill.step1.to.starsBright": 1.1,
+    "lightSpill.step2.duration": 0.8,
+    "lightSpill.step2.transition": {
+      "type": "easing",
+      "duration": 0.8,
+      "ease": [
+        0.45,
+        0,
+        0.55,
+        1
+      ]
+    },
+    "lightSpill.step2.to.glow": 1,
+    "lightSpill.step2.to.glowBright": 1.1,
+    "lightSpill.step2.to.starsBright": 1.1,
+    "lightSpill.step3.duration": 0.7,
+    "lightSpill.step3.transition": {
+      "type": "easing",
+      "duration": 0.7,
+      "ease": [
+        0.45,
+        0,
+        0.55,
+        1
+      ]
+    },
+    "lightSpill.step3.to.glowBright": 1,
+    "lightSpill.step3.to.starsBright": 1,
+    "ripples.r0.at": 2.58,
+    "ripples.r0.duration": 1,
+    "ripples.r0.transition": {
+      "type": "easing",
+      "duration": 1,
+      "ease": [
+        0.33,
+        1,
+        0.68,
+        1
+      ]
+    },
+    "ripples.r0.from.scale": 0.3,
+    "ripples.r0.to.scale": 1,
+    "ripples.r1.at": 2.64,
+    "ripples.r1.duration": 1.15,
+    "ripples.r1.transition": {
+      "type": "easing",
+      "duration": 1.15,
+      "ease": [
+        0.33,
+        1,
+        0.68,
+        1
+      ]
+    },
+    "ripples.r1.from.scale": 0.3,
+    "ripples.r1.to.scale": 1,
+    "ripples.r2.at": 2.51,
+    "ripples.r2.duration": 1.3,
+    "ripples.r2.transition": {
+      "type": "easing",
+      "duration": 1.3,
+      "ease": [
+        0.33,
+        1,
+        0.68,
+        1
+      ]
+    },
+    "ripples.r2.from.scale": 0.3,
+    "ripples.r2.to.scale": 1,
+    "ripples.r3.at": 2.6,
+    "ripples.r3.duration": 1.45,
+    "ripples.r3.transition": {
+      "type": "easing",
+      "duration": 1.45,
+      "ease": [
+        0.33,
+        1,
+        0.68,
+        1
+      ]
+    },
+    "ripples.r3.from.scale": 0.3,
+    "ripples.r3.to.scale": 1,
+    "openHold.at": 2.89,
+    "openHold.duration": 12,
+    "lightPullback.at": 13.64,
+    "lightPullback.light.delay": 0,
+    "lightPullback.light.duration": 0.6,
+    "lightPullback.light.transition": {
+      "type": "easing",
+      "duration": 0.8,
+      "ease": [
+        0.45,
+        0,
+        0.55,
+        1
+      ]
+    },
+    "lightPullback.light.from": 0,
+    "lightPullback.light.to": 1,
+    "lightPullback.r0.delay": 0,
+    "lightPullback.r0.duration": 0.6,
+    "lightPullback.r0.transition": {
+      "type": "easing",
+      "duration": 0.8,
+      "ease": [
+        0.45,
+        0,
+        0.55,
+        1
+      ]
+    },
+    "lightPullback.r0.from": 0,
+    "lightPullback.r0.to": 1,
+    "lightPullback.r1.delay": 0.12,
+    "lightPullback.r1.duration": 0.6,
+    "lightPullback.r1.transition": {
+      "type": "easing",
+      "duration": 0.8,
+      "ease": [
+        0.45,
+        0,
+        0.55,
+        1
+      ]
+    },
+    "lightPullback.r1.from": 0,
+    "lightPullback.r1.to": 1,
+    "lightPullback.r2.delay": 0.24,
+    "lightPullback.r2.duration": 0.6,
+    "lightPullback.r2.transition": {
+      "type": "easing",
+      "duration": 0.8,
+      "ease": [
+        0.45,
+        0,
+        0.55,
+        1
+      ]
+    },
+    "lightPullback.r2.from": 0,
+    "lightPullback.r2.to": 1,
+    "lightPullback.r3.delay": 0.36,
+    "lightPullback.r3.duration": 0.6,
+    "lightPullback.r3.transition": {
+      "type": "easing",
+      "duration": 0.8,
+      "ease": [
+        0.45,
+        0,
+        0.55,
+        1
+      ]
+    },
+    "lightPullback.r3.from": 0,
+    "lightPullback.r3.to": 1,
+    "close.innerPetals.at": 13.88,
+    "close.innerPetals.fold.delay": 0,
+    "close.innerPetals.fold.duration": 0.578,
+    "close.innerPetals.fold.transition": {
+      "type": "easing",
+      "duration": 1.7,
+      "ease": [
+        0.45,
+        0,
+        0.55,
+        1
+      ]
+    },
+    "close.innerPetals.fold.from": 0,
+    "close.innerPetals.fold.to": 1,
+    "close.innerPetals.twist.delay": 0,
+    "close.innerPetals.twist.duration": 0.54,
+    "close.innerPetals.twist.transition": {
+      "type": "easing",
+      "duration": 1.7,
+      "ease": [
+        0.45,
+        0,
+        0.55,
+        1
+      ]
+    },
+    "close.innerPetals.twist.from": 0,
+    "close.innerPetals.twist.to": 1,
+    "close.innerPetals.scale.delay": 0.05,
+    "close.innerPetals.scale.duration": 0.637,
+    "close.innerPetals.scale.transition": {
+      "type": "easing",
+      "duration": 1.5,
+      "ease": [
+        0.45,
+        0,
+        0.55,
+        1
+      ]
+    },
+    "close.innerPetals.scale.from": 0,
+    "close.innerPetals.scale.to": 1,
+    "close.outerPetals.at": 14.05,
+    "close.outerPetals.fold.delay": 0,
+    "close.outerPetals.fold.duration": 0.51,
+    "close.outerPetals.fold.transition": {
+      "type": "easing",
+      "duration": 1.7,
+      "ease": [
+        0.45,
+        0,
+        0.55,
+        1
+      ]
+    },
+    "close.outerPetals.fold.from": 0,
+    "close.outerPetals.fold.to": 1,
+    "close.outerPetals.twist.delay": 0,
+    "close.outerPetals.twist.duration": 0.585,
+    "close.outerPetals.twist.transition": {
+      "type": "easing",
+      "duration": 1.7,
+      "ease": [
+        0.45,
+        0,
+        0.55,
+        1
+      ]
+    },
+    "close.outerPetals.twist.from": 0,
+    "close.outerPetals.twist.to": 1,
+    "close.outerPetals.scale.delay": 0.05,
+    "close.outerPetals.scale.duration": 0.525,
+    "close.outerPetals.scale.transition": {
+      "type": "easing",
+      "duration": 1.5,
+      "ease": [
+        0.45,
+        0,
+        0.55,
+        1
+      ]
+    },
+    "close.outerPetals.scale.from": 0,
+    "close.outerPetals.scale.to": 1
+  },
+  "agent": {},
+  "agentTimeline": {}
+}

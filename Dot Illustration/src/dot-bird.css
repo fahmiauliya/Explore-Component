@@ -1,0 +1,9 @@
+/* The component fills its parent; the canvas is the whole of it. */
+.dot-bird{position:relative;width:100%;height:100%;overflow:hidden;background:#dedfe4}
+.dot-bird canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+/* The Sky version: the canvas is cleared, not filled, and the sky sits behind it, filling the box. */
+.dot-bird.dot-sky{background:transparent}
+.dot-bird .sky{position:absolute;inset:0;overflow:hidden;background:#2d36c8}
+.dot-bird .sky img,.dot-bird .sky video,.dot-bird .sky canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+/* The note beside a panel action button. */
+.dial-note{margin-left:8px;font-size:11px;line-height:16px;color:#9fe6a0}
