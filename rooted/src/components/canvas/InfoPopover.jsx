@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { socials } from '../../data/references.js';
-import { socialIcons } from '../Icons.jsx';
+import { InfoIcon, socialIcons } from '../Icons.jsx';
 import { modLabel } from '../../lib/platform.js';
 
 // Bottom-left "i" button with a small popover: credit, socials, shortcuts, copyright.
@@ -25,8 +25,8 @@ export default function InfoPopover() {
 
   return (
     <div ref={ref} className="cbar cbar--info floating">
-      <button type="button" className="cbar__btn" onClick={() => setOpen((o) => !o)} aria-label="About Rooted" aria-expanded={open} aria-haspopup="dialog">
-        i
+      <button type="button" className="cbar__btn" onClick={() => setOpen((o) => !o)} aria-label="About Rooted" title="About Rooted" aria-expanded={open} aria-haspopup="dialog">
+        <InfoIcon width={18} height={18} />
       </button>
       {open && (
         <div className="info-pop floating" role="dialog" aria-label="About Rooted">
@@ -41,9 +41,10 @@ export default function InfoPopover() {
               );
             })}
           </div>
-          <p className="info-pop__shortcuts">
+          <p className="info-pop__shortcuts hide-on-touch">
             Drag to pan · {modLabel('')}+ scroll to zoom · Right-click for options · {modLabel('Z')} undo
           </p>
+          <p className="info-pop__shortcuts show-on-touch">Drag to move · Pinch to zoom · Long-press for options</p>
           <p className="footer__small">© {year} Rooted</p>
         </div>
       )}

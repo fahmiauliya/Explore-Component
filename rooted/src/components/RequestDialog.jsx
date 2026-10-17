@@ -128,7 +128,7 @@ export default function RequestDialog({ open, onClose }) {
   const errorProps = (name) => ({ 'aria-invalid': show(name) ? 'true' : undefined, 'aria-describedby': show(name) ? `req-${name}-error` : undefined });
 
   return (
-    <Modal open={open} onClose={onClose} title={stage === 'sent' ? undefined : 'Send a request'} subtitle="Suggest a reference or tell me how to make Rooted better." label="Thanks for sending" width={420} minHeight={panelHeight}>
+    <Modal open={open} onClose={onClose} title={stage === 'sent' ? undefined : 'Send a request'} subtitle="Suggest a reference or share feedback." label="Thanks for sending" width={420} minHeight={panelHeight}>
       <div className="request">
         {stage === 'sent' ? (
           <div className="thanks">

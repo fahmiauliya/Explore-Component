@@ -368,3 +368,32 @@ export function PaletteIcon(props) {
     </svg>
   );
 }
+
+export function InfoIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5" />
+      <path d="M12 8v.01" />
+    </svg>
+  );
+}
+
+export function TextSizeIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 7V5h10v2" />
+      <path d="M9 5v14" />
+      <path d="M14 13v-1.5h6V13" />
+      <path d="M17 11.5V19" />
+    </svg>
+  );
+}
+
+export function BackIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="m14 6-6 6 6 6" />
+    </svg>
+  );
+}

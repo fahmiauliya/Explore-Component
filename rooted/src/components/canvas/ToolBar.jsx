@@ -1,55 +1,72 @@
 import { useRef, useState } from 'react';
-import { ChevronDownIcon, CloseIcon, ImageIcon, LockIcon, PencilIcon, PlusIcon, TrashIcon, UnlockIcon } from '../Icons.jsx';
+import { ChevronDownIcon, CloseIcon, ImageIcon, LockIcon, PencilIcon, PlusIcon, TextSizeIcon, TrashIcon, UnlockIcon } from '../Icons.jsx';
 import ContextMenu from './ContextMenu.jsx';
+import SheetMenu from './SheetMenu.jsx';
 import { alignEntries } from './alignEntries.jsx';
 import ColorPopover from './ColorPopover.jsx';
-import { labelColors } from './labelColors.js';
+import { LABEL_PRESETS_COLORS, LABEL_SIZES, labelColors } from './labelColors.js';
 
 export const LABEL_PRESETS = ['Font', 'Color', 'Image style', 'Illustration style', 'Texture', 'Icon'];
 
 // Bottom-center bar. Shows the add tools, or the selection tools while
-// something is selected (the switch crossfades).
-export default function ToolBar({ selectionCount, canEdit, allLocked, labelColor, onPickColor, onAddLabel, onUploadFiles, onEdit, onAlign, onToggleLock, onDelete, onClearSelection }) {
-  const [menu, setMenu] = useState(null); // { x, y, kind: 'label' | 'align' }
+// something is selected. On phones the menus open as bottom sheets.
+export default function ToolBar({ selectionCount, canEdit, allLocked, labelColor, labelSize, phone, onPickColor, onPickSize, onAddLabel, onUploadFiles, onEdit, onAlign, onToggleLock, onDelete, onClearSelection }) {
+  const [menu, setMenu] = useState(null); // { x, y, kind: 'label' | 'align' | 'size' | 'color' }
   const [colorOpen, setColorOpen] = useState(false);
   const fileRef = useRef(null);
   const labelBtn = useRef(null);
   const alignBtn = useRef(null);
+  const sizeBtn = useRef(null);
 
   function openMenu(kind, btn) {
     const r = btn.current.getBoundingClientRect();
     setMenu({ x: r.left, y: r.top - 4, kind });
   }
 
-  const labelEntries = [
-    ...LABEL_PRESETS.map((text) => ({ label: text, onSelect: () => onAddLabel(text) })),
-    'divider',
-    { label: 'Custom…', onSelect: () => onAddLabel(null) },
-  ];
+  const entriesFor = {
+    label: [...LABEL_PRESETS.map((text) => ({ label: text, onSelect: () => onAddLabel(text) })), 'divider', { label: 'Custom…', onSelect: () => onAddLabel(null) }],
+    align: alignEntries(selectionCount, onAlign),
+    size: LABEL_SIZES.map((sz) => ({ label: `${sz.id} (${sz.fs})`, selected: labelSize === sz.fs, onSelect: () => onPickSize(sz.fs) })),
+    color: LABEL_PRESETS_COLORS.map((p) => ({ label: p.name, swatch: p.bg, selected: labelColor === p.id, onSelect: () => onPickColor(p.id) })),
+  };
+  const titles = { label: 'Add label', align: 'Align', size: 'Label size', color: 'Label color' };
+
   const LockOrUnlock = allLocked ? UnlockIcon : LockIcon;
   const selecting = selectionCount > 0;
+  const isLabel = labelColor !== undefined;
 
   return (
     <div className="cbar cbar--tools floating" role="toolbar" aria-label={selecting ? 'Selection' : 'Add'}>
       {selecting ? (
-        <div className="cbar__fade" key="sel">
+        <div className="cbar__fade cbar__scroll" key="sel">
           <span className="cbar__count num">{selectionCount} selected</span>
           <span className="cbar__divider" />
           <button type="button" className="cbar__btn" onClick={onEdit} disabled={!canEdit} aria-label="Edit" title="Edit">
             <PencilIcon />
           </button>
-          {labelColor !== undefined && (
+          {isLabel && (
             <span className="cbar__color">
-              <button type="button" className="cbar__btn" onClick={() => setColorOpen((o) => !o)} aria-label="Label color" title="Label color" aria-haspopup="dialog" aria-expanded={colorOpen}>
+              <button type="button" className="cbar__btn" onClick={() => (phone ? setMenu({ kind: 'color' }) : setColorOpen((o) => !o))} aria-label="Label color" title="Label color" aria-haspopup="dialog" aria-expanded={colorOpen}>
                 <span className="color-dot" style={{ background: labelColors(labelColor).bg }} />
               </button>
-              {colorOpen && <ColorPopover active={labelColor} onPick={(c) => { onPickColor(c); setColorOpen(false); }} onClose={() => setColorOpen(false)} />}
+              {colorOpen && !phone && <ColorPopover active={labelColor} onPick={(c) => { onPickColor(c); setColorOpen(false); }} onClose={() => setColorOpen(false)} />}
             </span>
           )}
-          <button ref={alignBtn} type="button" className="cbar__btn cbar__text" onClick={() => openMenu('align', alignBtn)} disabled={selectionCount < 2} aria-label="Align" title="Align" aria-haspopup="menu" aria-expanded={menu?.kind === 'align'}>
-            Align
-            <ChevronDownIcon width={12} height={12} />
-          </button>
+          {isLabel && (
+            <button ref={sizeBtn} type="button" className="cbar__btn" onClick={() => (phone ? setMenu({ kind: 'size' }) : openMenu('size', sizeBtn))} aria-label="Label size" title="Label size" aria-haspopup="menu" aria-expanded={menu?.kind === 'size'}>
+              <TextSizeIcon />
+            </button>
+          )}
+          {selectionCount >= 2 && (
+            <>
+              <span className="cbar__divider" />
+              <button ref={alignBtn} type="button" className="cbar__btn cbar__text" onClick={() => (phone ? setMenu({ kind: 'align' }) : openMenu('align', alignBtn))} aria-label="Align" title="Align" aria-haspopup="menu" aria-expanded={menu?.kind === 'align'}>
+                Align
+                <ChevronDownIcon width={12} height={12} />
+              </button>
+            </>
+          )}
+          <span className="cbar__divider" />
           <button type="button" className="cbar__btn" onClick={onToggleLock} aria-label={allLocked ? 'Unlock' : 'Lock'} title={allLocked ? 'Unlock' : 'Lock'}>
             <LockOrUnlock />
           </button>
@@ -63,15 +80,15 @@ export default function ToolBar({ selectionCount, canEdit, allLocked, labelColor
         </div>
       ) : (
         <div className="cbar__fade" key="add">
-          <button ref={labelBtn} type="button" className="cbar__text" onClick={() => openMenu('label', labelBtn)} aria-haspopup="menu" aria-expanded={menu?.kind === 'label'}>
+          <button ref={labelBtn} type="button" className="cbar__text" onClick={() => (phone ? setMenu({ kind: 'label' }) : openMenu('label', labelBtn))} aria-haspopup="menu" aria-expanded={menu?.kind === 'label'} aria-label="Add label" title="Add label">
             <PlusIcon />
-            Label
-            <ChevronDownIcon width={12} height={12} />
+            <span className="cbar__word">Label</span>
+            <ChevronDownIcon width={12} height={12} className="cbar__word" />
           </button>
           <span className="cbar__divider" />
-          <button type="button" className="cbar__text" onClick={() => fileRef.current?.click()}>
+          <button type="button" className="cbar__text" onClick={() => fileRef.current?.click()} aria-label="Upload image" title="Upload image">
             <ImageIcon />
-            Upload image
+            <span className="cbar__word">Upload image</span>
           </button>
         </div>
       )}
@@ -87,16 +104,12 @@ export default function ToolBar({ selectionCount, canEdit, allLocked, labelColor
           e.target.value = '';
         }}
       />
-      {menu && (
-        <ContextMenu
-          x={menu.x}
-          y={menu.y}
-          above
-          entries={menu.kind === 'label' ? labelEntries : alignEntries(selectionCount, onAlign)}
-          onClose={() => setMenu(null)}
-          label={menu.kind === 'label' ? 'Add label' : 'Align'}
-        />
-      )}
+      {menu &&
+        (phone ? (
+          <SheetMenu entries={entriesFor[menu.kind]} onClose={() => setMenu(null)} label={titles[menu.kind]} />
+        ) : (
+          <ContextMenu x={menu.x} y={menu.y} above entries={entriesFor[menu.kind]} onClose={() => setMenu(null)} label={titles[menu.kind]} />
+        ))}
     </div>
   );
 }

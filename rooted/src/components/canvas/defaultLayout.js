@@ -1,13 +1,15 @@
 // Builds the first-visit canvas from the Visuals sections in the data file,
 // and keeps a saved canvas in step with later edits to that file.
 import { getDomain, getSlug } from '../../lib/references.js';
+import { labelHeight } from './labelColors.js';
 
 export const CARD_W = 280;
-export const CARD_H = 268; // 280-wide card: 175px screenshot + text block (measured after render)
-export const LABEL_H = 33; // 13px chip: 6px padding + 19.5px line + 6px padding + border
+export const CARD_H = 263; // rendered height of a 280-wide card (tags, screenshot, text); re-measure if the card changes
+export const GROUP_LABEL_FS = 20; // group labels start at M
+export const LABEL_H = labelHeight(GROUP_LABEL_FS);
 const GAP = 24; // between cards
-const LABEL_GAP = 12; // label -> cards
-const GROUP_GAP = 64;
+const LABEL_GAP = 16; // label -> cards
+const GROUP_GAP = 80;
 
 export function linkId(url) {
   return `link:${getSlug(url)}`;
@@ -38,7 +40,7 @@ export function buildDefaultItems(tab) {
   let y = 0;
   let z = 1;
   for (const section of tab.sections) {
-    items.push({ id: `label:${section.id}`, type: 'label', text: section.title, color: 'black', x: 0, y, w: 80, h: LABEL_H, z: z++, locked: false });
+    items.push({ id: `label:${section.id}`, type: 'label', text: section.title, color: 'black', fontSize: GROUP_LABEL_FS, x: 0, y, w: 80, h: LABEL_H, z: z++, locked: false });
     y += LABEL_H + LABEL_GAP;
     section.items.forEach((item, i) => {
       items.push(linkItem(item, section, i * (CARD_W + GAP), y, z++));
@@ -59,7 +61,10 @@ export function mergeWithData(saved, tab) {
   // Refresh name/description/image from the data file so edits there show up.
   // Labels saved before colors existed: group labels become Black, others Gray.
   items = items.map((it) => {
-    if (it.type === 'label' && !it.color) return { ...it, color: tab.sections.some((sec) => it.id === `label:${sec.id}`) ? 'black' : 'gray' };
+    if (it.type === 'label') {
+      const isGroup = tab.sections.some((sec) => it.id === `label:${sec.id}`);
+      return { ...it, color: it.color === 'gray' || !it.color ? (isGroup && !it.color ? 'black' : 'white') : it.color, fontSize: it.fontSize || (isGroup ? GROUP_LABEL_FS : 14) };
+    }
     if (it.type !== 'link') return it;
     const { item, section } = dataLinks.get(it.url);
     return { ...it, name: item.name, description: item.description, tags: item.tags, image: item.image, sectionId: section.id };
@@ -86,7 +91,7 @@ export function mergeWithData(saved, tab) {
           y = label.y + label.h + LABEL_GAP;
         } else {
           y = bottom + GROUP_GAP;
-          items.push({ id: `label:${section.id}`, type: 'label', text: section.title, color: 'black', x: 0, y, w: 80, h: LABEL_H, z: z++, locked: false });
+          items.push({ id: `label:${section.id}`, type: 'label', text: section.title, color: 'black', fontSize: GROUP_LABEL_FS, x: 0, y, w: 80, h: LABEL_H, z: z++, locked: false });
           y += LABEL_H + LABEL_GAP;
           bottom = y + CARD_H;
         }

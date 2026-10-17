@@ -174,6 +174,14 @@ export function snapResize(start, corner, pointer, others, { threshold, grid, no
   return { rect, guides };
 }
 
+// Snap a single vertical edge to the nearest other-item edge (used by label resizing).
+// Returns { pos, guide } or null.
+export function snapEdgeX(edge, rect, others, threshold) {
+  const a = bestAlign([edge], others, edgesX, threshold);
+  if (!a) return null;
+  return { pos: a.pos, guide: guideX(a.pos, rect, a.other) };
+}
+
 // Union box of a set of rects.
 export function bounds(rects) {
   if (!rects.length) return null;

@@ -14,7 +14,7 @@ export default function Header({ onLogo, onOpenSearch, onOpenRandom, onOpenReque
         <div className="header__actions">
           <button type="button" className="search-button" onClick={onOpenSearch} aria-label={`Search references (${modLabel('K')})`}>
             <SearchIcon />
-            <span className="search-button__hint" aria-hidden="true">{modLabel('K')}</span>
+            <span className="search-button__hint hide-on-touch" aria-hidden="true">{modLabel('K')}</span>
           </button>
           <button
             type="button"

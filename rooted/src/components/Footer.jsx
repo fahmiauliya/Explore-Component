@@ -18,17 +18,17 @@ export default function Footer() {
             {socials.map((s) => {
               const Icon = socialIcons[s.id] || socialIcons.website;
               return (
-                <a key={s.id} className="icon-button icon-button--lg" href={s.url} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label}>
-                  <Icon />
+                <a key={s.id} className="icon-button icon-button--lg icon-button--touch" href={s.url} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label}>
+                  <Icon width={18} height={18} />
                 </a>
               );
             })}
           </div>
         </div>
         <div className="footer__row footer__row--meta">
-          <p className="footer__small">© {year} Rooted</p>
+          <p className="footer__meta">© {year} Rooted</p>
           <div className="footer__right">
-            <p className="footer__small">
+            <p className="footer__meta hide-on-touch">
               {modLabel('K')} search · 1–4 tabs · {modLabel('E')} random
             </p>
             <button type="button" className="footer__top" onClick={toTop}>

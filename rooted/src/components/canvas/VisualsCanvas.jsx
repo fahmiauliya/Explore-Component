@@ -16,6 +16,7 @@ import {
   ResetIcon,
   SendBackIcon,
   TagIcon,
+  TextSizeIcon,
   TrashIcon,
   UnlockIcon,
   ZoomInIcon,
@@ -31,7 +32,9 @@ import { alignEntries } from './alignEntries.jsx';
 import { buildDefaultItems, mergeWithData, LABEL_H } from './defaultLayout.js';
 import * as storage from './useCanvasStorage.js';
 import { bounds, snapMove, snapResize, snapValue } from './snapping.js';
-import { LABEL_PRESETS_COLORS } from './labelColors.js';
+import { DEFAULT_LABEL_COLOR, LABEL_PRESETS_COLORS, LABEL_SIZES, clampFontSize, fontSizeForHeight, labelHeight, labelMinWidth, labelNaturalWidth } from './labelColors.js';
+import SheetMenu from './SheetMenu.jsx';
+import { snapEdgeX } from './snapping.js';
 
 const visualsTab = tabs.find((t) => t.id === 'visuals');
 const MIN_ZOOM = 0.25;
@@ -44,6 +47,9 @@ const MAX_DROP = 20;
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'];
 const TYPE_ERROR = 'Only PNG, JPG, WebP, GIF or AVIF up to 10MB';
 const HINT_KEY = 'rooted:visuals-hint:v1';
+const HINT_MS = 6000;
+const phoneQuery = () => window.matchMedia('(max-width: 640px)');
+const touchQuery = () => window.matchMedia('(hover: none)');
 // Space kept clear by "fit": the floating header + tabs on top, the bars at the bottom.
 const SAFE = { top: 128, bottom: 88, side: 48 };
 const CAPTION_H = 22; // 12px caption at 1.5 + 4px gap
@@ -74,7 +80,10 @@ export default function VisualsCanvas() {
   const [menu, setMenu] = useState(null);
   const [toast, setToast] = useState(null);
   const [images, setImages] = useState({});
-  const [overlay, setOverlay] = useState({ guides: [], spacings: [], box: null });
+  const [overlay, setOverlay] = useState({ guides: [], spacings: [], box: null, tip: null });
+  const [phone, setPhone] = useState(() => phoneQuery().matches);
+  const touchRef = useRef(touchQuery().matches);
+  const [size, setSize] = useState({ w: 0, h: 0 });
   const [draggingIds, setDraggingIds] = useState(null);
   const [cursor, setCursor] = useState(''); // '' | 'grab' | 'grabbing'
   const [dialog, setDialog] = useState(null); // { type: 'reset' } | { type: 'image', id, caption, url }
@@ -90,6 +99,7 @@ export default function VisualsCanvas() {
       return true;
     }
   });
+  const hintRef = useRef(hint);
 
   const history = useRef({ past: [], future: [] });
   const sizeRef = useRef({ w: 0, h: 0 });
@@ -182,14 +192,58 @@ export default function VisualsCanvas() {
     return { x: (w / 2 - v.panX) / v.zoom, y: (cy - v.panY) / v.zoom };
   };
 
-  const dismissHint = () => {
+  const dismissHint = useCallback(() => {
+    if (!hintRef.current) return;
+    hintRef.current = false;
     setHint(false);
     try {
       localStorage.setItem(HINT_KEY, '1');
     } catch {
       /* ignore */
     }
-  };
+  }, []);
+
+  // The hint fades out by itself after 6 seconds.
+  useEffect(() => {
+    if (!hint) return undefined;
+    const t = setTimeout(dismissHint, HINT_MS);
+    return () => clearTimeout(t);
+  }, [hint, dismissHint]);
+
+  // Phone / touch media queries.
+  useEffect(() => {
+    const mq = phoneQuery();
+    const tq = touchQuery();
+    const onChange = () => {
+      setPhone(mq.matches);
+      touchRef.current = tq.matches;
+    };
+    mq.addEventListener('change', onChange);
+    tq.addEventListener('change', onChange);
+    return () => {
+      mq.removeEventListener('change', onChange);
+      tq.removeEventListener('change', onChange);
+    };
+  }, []);
+
+  // While a label is being edited on a phone, keep it above the keyboard.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!editingId || !vv) return undefined;
+    const keep = () => {
+      const el = canvasRef.current?.querySelector(`[data-item-id="${editingId}"]`);
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const limit = vv.offsetTop + vv.height - 24;
+      if (r.bottom > limit) setView({ ...viewRef.current, panY: viewRef.current.panY - (r.bottom - limit) });
+    };
+    vv.addEventListener('resize', keep);
+    vv.addEventListener('scroll', keep);
+    return () => {
+      vv.removeEventListener('resize', keep);
+      vv.removeEventListener('scroll', keep);
+    };
+  }, [editingId, setView]);
 
   // ---- zoom / fit ----
   const zoomTo = useCallback(
@@ -260,6 +314,7 @@ export default function VisualsCanvas() {
     const ro = new ResizeObserver(() => {
       const r = el.getBoundingClientRect();
       sizeRef.current = { w: r.width, h: r.height };
+      setSize({ w: r.width, h: r.height });
       if (pendingFit.current && itemsRef.current.length) {
         pendingFit.current = false;
         fitToContent();
@@ -286,6 +341,7 @@ export default function VisualsCanvas() {
     const onWheel = (e) => {
       e.preventDefault();
       setMenu(null);
+      dismissHint();
       if (e.ctrlKey || e.metaKey) {
         const r = el.getBoundingClientRect();
         zoomTo(viewRef.current.zoom * Math.exp(-e.deltaY * 0.003), e.clientX - r.left, e.clientY - r.top);
@@ -296,7 +352,7 @@ export default function VisualsCanvas() {
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [setView, zoomTo]);
+  }, [setView, zoomTo, dismissHint]);
 
   useEffect(
     () => () => {
@@ -399,16 +455,41 @@ export default function VisualsCanvas() {
   );
 
   // ---- adding things ----
+  // Nearest free spot for a w × h box near the centre of the view: the box is
+  // checked against every item with a 16px margin, searching outward on an 8px grid.
+  function findFreeSpot(w, h) {
+    const c = viewCenterWorld();
+    const list = itemsRef.current;
+    const margin = 16;
+    const free = (x, y) => !list.some((it) => x < it.x + it.w + margin && it.x < x + w + margin && y < it.y + it.h + margin && it.y < y + h + margin);
+    const cx = snapValue(c.x - w / 2);
+    const cy = snapValue(c.y - h / 2);
+    if (free(cx, cy)) return { x: cx, y: cy };
+    for (let r = 8; r <= 4000; r += 8) {
+      for (let i = -r; i <= r; i += 8) {
+        for (const [x, y] of [[cx + i, cy - r], [cx + i, cy + r], [cx - r, cy + i], [cx + r, cy + i]]) {
+          if (free(x, y)) return { x, y };
+        }
+      }
+    }
+    return { x: cx, y: cy };
+  }
+
   const addLabel = useCallback(
     (text) => {
-      const c = viewCenterWorld();
+      const value = text || 'Label';
+      const fontSize = 14;
+      const w = labelNaturalWidth(value, fontSize);
+      const h = labelHeight(fontSize);
+      const spot = findFreeSpot(w, h);
       const id = newId('label');
-      const item = { id, type: 'label', text: text || 'Label', color: 'gray', x: snapValue(c.x - 40), y: snapValue(c.y - LABEL_H / 2), w: 80, h: LABEL_H, z: maxZ() + 1, locked: false };
+      const item = { id, type: 'label', text: value, color: DEFAULT_LABEL_COLOR, fontSize, x: spot.x, y: spot.y, w, h, z: maxZ() + 1, locked: false };
       commit([...itemsRef.current, item]);
       setSelection([id]);
-      if (!text) setEditingId(id);
+      setEditingId(id);
       canvasRef.current?.focus({ preventScroll: true });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [commit, setSelection, setEditingId]
   );
 
@@ -463,6 +544,22 @@ export default function VisualsCanvas() {
     [commit, setSelection, showToast]
   );
 
+  // ---- label size presets ----
+  const setLabelSize = useCallback(
+    (fs) => {
+      const ids = new Set(itemsRef.current.filter((it) => it.type === 'label' && selectionRef.current.includes(it.id)).map((it) => it.id));
+      if (!ids.size) return;
+      commit(
+        itemsRef.current.map((it) => {
+          if (!ids.has(it.id)) return it;
+          const old = it.fontSize || 14;
+          return { ...it, fontSize: fs, w: it.fixedW ? Math.round((it.w * fs) / old) : labelNaturalWidth(it.text, fs), h: labelHeight(fs) };
+        })
+      );
+    },
+    [commit]
+  );
+
   // ---- label colors ----
   const selectedLabels = () => itemsRef.current.filter((it) => it.type === 'label' && selectionRef.current.includes(it.id));
   const setLabelColor = useCallback(
@@ -501,7 +598,7 @@ export default function VisualsCanvas() {
   const trackPointer = (e) => pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
   const endGesture = () => {
     gesture.current = null;
-    setOverlay({ guides: [], spacings: [], box: null });
+    setOverlay({ guides: [], spacings: [], box: null, tip: null });
     setDraggingIds(null);
     setCursor(spaceRef.current ? 'grab' : '');
   };
@@ -543,6 +640,7 @@ export default function VisualsCanvas() {
     e.stopPropagation();
     canvasRef.current.focus({ preventScroll: true });
     setMenu(null);
+    dismissHint();
     trackPointer(e);
     if (pointers.current.size >= 2) return startPinch();
     if (spaceRef.current) return startPan(e);
@@ -565,6 +663,14 @@ export default function VisualsCanvas() {
         return;
       }
     }
+    // Touch: a drag only moves an item that is already selected. The first
+    // tap selects it; a drag on an unselected item pans instead.
+    if (e.pointerType === 'touch' && !sel.includes(item.id)) {
+      setSelection([item.id]);
+      startPan(e);
+      armLongPress(e, item);
+      return;
+    }
     const nextSel = sel.includes(item.id) ? sel : [item.id];
     setSelection(nextSel);
     if (item.locked) return;
@@ -582,6 +688,7 @@ export default function VisualsCanvas() {
     if (e.target.closest?.('.cbar, .info-pop, .handle, .canvas__toast')) return;
     canvasRef.current.focus({ preventScroll: true });
     setMenu(null);
+    dismissHint();
     trackPointer(e);
     if (pointers.current.size >= 2) return startPinch();
     if (e.shiftKey && !spaceRef.current && e.button === 0) {
@@ -600,7 +707,7 @@ export default function VisualsCanvas() {
     const it = itemsRef.current.find((x) => x.id === selectionRef.current[0]);
     if (!it || it.locked) return;
     const heightFor = it.type === 'link' ? cardHeight : (w) => imageHeight(it, w);
-    gesture.current = { type: 'resize', pointerId: e.pointerId, id: it.id, corner, start: { x: it.x, y: it.y, w: it.w, h: it.h }, startItems: itemsRef.current, heightFor };
+    gesture.current = { type: 'resize', pointerId: e.pointerId, id: it.id, corner, start: { x: it.x, y: it.y, w: it.w, h: it.h, fontSize: it.fontSize || 14, fixedW: Boolean(it.fixedW), text: it.text }, startItems: itemsRef.current, heightFor, label: it.type === 'label' };
     canvasRef.current.setPointerCapture(e.pointerId);
     setDraggingIds([it.id]);
   }
@@ -610,7 +717,7 @@ export default function VisualsCanvas() {
     const g = gesture.current;
     if (!g) return;
     if (longPress.current && Math.hypot(e.clientX - (g.startX ?? e.clientX), e.clientY - (g.startY ?? e.clientY)) > 6) clearTimeout(longPress.current);
-    latest.current = { clientX: e.clientX, clientY: e.clientY, altKey: e.altKey };
+    latest.current = { clientX: e.clientX, clientY: e.clientY, altKey: e.altKey, shiftKey: e.shiftKey };
     if (!raf.current) raf.current = requestAnimationFrame(processMove);
   }
 
@@ -640,7 +747,7 @@ export default function VisualsCanvas() {
       setSelection([...new Set([...g.startSel, ...touched])]);
       const a = { x: g.start.x * v.zoom + v.panX, y: g.start.y * v.zoom + v.panY };
       const b = { x: cur.x * v.zoom + v.panX, y: cur.y * v.zoom + v.panY };
-      setOverlay({ guides: [], spacings: [], box: { x1: a.x, y1: a.y, x2: b.x, y2: b.y } });
+      setOverlay({ guides: [], spacings: [], box: { x1: a.x, y1: a.y, x2: b.x, y2: b.y }, tip: null });
     } else if (g.type === 'move') {
       const dx = (p.clientX - g.startX) / v.zoom;
       const dy = (p.clientY - g.startY) / v.zoom;
@@ -658,13 +765,55 @@ export default function VisualsCanvas() {
       const sdx = snapped.x - primary.x;
       const sdy = snapped.y - primary.y;
       setItems(g.startItems.map((it) => (g.moving.has(it.id) ? { ...it, x: g.moving.get(it.id).x + sdx, y: g.moving.get(it.id).y + sdy } : it)));
-      setOverlay({ guides: snapped.guides, spacings: snapped.spacings, box: null });
+      setOverlay({ guides: snapped.guides, spacings: snapped.spacings, box: null, tip: null });
+    } else if (g.type === 'resize' && g.label) {
+      // Labels: side handles change the width; corners scale the whole chip.
+      const pointer = toWorld(p.clientX, p.clientY);
+      const others = g.startItems.filter((it) => it.id !== g.id);
+      const st = g.start;
+      const right = g.corner.includes('e');
+      const bottom = g.corner.includes('s');
+      const side = g.corner === 'w' || g.corner === 'e';
+      const anchorX = right ? st.x : st.x + st.w;
+      const anchorY = bottom ? st.y : st.y + st.h;
+      let fs = st.fontSize;
+      let w;
+      let fixedW = st.fixedW;
+      let guides = [];
+      const wPointer = Math.abs(pointer.x - anchorX);
+      if (side) {
+        w = wPointer;
+        fixedW = true;
+      } else if (p.shiftKey) {
+        fs = fontSizeForHeight(Math.abs(pointer.y - anchorY));
+        w = wPointer;
+        fixedW = true;
+      } else {
+        fs = clampFontSize(st.fontSize * (wPointer / st.w));
+        w = st.fixedW ? Math.round((st.w * fs) / st.fontSize) : labelNaturalWidth(st.text, fs);
+      }
+      if (!p.altKey && (side || p.shiftKey)) {
+        const edge = right ? anchorX + w : anchorX - w;
+        const tentative = { x: right ? anchorX : anchorX - w, y: st.y, w, h: labelHeight(fs) };
+        const snap = snapEdgeX(edge, tentative, others, threshold);
+        if (snap) {
+          w = right ? snap.pos - anchorX : anchorX - snap.pos;
+          guides = [snap.guide];
+        } else if (snapGridRef.current) w = snapValue(w);
+      }
+      w = Math.max(labelMinWidth(st.text, fs), Math.round(w));
+      const h = labelHeight(fs);
+      const rect = { x: right ? anchorX : anchorX - w, y: bottom ? anchorY : anchorY - h, w, h };
+      setItems(g.startItems.map((it) => (it.id === g.id ? { ...it, ...rect, fontSize: fs, fixedW } : it)));
+      const r = canvasRect();
+      setOverlay({ guides, spacings: [], box: null, tip: { x: p.clientX - r.left, y: p.clientY - r.top, text: `W ${w} · ${fs}px` } });
     } else if (g.type === 'resize') {
       const pointer = toWorld(p.clientX, p.clientY);
       const others = g.startItems.filter((it) => it.id !== g.id);
       const { rect, guides } = snapResize(g.start, g.corner, pointer, others, { threshold, grid: snapGridRef.current, noSnap: p.altKey, heightFor: g.heightFor, minW: 80 });
       setItems(g.startItems.map((it) => (it.id === g.id ? { ...it, ...rect } : it)));
-      setOverlay({ guides, spacings: [], box: null });
+      const r = canvasRect();
+      setOverlay({ guides, spacings: [], box: null, tip: { x: p.clientX - r.left, y: p.clientY - r.top, text: `${Math.round(rect.w)} × ${Math.round(rect.h)}` } });
     }
   }
 
@@ -774,12 +923,16 @@ export default function VisualsCanvas() {
     if (one?.url) entries.push({ label: 'Open link', icon: ExternalLinkIcon, onSelect: () => openLink(one) });
     entries.push({ label: 'Bring to front', icon: BringFrontIcon, shortcut: mod(']'), onSelect: bringToFront });
     entries.push({ label: 'Send to back', icon: SendBackIcon, shortcut: mod('['), onSelect: sendToBack });
-    entries.push({ label: 'Align', icon: AlignLeftIcon, disabled: chosen.length < 2, submenu: alignEntries(chosen.length, align) });
+    if (labels.length) {
+      const fs = labels[0].fontSize || 14;
+      entries.push({ label: 'Size', icon: TextSizeIcon, submenu: LABEL_SIZES.map((sz) => ({ label: `${sz.id} (${sz.fs})`, selected: fs === sz.fs, onSelect: () => setLabelSize(sz.fs) })) });
+    }
+    if (chosen.length >= 2) entries.push({ label: 'Align', icon: AlignLeftIcon, submenu: alignEntries(chosen.length, align) });
     entries.push({ label: allLocked ? 'Unlock position' : 'Lock position', icon: allLocked ? UnlockIcon : LockIcon, shortcut: mod('L'), onSelect: toggleLock });
     entries.push('divider');
     entries.push({ label: 'Remove', icon: TrashIcon, danger: true, shortcut: 'Del', disabled: allLocked, onSelect: deleteSelected });
     return entries;
-  }, [menu, snapGrid, addLabel, fitToContent, zoomTo, startEdit, duplicateSelected, bringToFront, sendToBack, align, toggleLock, deleteSelected, setLabelColor]);
+  }, [menu, snapGrid, addLabel, fitToContent, zoomTo, startEdit, duplicateSelected, bringToFront, sendToBack, align, toggleLock, deleteSelected, setLabelColor, setLabelSize]);
 
   // ---- keyboard (only while the canvas has focus) ----
   function onKeyDown(e) {
@@ -843,7 +996,7 @@ export default function VisualsCanvas() {
   function onDragEnter(e) {
     e.preventDefault();
     dragDepth.current += 1;
-    if (hasFiles(e)) setDropping(true);
+    if (hasFiles(e) && !touchRef.current) setDropping(true);
   }
   function onDragLeave() {
     dragDepth.current = Math.max(0, dragDepth.current - 1);
@@ -873,8 +1026,16 @@ export default function VisualsCanvas() {
 
   // ---- render ----
   const single = selectedItems.length === 1 ? selectedItems[0] : null;
-  const handles = single && !single.locked && single.type !== 'label' && !editingId ? { x: single.x, y: single.y, w: single.w, h: single.h } : null;
+  const handles = single && !single.locked && !editingId ? { x: single.x, y: single.y, w: single.w, h: single.h } : null;
   const sorted = useMemo(() => [...items].sort((a, b) => a.z - b.z), [items]);
+  // Only items within the view plus a 500px margin render their images.
+  const margin = 500 / view.zoom;
+  const vx0 = -view.panX / view.zoom - margin;
+  const vy0 = -view.panY / view.zoom - margin;
+  const vx1 = (size.w - view.panX) / view.zoom + margin;
+  const vy1 = (size.h - view.panY) / view.zoom + margin;
+  const inView = (it) => it.x + it.w > vx0 && it.x < vx1 && it.y + it.h > vy0 && it.y < vy1;
+  const firstLabel = selectedItems.find((it) => it.type === 'label');
 
   return (
     <>
@@ -907,6 +1068,7 @@ export default function VisualsCanvas() {
                 selected={selection.includes(item.id)}
                 editing={editingId === item.id}
                 dragging={draggingIds?.includes(item.id)}
+                visible={inView(item)}
                 imageUrl={item.type === 'image' ? images[item.imageKey] : undefined}
                 onPointerDown={onItemPointerDown}
                 onDoubleClick={onItemDoubleClick}
@@ -935,14 +1097,17 @@ export default function VisualsCanvas() {
           </div>
         )}
 
-        <Guides guides={overlay.guides} spacings={overlay.spacings} box={overlay.box} handles={handles} toScreen={toScreen} zoom={view.zoom} onHandlePointerDown={onHandlePointerDown} />
+        <Guides guides={overlay.guides} spacings={overlay.spacings} box={overlay.box} handles={handles} sideHandles={single?.type === 'label'} tip={overlay.tip} toScreen={toScreen} zoom={view.zoom} onHandlePointerDown={onHandlePointerDown} />
 
         <ToolBar
           selectionCount={selection.length}
           canEdit={!!single && single.type !== 'link'}
           allLocked={selectedItems.length > 0 && selectedItems.every((it) => it.locked)}
-          labelColor={selectedItems.some((it) => it.type === 'label') ? (selectedItems.find((it) => it.type === 'label').color || 'gray') : undefined}
+          labelColor={firstLabel ? firstLabel.color || DEFAULT_LABEL_COLOR : undefined}
+          labelSize={firstLabel ? firstLabel.fontSize || 14 : undefined}
+          phone={phone}
           onPickColor={setLabelColor}
+          onPickSize={setLabelSize}
           onAddLabel={addLabel}
           onUploadFiles={(files) => addFiles(files, null)}
           onEdit={startEdit}
@@ -954,6 +1119,7 @@ export default function VisualsCanvas() {
         <ZoomBar
           zoom={view.zoom}
           snap={snapGrid}
+          phone={phone}
           onZoomIn={() => zoomTo(viewRef.current.zoom + ZOOM_STEP)}
           onZoomOut={() => zoomTo(viewRef.current.zoom - ZOOM_STEP)}
           onReset={() => zoomTo(1)}
@@ -968,7 +1134,7 @@ export default function VisualsCanvas() {
         ) : (
           hint && (
             <div className="canvas__toast floating" role="status">
-              Drag to move · {modLabel('')}+ scroll to zoom · Right-click for options
+              {touchRef.current ? 'Drag to move · Pinch to zoom · Long-press for options' : `Drag to move · ${modLabel('')}+ scroll to zoom · Right-click for options`}
               <button type="button" className="icon-button" onClick={dismissHint} aria-label="Dismiss hint">
                 <CloseIcon width={14} height={14} />
               </button>
@@ -978,7 +1144,12 @@ export default function VisualsCanvas() {
       </div>
 
       <input ref={colorInput} type="color" className="visually-hidden" tabIndex={-1} aria-hidden="true" defaultValue="#AABBCC" onChange={(e) => setLabelColor(e.target.value)} />
-      {menu && <ContextMenu x={menu.x} y={menu.y} entries={menuEntries} onClose={() => setMenu(null)} label={menu.kind === 'item' ? 'Item menu' : 'Canvas menu'} />}
+      {menu &&
+        (phone ? (
+          <SheetMenu entries={menuEntries} onClose={() => setMenu(null)} label={menu.kind === 'item' ? 'Options' : 'Canvas'} />
+        ) : (
+          <ContextMenu x={menu.x} y={menu.y} entries={menuEntries} onClose={() => setMenu(null)} label={menu.kind === 'item' ? 'Item menu' : 'Canvas menu'} />
+        ))}
 
       <Modal open={dialog?.type === 'reset'} onClose={() => setDialog(null)} title="Reset the canvas?" subtitle="Your layout and uploaded images in this browser will be removed." width={420}>
         <div className="cdialog">

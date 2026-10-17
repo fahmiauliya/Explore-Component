@@ -11,7 +11,7 @@ export const TagFilterContext = createContext({ tag: null, setTag: () => {} });
 // Stretched-link pattern: the name is the link and covers the whole card;
 // the tag buttons sit above it. On the canvas (`interactive={false}`) the
 // tags are plain text and the card has no link overlay.
-export default function Card({ item, interactive = true }) {
+export default function Card({ item, interactive = true, showImage = true }) {
   const tags = (item.tags || []).slice(0, 3);
   const filter = useContext(TagFilterContext);
   const fresh = isNew(item.added);
@@ -43,9 +43,7 @@ export default function Card({ item, interactive = true }) {
           {fresh && <span className="card__new">New</span>}
         </div>
       )}
-      <span className="card__frame">
-        <PreviewImage item={item} className="card__img" iconSize={24} />
-      </span>
+      <span className="card__frame">{showImage && <PreviewImage item={item} className="card__img" iconSize={24} />}</span>
       <div className="card__text">
         {interactive ? (
           <a className="card__name" href={item.url} target="_blank" rel="noopener noreferrer">

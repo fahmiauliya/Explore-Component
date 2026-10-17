@@ -14,6 +14,11 @@ export default function Tabs({ activeTab, onSelectTab }) {
       const btn = track?.querySelector('[aria-current="page"]');
       if (!btn) return;
       setThumb({ x: btn.offsetLeft, w: btn.offsetWidth });
+      // If the track scrolls sideways (narrow phones), keep the active tab in view.
+      if (track.scrollWidth > track.clientWidth + 1) {
+        const left = btn.offsetLeft - (track.clientWidth - btn.offsetWidth) / 2;
+        track.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+      }
     };
     place();
     const ro = new ResizeObserver(place);

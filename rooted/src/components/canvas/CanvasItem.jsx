@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import Card from '../Card.jsx';
 import { LockIcon } from '../Icons.jsx';
-import { labelColors } from './labelColors.js';
+import { labelColors, labelMetrics } from './labelColors.js';
 
 // One thing on the board: a label, a link card or an uploaded image.
 // Positioning is done by the parent (world coordinates); this only draws it.
-export default function CanvasItem({ item, selected, editing, imageUrl, dragging, onPointerDown, onDoubleClick, onContextMenu, onMeasure, onEditCommit, onEditCancel, onOpen }) {
+export default function CanvasItem({ item, selected, editing, imageUrl, dragging, visible = true, onPointerDown, onDoubleClick, onContextMenu, onMeasure, onEditCommit, onEditCancel, onOpen }) {
   const ref = useRef(null);
   const editRef = useRef(null);
 
@@ -16,7 +16,7 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
     const w = ref.current.offsetWidth;
     const h = ref.current.offsetHeight;
     if (Math.abs(w - item.w) > 0.5 || Math.abs(h - item.h) > 0.5) onMeasure(item.id, w, h);
-  }, [item.type, item.text, item.w, item.h, item.id, onMeasure, editing]);
+  }, [item.type, item.text, item.w, item.h, item.id, item.fontSize, item.fixedW, onMeasure, editing]);
 
   // Focus and select the text when inline editing starts. The editable span
   // owns its text from here on, so re-renders never move the caret.
@@ -44,12 +44,23 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
   }
 
   const chip = item.type === 'label' ? labelColors(item.color) : null;
+  const metrics = item.type === 'label' ? labelMetrics(item.fontSize || 14) : null;
   const style = {
     transform: `translate(${item.x}px, ${item.y}px)`,
-    width: item.type === 'label' ? 'auto' : item.w,
+    width: item.type === 'label' ? (item.fixedW ? item.w : 'auto') : item.w,
     height: item.type === 'image' ? item.h : 'auto',
     zIndex: dragging ? 100000 : item.z,
-    ...(chip ? { background: chip.bg, color: chip.text } : {}),
+    ...(chip
+      ? {
+          background: chip.bg,
+          color: chip.text,
+          borderColor: chip.border,
+          fontSize: metrics.fontSize,
+          lineHeight: metrics.lineHeight,
+          padding: `${metrics.padY}px ${metrics.padX}px`,
+          borderRadius: metrics.radius,
+        }
+      : {}),
   };
 
   return (
@@ -91,11 +102,11 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
           <span className="citem__label">{item.text}</span>
         ))}
 
-      {item.type === 'link' && <Card item={{ ...item, key: item.id }} interactive={false} />}
+      {item.type === 'link' && <Card item={{ ...item, key: item.id }} interactive={false} showImage={visible} />}
 
       {item.type === 'image' && (
         <>
-          {imageUrl ? (
+          {imageUrl && visible ? (
             <img className="citem__img" src={imageUrl} alt={item.caption || ''} draggable={false} />
           ) : (
             <span className="citem__img citem__img--missing" />

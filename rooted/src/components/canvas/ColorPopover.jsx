@@ -35,7 +35,7 @@ export default function ColorPopover({ active, onPick, onClose }) {
             key={p.id}
             type="button"
             className={`swatch${active === p.id ? ' is-active' : ''}`}
-            style={{ background: p.bg, color: p.text, borderColor: p.id === 'black' ? '#111' : undefined }}
+            style={{ background: p.bg, color: p.text, borderColor: p.id === 'black' ? '#111' : p.border }}
             onClick={() => onPick(p.id)}
             aria-label={p.name}
             aria-pressed={active === p.id}

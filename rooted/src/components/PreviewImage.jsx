@@ -45,6 +45,8 @@ export default function PreviewImage({ item, className = '', lazy = true, iconSi
       className={className}
       src={candidates[step]}
       alt=""
+      width={640}
+      height={400}
       loading={lazy ? 'lazy' : 'eager'}
       decoding="async"
       onLoad={() => stepCache.set(item.key, step)}
