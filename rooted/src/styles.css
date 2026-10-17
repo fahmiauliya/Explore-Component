@@ -408,13 +408,26 @@ a {
 }
 
 .card__media {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   aspect-ratio: 16 / 10;
-  border: 1px solid var(--line);
   border-radius: var(--space-3);
   overflow: hidden;
   background: var(--surface);
-  transition: border-color 0.15s;
+  transition: background-color 0.3s ease-out;
+}
+
+/* The screenshot floats as a smaller panel in the middle of the gray tile. */
+.card__frame {
+  display: block;
+  width: 72%;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--space-2);
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 12px 32px rgba(0, 0, 0, 0.08);
+  transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
 }
 
 .card__img {
@@ -423,7 +436,6 @@ a {
   height: 100%;
   object-fit: cover;
   object-position: top;
-  transition: transform 0.3s ease-out;
 }
 
 .card__text {
@@ -452,11 +464,12 @@ a {
 
 .card:hover .card__media,
 .card:focus-visible .card__media {
-  border-color: #e3e3e3;
+  background: #ececec;
 }
 
-.card:hover .card__img {
+.card:hover .card__frame {
   transform: scale(1.02);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 16px 40px rgba(0, 0, 0, 0.12);
 }
 
 .card:hover .card__name,
@@ -471,15 +484,20 @@ a {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .card__img {
+  .card__frame {
     transition: none;
   }
-  .card:hover .card__img {
+  .card:hover .card__frame {
     transform: none;
   }
 }
 
 /* Placeholder when there is no screenshot (cards and the Random dialog). */
+.card__frame:has(.preview-placeholder) {
+  background: transparent;
+  box-shadow: none;
+}
+
 .preview-placeholder {
   display: flex;
   flex-direction: column;
