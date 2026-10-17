@@ -4,6 +4,7 @@ import { modLabel } from '../../lib/platform.js';
 import Modal from '../Modal.jsx';
 import {
   BringFrontIcon,
+  CloseIcon,
   CopyIcon,
   ExternalLinkIcon,
   FrameIcon,
@@ -22,8 +23,8 @@ import {
 import CanvasItem from './CanvasItem.jsx';
 import Guides from './Guides.jsx';
 import ZoomBar from './ZoomBar.jsx';
-import AddToolbar, { LABEL_PRESETS } from './AddToolbar.jsx';
-import SelectionToolbar from './SelectionToolbar.jsx';
+import ToolBar, { LABEL_PRESETS } from './ToolBar.jsx';
+import InfoPopover from './InfoPopover.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { alignEntries } from './alignEntries.jsx';
 import { buildDefaultItems, mergeWithData, LABEL_H } from './defaultLayout.js';
@@ -35,6 +36,9 @@ const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2;
 const ZOOM_STEP = 0.1;
 const IMAGE_W = 280;
+const HINT_KEY = 'rooted:visuals-hint:v1';
+// Space kept clear by "fit": the floating header + tabs on top, the bars at the bottom.
+const SAFE = { top: 128, bottom: 88, side: 48 };
 const CAPTION_H = 22; // 12px caption at 1.5 + 4px gap
 const DRAG_START = 3; // screen px before a press becomes a drag
 const LONG_PRESS = 500;
@@ -44,7 +48,8 @@ const newId = (type) => `${type}:${Date.now().toString(36)}${Math.random().toStr
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
 // Link cards keep their shape as they grow: screenshot (16:10) plus the text block.
-export const cardHeight = (w) => Math.round((w - 16) * 0.625 + 66);
+// The real height is measured after render; this keeps resizing smooth.
+export const cardHeight = (w) => Math.round(w * 0.625 + 94);
 const imageHeight = (item, w) => Math.round(w / item.ratio) + (item.caption ? CAPTION_H : 0);
 
 export default function VisualsCanvas() {
@@ -67,6 +72,13 @@ export default function VisualsCanvas() {
   const [cursor, setCursor] = useState(''); // '' | 'grab' | 'grabbing'
   const [dialog, setDialog] = useState(null); // { type: 'reset' } | { type: 'image', id, caption, url }
   const [ready, setReady] = useState(false);
+  const [hint, setHint] = useState(() => {
+    try {
+      return !localStorage.getItem(HINT_KEY);
+    } catch {
+      return true;
+    }
+  });
 
   const history = useRef({ past: [], future: [] });
   const sizeRef = useRef({ w: 0, h: 0 });
@@ -79,6 +91,7 @@ export default function VisualsCanvas() {
   const toastTimer = useRef(0);
   const longPress = useRef(0);
   const pendingFit = useRef(false);
+  const lastPress = useRef({ id: null, time: 0, x: 0, y: 0 }); // for double-click / double-tap
 
   // ---- tiny state helpers that keep refs in sync for event handlers ----
   const setItems = useCallback((next) => {
@@ -154,7 +167,17 @@ export default function VisualsCanvas() {
   const viewCenterWorld = () => {
     const { w, h } = sizeRef.current;
     const v = viewRef.current;
-    return { x: (w / 2 - v.panX) / v.zoom, y: (h / 2 - v.panY) / v.zoom };
+    const cy = SAFE.top + (h - SAFE.top - SAFE.bottom) / 2;
+    return { x: (w / 2 - v.panX) / v.zoom, y: (cy - v.panY) / v.zoom };
+  };
+
+  const dismissHint = () => {
+    setHint(false);
+    try {
+      localStorage.setItem(HINT_KEY, '1');
+    } catch {
+      /* ignore */
+    }
   };
 
   // ---- zoom / fit ----
@@ -178,9 +201,10 @@ export default function VisualsCanvas() {
       const b = bounds(list);
       const { w, h } = sizeRef.current;
       if (!b || !w || !h) return;
-      const pad = 40;
-      const z = clampZoom(Math.min((w - 2 * pad) / b.w, (h - 2 * pad) / b.h, 1));
-      setView({ zoom: z, panX: (w - b.w * z) / 2 - b.x * z, panY: (h - b.h * z) / 2 - b.y * z });
+      const aw = w - 2 * SAFE.side;
+      const ah = h - SAFE.top - SAFE.bottom;
+      const z = clampZoom(Math.min(aw / b.w, ah / b.h, 1));
+      setView({ zoom: z, panX: SAFE.side + (aw - b.w * z) / 2 - b.x * z, panY: SAFE.top + (ah - b.h * z) / 2 - b.y * z });
       setMenu(null);
     },
     [setView]
@@ -492,6 +516,19 @@ export default function VisualsCanvas() {
       setSelection(sel.includes(item.id) ? sel.filter((id) => id !== item.id) : [...sel, item.id]);
       return;
     }
+    // Double-click (or double-tap) on a label starts renaming it. Detected here
+    // because pointer capture keeps the browser's own dblclick from reaching the item.
+    const now = Date.now();
+    const last = lastPress.current;
+    lastPress.current = { id: item.id, time: now, x: e.clientX, y: e.clientY };
+    if (last.id === item.id && now - last.time < 400 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 6) {
+      if (item.type === 'label' && !item.locked) {
+        setSelection([item.id]);
+        setEditingId(item.id);
+        lastPress.current = { id: null, time: 0, x: 0, y: 0 };
+        return;
+      }
+    }
     const nextSel = sel.includes(item.id) ? sel : [item.id];
     setSelection(nextSel);
     if (item.locked) return;
@@ -506,7 +543,7 @@ export default function VisualsCanvas() {
     // Menus and dialogs live in portals (React still bubbles their events here);
     // toolbars, the zoom bar and resize handles handle their own presses.
     if (!canvasRef.current.contains(e.target)) return;
-    if (e.target.closest?.('.cbar, .sel-toolbar, .handle, .canvas__toast')) return;
+    if (e.target.closest?.('.cbar, .info-pop, .handle, .canvas__toast')) return;
     canvasRef.current.focus({ preventScroll: true });
     setMenu(null);
     trackPointer(e);
@@ -772,7 +809,7 @@ export default function VisualsCanvas() {
   const sorted = useMemo(() => [...items].sort((a, b) => a.z - b.z), [items]);
 
   return (
-    <div className="canvas-wrap container--wide">
+    <>
       <div
         ref={canvasRef}
         className={`canvas${cursor ? ` is-${cursor}` : ''}`}
@@ -814,7 +851,18 @@ export default function VisualsCanvas() {
 
         <Guides guides={overlay.guides} spacings={overlay.spacings} box={overlay.box} handles={handles} toScreen={toScreen} zoom={view.zoom} onHandlePointerDown={onHandlePointerDown} />
 
-        <AddToolbar onAddLabel={addLabel} onUploadFiles={(files) => addFiles(files, null)} />
+        <ToolBar
+          selectionCount={selection.length}
+          canEdit={!!single && single.type !== 'link'}
+          allLocked={selectedItems.length > 0 && selectedItems.every((it) => it.locked)}
+          onAddLabel={addLabel}
+          onUploadFiles={(files) => addFiles(files, null)}
+          onEdit={startEdit}
+          onAlign={align}
+          onToggleLock={toggleLock}
+          onDelete={deleteSelected}
+          onClearSelection={() => setSelection([])}
+        />
         <ZoomBar
           zoom={view.zoom}
           snap={snapGrid}
@@ -824,42 +872,28 @@ export default function VisualsCanvas() {
           onToggleSnap={() => setSnapGrid(!snapGridRef.current)}
           onFit={() => fitToContent()}
         />
-        {selection.length > 0 && (
-          <SelectionToolbar
-            count={selection.length}
-            canEdit={!!single && single.type !== 'link'}
-            allLocked={selectedItems.every((it) => it.locked)}
-            onEdit={startEdit}
-            onAlign={align}
-            onToggleLock={toggleLock}
-            onDelete={deleteSelected}
-          />
-        )}
-        {toast && (
-          <div className="canvas__toast" role="status">
+        <InfoPopover />
+        {toast ? (
+          <div className="canvas__toast canvas__toast--dark" role="status">
             {toast}
           </div>
+        ) : (
+          hint && (
+            <div className="canvas__toast floating" role="status">
+              Drag to move · {modLabel('')}+ scroll to zoom · Right-click for options
+              <button type="button" className="icon-button" onClick={dismissHint} aria-label="Dismiss hint">
+                <CloseIcon width={14} height={14} />
+              </button>
+            </div>
+          )
         )}
-        <input
-          id="canvas-file-input"
-          type="file"
-          accept="image/*"
-          multiple
-          hidden
-          onChange={(e) => {
-            addFiles([...e.target.files], null);
-            e.target.value = '';
-          }}
-        />
       </div>
 
       {menu && <ContextMenu x={menu.x} y={menu.y} entries={menuEntries} onClose={() => setMenu(null)} label={menu.kind === 'item' ? 'Item menu' : 'Canvas menu'} />}
 
-      <Modal open={dialog?.type === 'reset'} onClose={() => setDialog(null)} labelledBy="reset-title" width={420}>
+      <Modal open={dialog?.type === 'reset'} onClose={() => setDialog(null)} title="Reset the canvas?" subtitle="Your layout and uploaded images in this browser will be removed." width={420}>
         <div className="cdialog">
-          <h3 className="modal__title" id="reset-title">Reset the canvas?</h3>
-          <p className="modal__subtitle">Your layout and uploaded images in this browser will be removed.</p>
-          <div className="modal__actions modal__actions--end">
+          <div className="modal__actions">
             <button type="button" className="button button--light" data-autofocus onClick={() => setDialog(null)}>
               Cancel
             </button>
@@ -870,7 +904,7 @@ export default function VisualsCanvas() {
         </div>
       </Modal>
 
-      <Modal open={dialog?.type === 'image'} onClose={() => setDialog(null)} labelledBy="image-title" width={420}>
+      <Modal open={dialog?.type === 'image'} onClose={() => setDialog(null)} title="Edit image" width={420}>
         {dialog?.type === 'image' && (
           <form
             className="cdialog"
@@ -882,7 +916,6 @@ export default function VisualsCanvas() {
               setDialog(null);
             }}
           >
-            <h3 className="modal__title" id="image-title">Edit image</h3>
             <div className="field">
               <label htmlFor="img-caption">Caption</label>
               <input id="img-caption" type="text" data-autofocus value={dialog.caption} onChange={(e) => setDialog({ ...dialog, caption: e.target.value })} />
@@ -891,7 +924,7 @@ export default function VisualsCanvas() {
               <label htmlFor="img-url">Link (optional)</label>
               <input id="img-url" type="url" placeholder="https://" value={dialog.url} onChange={(e) => setDialog({ ...dialog, url: e.target.value })} />
             </div>
-            <div className="modal__actions modal__actions--end">
+            <div className="modal__actions">
               <button type="button" className="button button--light" onClick={() => setDialog(null)}>
                 Cancel
               </button>
@@ -902,7 +935,7 @@ export default function VisualsCanvas() {
           </form>
         )}
       </Modal>
-    </div>
+    </>
   );
 }
 

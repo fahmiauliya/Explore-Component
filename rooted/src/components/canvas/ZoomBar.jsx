@@ -1,10 +1,11 @@
 import { FrameIcon, GridIcon, MinusIcon, PlusIcon } from '../Icons.jsx';
 import { modLabel } from '../../lib/platform.js';
 
-// Top-right pill: − | zoom % | + | grid snap | fit to content.
+// Bottom-right pill: − | zoom % | + | grid snap | fit to content.
+// On phones only − % + are shown (see styles).
 export default function ZoomBar({ zoom, snap, onZoomIn, onZoomOut, onReset, onToggleSnap, onFit }) {
   return (
-    <div className="cbar cbar--zoom" role="toolbar" aria-label="Zoom">
+    <div className="cbar cbar--zoom floating" role="toolbar" aria-label="Zoom">
       <button type="button" className="cbar__btn" onClick={onZoomOut} aria-label={`Zoom out (${modLabel('−')})`} title={`Zoom out (${modLabel('−')})`}>
         <MinusIcon />
       </button>
@@ -15,10 +16,10 @@ export default function ZoomBar({ zoom, snap, onZoomIn, onZoomOut, onReset, onTo
         <PlusIcon />
       </button>
       <span className="cbar__divider" />
-      <button type="button" className={`cbar__btn${snap ? ' is-active' : ''}`} onClick={onToggleSnap} aria-pressed={snap} aria-label="Snap to grid" title="Snap to grid">
+      <button type="button" className={`cbar__btn cbar__btn--extra${snap ? ' is-active' : ''}`} onClick={onToggleSnap} aria-pressed={snap} aria-label="Snap to grid" title="Snap to grid">
         <GridIcon />
       </button>
-      <button type="button" className="cbar__btn" onClick={onFit} aria-label="Fit to content" title="Fit to content">
+      <button type="button" className="cbar__btn cbar__btn--extra" onClick={onFit} aria-label="Fit to content" title="Fit to content">
         <FrameIcon />
       </button>
     </div>

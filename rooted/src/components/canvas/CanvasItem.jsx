@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
-import PreviewImage from '../PreviewImage.jsx';
+import { CardBody } from '../Card.jsx';
 import { LockIcon } from '../Icons.jsx';
 
 // One thing on the board: a label, a link card or an uploaded image.
@@ -8,9 +8,10 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
   const ref = useRef(null);
   const editRef = useRef(null);
 
-  // Labels size themselves to their text; report that size back.
+  // Labels size themselves to their text and link cards to their content;
+  // report the real size back so selection and snapping use it.
   useLayoutEffect(() => {
-    if (item.type !== 'label' || !ref.current) return;
+    if (item.type === 'image' || !ref.current) return;
     const w = ref.current.offsetWidth;
     const h = ref.current.offsetHeight;
     if (Math.abs(w - item.w) > 0.5 || Math.abs(h - item.h) > 0.5) onMeasure(item.id, w, h);
@@ -44,7 +45,7 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
   const style = {
     transform: `translate(${item.x}px, ${item.y}px)`,
     width: item.type === 'label' ? 'auto' : item.w,
-    height: item.type === 'label' ? 'auto' : item.h,
+    height: item.type === 'image' ? item.h : 'auto',
     zIndex: dragging ? 100000 : item.z,
   };
 
@@ -88,13 +89,9 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
         ))}
 
       {item.type === 'link' && (
-        <>
-          <span className="citem__shot">
-            <PreviewImage item={{ ...item, key: item.id }} className="citem__shot-img" iconSize={24} />
-          </span>
-          <span className="citem__name">{item.name}</span>
-          <span className="citem__desc">{item.description}</span>
-        </>
+        <span className="card">
+          <CardBody item={{ ...item, key: item.id }} />
+        </span>
       )}
 
       {item.type === 'image' && (

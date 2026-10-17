@@ -106,7 +106,7 @@ export default function ContextMenu({ x, y, entries, onClose, label = 'Menu', ab
   return createPortal(
     <div
       ref={ref}
-      className={`cmenu${depth ? ' cmenu--sub' : ''}`}
+      className={`cmenu floating${depth ? ' cmenu--sub' : ''}`}
       style={pos}
       role="menu"
       aria-label={label}

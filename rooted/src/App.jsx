@@ -20,6 +20,13 @@ export default function App() {
   const contentRef = useRef(null);
 
   const tab = tabs.find((t) => t.id === tabId) || tabs[0];
+  const isCanvas = tab.id === 'visuals';
+
+  // The Visuals canvas fills the window: lock page scrolling while it's shown.
+  useEffect(() => {
+    document.body.classList.toggle('is-canvas', isCanvas);
+    return () => document.body.classList.remove('is-canvas');
+  }, [isCanvas]);
 
   // Items for the current tab, already flattened and tagged.
   const itemsBySection = useMemo(() => {
@@ -42,7 +49,7 @@ export default function App() {
       setTabId(target);
     }
     const top = contentRef.current?.getBoundingClientRect().top ?? 0;
-    if (top < 0) contentRef.current.scrollIntoView({ block: 'start' });
+    if (top < 68) contentRef.current.scrollIntoView({ block: 'start' });
   }, []);
 
   // Hash -> state (handles back/forward and direct links).
@@ -100,12 +107,12 @@ export default function App() {
       />
 
       <main>
-        <Intro onOpenRequest={() => setDialog('request')} />
+        {!isCanvas && <Intro onOpenRequest={() => setDialog('request')} />}
 
         <div ref={contentRef} className="content-anchor" />
-        <Tabs activeTab={tab.id} onSelectTab={selectTab} />
+        <Tabs activeTab={tab.id} onSelectTab={selectTab} floating={isCanvas} />
 
-        {tab.id === 'visuals' ? (
+        {isCanvas ? (
           <VisualsCanvas />
         ) : (
           <div className="content container--wide">
@@ -116,7 +123,7 @@ export default function App() {
         )}
       </main>
 
-      <Footer />
+      {!isCanvas && <Footer />}
 
       <SearchDialog open={dialog === 'search'} onClose={closeDialog} />
       <RandomDialog open={dialog === 'random'} onClose={closeDialog} />

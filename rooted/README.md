@@ -49,9 +49,9 @@ Commit the generated images so the live site serves them as normal files.
 
 ## The Visuals canvas
 
-The Visuals tab is a free board instead of a grid. Its link cards come from the same data file; the first visit lays them out in one row per section under a label.
+The Visuals tab is a full-screen board instead of a grid, under the floating header and tabs. Its link cards come from the same data file; the first visit lays them out in one row per section under a label. The bars sit at the bottom: tools in the middle (add a label or upload; they switch to Edit, Align, Lock and Delete while something is selected), zoom on the right, and an "i" button on the left with credits, social links and shortcuts.
 
-- **Move around:** drag empty space, hold Space and drag, or scroll. Pinch or ⌘/Ctrl + scroll to zoom (25–200%). The zoom bar in the top-right has −, +, a snap-to-grid toggle and fit-to-content.
+- **Move around:** drag empty space, hold Space and drag, or scroll. Pinch or ⌘/Ctrl + scroll to zoom (25–200%). The zoom bar has −, +, a snap-to-grid toggle and fit-to-content.
 - **Select:** click, Shift + click, Shift + drag for a box, ⌘/Ctrl + A. Drag to move, corner handles to resize, arrow keys to nudge (Shift for 8px). Hold Alt/Option to drag without snapping.
 - **Add:** "+ Label" (presets or custom text; double-click a label to rename it) and "Upload image" (also drag files onto the board, or paste). Images are scaled to at most 1600px and stored as WebP.
 - **Arrange:** the toolbar at the bottom and the right-click menu offer Edit, Duplicate (⌘D), Open link, Bring to front (⌘]), Send to back (⌘[), Align and Distribute, Lock (⌘L) and Remove. ⌘Z / ⌘⇧Z undo and redo.

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import Modal from './Modal.jsx';
-import { CheckIcon, CloseIcon } from './Icons.jsx';
+import { CheckIcon } from './Icons.jsx';
 
 const PLACEHOLDERS = {
   request: 'What is it, and why should it be on Rooted? (optional)',
@@ -16,7 +16,6 @@ export default function RequestDialog({ open, onClose }) {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
 
-  // Reset the form each time it opens.
   useEffect(() => {
     if (open) {
       setType('request');
@@ -34,91 +33,52 @@ export default function RequestDialog({ open, onClose }) {
     setSent(true);
   }
 
-  return (
-    <Modal open={open} onClose={onClose} labelledBy="request-title" width={420}>
-      {sent ? (
+  if (sent) {
+    return (
+      <Modal open={open} onClose={onClose} label="Thanks for sending" width={420}>
         <div className="thanks">
           <span className="thanks__icon" aria-hidden="true"><CheckIcon width={20} height={20} /></span>
-          <h3 className="modal__title" id="request-title">Thanks for sending</h3>
+          <h3 className="modal__title">Thanks for sending</h3>
           <p className="modal__subtitle">Your message has been received.</p>
-          <button type="button" className="button button--dark" data-autofocus onClick={onClose}>
+          <button type="button" className="button button--dark button--block" data-autofocus onClick={onClose}>
             Close
           </button>
         </div>
-      ) : (
-        <form className="request" onSubmit={onSubmit}>
-          <div className="modal__head">
-            <div>
-              <h3 className="modal__title" id="request-title">Send a request</h3>
-              <p className="modal__subtitle">Suggest a reference or tell me how to make Rooted better.</p>
-            </div>
-            <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
-              <CloseIcon />
-            </button>
-          </div>
+      </Modal>
+    );
+  }
 
-          <div className="segmented" role="group" aria-label="Message type">
-            <button
-              type="button"
-              className={`segmented__option${type === 'request' ? ' is-active' : ''}`}
-              aria-pressed={type === 'request'}
-              data-autofocus
-              onClick={() => setType('request')}
-            >
-              Request a reference
-            </button>
-            <button
-              type="button"
-              className={`segmented__option${type === 'feedback' ? ' is-active' : ''}`}
-              aria-pressed={type === 'feedback'}
-              onClick={() => setType('feedback')}
-            >
-              Feedback
-            </button>
-          </div>
+  return (
+    <Modal open={open} onClose={onClose} title="Send a request" subtitle="Suggest a reference or tell me how to make Rooted better." width={420}>
+      <form onSubmit={onSubmit}>
+        <div className="segmented" role="group" aria-label="Message type">
+          <button type="button" className={`segmented__option${type === 'request' ? ' is-active' : ''}`} aria-pressed={type === 'request'} data-autofocus onClick={() => setType('request')}>
+            Request a reference
+          </button>
+          <button type="button" className={`segmented__option${type === 'feedback' ? ' is-active' : ''}`} aria-pressed={type === 'feedback'} onClick={() => setType('feedback')}>
+            Feedback
+          </button>
+        </div>
 
+        <div className="fields">
           {type === 'request' && (
             <div className="field">
               <label htmlFor="req-link">Link</label>
-              <input
-                id="req-link"
-                type="url"
-                required
-                placeholder="https://"
-                value={link}
-                onChange={(e) => setLink(e.target.value)}
-              />
+              <input id="req-link" type="url" required placeholder="https://" value={link} onChange={(e) => setLink(e.target.value)} />
             </div>
           )}
-
           <div className="field">
             <label htmlFor="req-message">Message</label>
-            <textarea
-              id="req-message"
-              rows={4}
-              required={type === 'feedback'}
-              placeholder={PLACEHOLDERS[type]}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-            />
+            <textarea id="req-message" rows={4} required={type === 'feedback'} placeholder={PLACEHOLDERS[type]} value={message} onChange={(e) => setMessage(e.target.value)} />
           </div>
-
           <div className="field">
             <label htmlFor="req-email">Your email (optional)</label>
-            <input
-              id="req-email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+            <input id="req-email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
+        </div>
 
-          <div className="modal__actions modal__actions--end">
-            <button type="submit" className="button button--dark">Send</button>
-          </div>
-        </form>
-      )}
+        <button type="submit" className="button button--dark button--block request__send">Send</button>
+      </form>
     </Modal>
   );
 }

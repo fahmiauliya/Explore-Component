@@ -14,7 +14,7 @@ export default function RandomDialog({ open, onClose }) {
   if (!item) return null;
 
   return (
-    <Modal open={open} onClose={onClose} labelledBy="random-title" width={360}>
+    <Modal open={open} onClose={onClose} labelledBy="random-title" width={380}>
       <div className="random">
         <div className="random__image">
           <PreviewImage key={item.key} item={item} lazy={false} />

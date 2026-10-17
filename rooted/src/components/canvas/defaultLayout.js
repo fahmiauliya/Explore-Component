@@ -2,10 +2,11 @@
 // and keeps a saved canvas in step with later edits to that file.
 import { getDomain, getSlug } from '../../lib/references.js';
 
-export const CARD_W = 256;
-export const CARD_H = 216;
+export const CARD_W = 280;
+export const CARD_H = 268; // 280-wide card: 175px screenshot + text block (measured after render)
 export const LABEL_H = 21; // 14px text at line-height 1.5
-const GAP = 16;
+const GAP = 24; // between cards
+const LABEL_GAP = 12; // label -> cards
 const GROUP_GAP = 64;
 
 export function linkId(url) {
@@ -25,6 +26,7 @@ function linkItem(item, section, x, y, z) {
     url: item.url,
     name: item.name,
     description: item.description,
+    tags: item.tags,
     image: item.image,
     domain: getDomain(item.url),
     sectionId: section.id,
@@ -37,7 +39,7 @@ export function buildDefaultItems(tab) {
   let z = 1;
   for (const section of tab.sections) {
     items.push({ id: `label:${section.id}`, type: 'label', text: section.title, x: 0, y, w: 80, h: LABEL_H, z: z++, locked: false });
-    y += LABEL_H + GAP;
+    y += LABEL_H + LABEL_GAP;
     section.items.forEach((item, i) => {
       items.push(linkItem(item, section, i * (CARD_W + GAP), y, z++));
     });
@@ -58,7 +60,7 @@ export function mergeWithData(saved, tab) {
   items = items.map((it) => {
     if (it.type !== 'link') return it;
     const { item, section } = dataLinks.get(it.url);
-    return { ...it, name: item.name, description: item.description, image: item.image, sectionId: section.id };
+    return { ...it, name: item.name, description: item.description, tags: item.tags, image: item.image, sectionId: section.id };
   });
 
   let z = items.reduce((m, it) => Math.max(m, it.z || 0), 0) + 1;
@@ -79,11 +81,11 @@ export function mergeWithData(saved, tab) {
         const label = items.find((it) => it.id === `label:${section.id}`);
         if (label) {
           x = label.x;
-          y = label.y + label.h + GAP;
+          y = label.y + label.h + LABEL_GAP;
         } else {
           y = bottom + GROUP_GAP;
           items.push({ id: `label:${section.id}`, type: 'label', text: section.title, x: 0, y, w: 80, h: LABEL_H, z: z++, locked: false });
-          y += LABEL_H + GAP;
+          y += LABEL_H + LABEL_GAP;
           bottom = y + CARD_H;
         }
       }

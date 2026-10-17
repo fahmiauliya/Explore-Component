@@ -44,7 +44,7 @@ export default function SearchDialog({ open, onClose }) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} label="Search references" position="top" width={520}>
+    <Modal open={open} onClose={onClose} label="Search references" position="top" width={560} flush>
       <div className="search">
         <div className="search__field">
           <SearchIcon />
