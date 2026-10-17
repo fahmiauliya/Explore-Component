@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import { randomItem } from '../lib/references.js';
 import Modal from './Modal.jsx';
-import { PreviewPlaceholder, usePreviewImage } from './CursorPreview.jsx';
+import PreviewImage from './PreviewImage.jsx';
 
 // ⌘E: one random reference with its preview image.
 export default function RandomDialog({ open, onClose }) {
   const [item, setItem] = useState(null);
-  const { src } = usePreviewImage(item);
 
   useEffect(() => {
     if (open) setItem(randomItem(null));
@@ -18,7 +17,7 @@ export default function RandomDialog({ open, onClose }) {
     <Modal open={open} onClose={onClose} labelledBy="random-title" width={360}>
       <div className="random">
         <div className="random__image">
-          {src ? <img src={src} alt="" /> : <PreviewPlaceholder item={item} />}
+          <PreviewImage key={item.key} item={item} lazy={false} />
         </div>
         <p className="random__path">{item.tabLabel} · {item.sectionTitle}</p>
         <h3 className="modal__title" id="random-title">{item.name}</h3>

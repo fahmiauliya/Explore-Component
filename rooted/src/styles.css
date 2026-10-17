@@ -29,7 +29,6 @@
 
   --header-h: 56px;
   --gutter: 20px;
-  --shadow-preview: 0 12px 32px rgba(0, 0, 0, 0.12);
   --shadow-dialog: 0 24px 64px rgba(0, 0, 0, 0.16);
 }
 
@@ -109,10 +108,19 @@ a {
   outline-offset: 2px;
 }
 
-/* The one column everything lines up in. */
+/* The narrow column the header, intro, tabs and footer line up in. */
 .container {
   width: 100%;
   max-width: 600px;
+  margin: 0 auto;
+  padding-left: var(--gutter);
+  padding-right: var(--gutter);
+}
+
+/* The wide container used only by the references grid. */
+.container--wide {
+  width: 100%;
+  max-width: 1440px;
   margin: 0 auto;
   padding-left: var(--gutter);
   padding-right: var(--gutter);
@@ -196,8 +204,6 @@ a {
 
 .site-icon {
   display: block;
-  width: 32px;
-  height: 32px;
   border-radius: var(--space-2);
   object-fit: contain;
 }
@@ -359,7 +365,7 @@ a {
   color: var(--faint);
 }
 
-/* ---------- The list ---------- */
+/* ---------- The references grid ---------- */
 
 .content {
   display: flex;
@@ -373,7 +379,7 @@ a {
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-5);
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
 .ref-section__label h2 {
@@ -387,10 +393,110 @@ a {
   color: var(--faint);
 }
 
-.rows {
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
+  gap: var(--space-5) var(--space-4);
+}
+
+.card {
   display: flex;
   flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  outline: none;
 }
+
+.card__media {
+  display: block;
+  aspect-ratio: 16 / 10;
+  border: 1px solid var(--line);
+  border-radius: var(--space-3);
+  overflow: hidden;
+  background: var(--surface);
+  transition: border-color 0.15s;
+}
+
+.card__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+  transition: transform 0.3s ease-out;
+}
+
+.card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.card__name {
+  font-size: var(--text-md);
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s;
+}
+
+.card__desc {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.card:hover .card__media,
+.card:focus-visible .card__media {
+  border-color: #e3e3e3;
+}
+
+.card:hover .card__img {
+  transform: scale(1.02);
+}
+
+.card:hover .card__name,
+.card:focus-visible .card__name {
+  text-decoration-color: var(--text);
+}
+
+/* Keyboard focus: outline around the screenshot box, not the whole card. */
+.card:focus-visible .card__media {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card__img {
+    transition: none;
+  }
+  .card:hover .card__img {
+    transform: none;
+  }
+}
+
+/* Placeholder when there is no screenshot (cards and the Random dialog). */
+.preview-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: 100%;
+  background: var(--surface);
+}
+
+.preview-placeholder__domain {
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+/* ---------- Rows (search results) ---------- */
 
 .row {
   display: flex;
@@ -423,74 +529,13 @@ a {
 }
 
 .row:hover .row__name,
-.row:focus-visible .row__name,
 .row.is-active .row__name {
   text-decoration-color: var(--text);
 }
 
 .row:hover .row__desc,
-.row:focus-visible .row__desc,
 .row.is-active .row__desc {
   color: #444;
-}
-
-/* ---------- Cursor preview ---------- */
-
-.cursor-preview {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 60;
-  width: 320px;
-  height: 200px;
-  border: 1px solid var(--line);
-  border-radius: var(--space-3);
-  background: #fff;
-  box-shadow: var(--shadow-preview);
-  overflow: hidden;
-  pointer-events: none;
-  opacity: 0;
-  scale: 0.96;
-  transition: opacity 0.15s ease, scale 0.15s ease;
-  will-change: transform;
-}
-
-.cursor-preview.is-visible {
-  opacity: 1;
-  scale: 1;
-}
-
-.cursor-preview.is-reduced {
-  scale: 1;
-  transition: opacity 0.15s ease;
-}
-
-.cursor-preview__img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.cursor-preview__fallback {
-  width: 100%;
-  height: 100%;
-}
-
-.preview-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  width: 100%;
-  height: 100%;
-  background: var(--surface);
-}
-
-.preview-placeholder__domain {
-  font-size: var(--text-xs);
-  color: var(--muted);
 }
 
 /* ---------- Footer ---------- */
@@ -814,22 +859,5 @@ a {
 @media (max-width: 640px) {
   :root {
     --gutter: 16px;
-  }
-}
-
-@media (max-width: 520px) {
-  .row {
-    flex-wrap: wrap;
-    gap: 0 var(--space-5);
-  }
-
-  .row__name {
-    flex-basis: 100%;
-  }
-
-  .row__desc {
-    flex-basis: 100%;
-    text-align: left;
-    white-space: normal;
   }
 }

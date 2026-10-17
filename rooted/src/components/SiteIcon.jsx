@@ -8,7 +8,7 @@ export default function SiteIcon({ name, domain, size = 20 }) {
 
   if (failed) {
     return (
-      <span className="site-icon site-icon--letter" aria-hidden="true">
+      <span className="site-icon site-icon--letter" style={{ width: size, height: size }} aria-hidden="true">
         {letter}
       </span>
     );

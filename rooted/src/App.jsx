@@ -6,7 +6,6 @@ import Intro from './components/Intro.jsx';
 import Tabs from './components/Tabs.jsx';
 import ReferenceSection from './components/ReferenceSection.jsx';
 import Footer from './components/Footer.jsx';
-import CursorPreview, { PreviewProvider } from './components/CursorPreview.jsx';
 import SearchDialog from './components/SearchDialog.jsx';
 import RandomDialog from './components/RandomDialog.jsx';
 import RequestDialog from './components/RequestDialog.jsx';
@@ -17,7 +16,6 @@ export default function App() {
   // The active tab follows the URL hash (#websites, #components, ...).
   const [tabId, setTabId] = useState(() => tabFromHash(window.location.hash));
   const [dialog, setDialog] = useState(null); // null | 'search' | 'random' | 'request'
-  const previewRef = useRef(null);
   const contentRef = useRef(null);
 
   const tab = tabs.find((t) => t.id === tabId) || tabs[0];
@@ -52,11 +50,6 @@ export default function App() {
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
-
-  // Hide the hover preview whenever a dialog opens.
-  useEffect(() => {
-    if (dialog) previewRef.current?.hide();
-  }, [dialog]);
 
   // Keyboard shortcuts.
   useEffect(() => {
@@ -95,7 +88,7 @@ export default function App() {
   const closeDialog = () => setDialog(null);
 
   return (
-    <PreviewProvider previewRef={previewRef}>
+    <>
       <Header
         onLogo={goHome}
         onOpenSearch={() => setDialog('search')}
@@ -109,7 +102,7 @@ export default function App() {
         <div ref={contentRef} className="content-anchor" />
         <Tabs activeTab={tab.id} onSelectTab={selectTab} />
 
-        <div className="content container">
+        <div className="content container--wide">
           {tab.sections.map((section) => (
             <ReferenceSection key={section.id} section={section} items={itemsBySection.get(section.id) || []} />
           ))}
@@ -118,10 +111,9 @@ export default function App() {
 
       <Footer />
 
-      <CursorPreview ref={previewRef} />
       <SearchDialog open={dialog === 'search'} onClose={closeDialog} />
       <RandomDialog open={dialog === 'random'} onClose={closeDialog} />
       <RequestDialog open={dialog === 'request'} onClose={closeDialog} />
-    </PreviewProvider>
+    </>
   );
 }

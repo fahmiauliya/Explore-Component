@@ -1,6 +1,6 @@
 # Rooted
 
-A free website that lists design references in a calm, centered, single-column list. Four tabs (Websites, Components, Open Source, Visuals), search, a random pick, a request form, and a preview image that follows the cursor over each row.
+A free website that lists design references as a grid of screenshot cards. Four tabs (Websites, Components, Open Source, Visuals), search, a random pick and a request form.
 
 Built with React + Vite, plain JavaScript and one CSS file. No backend.
 
@@ -26,7 +26,7 @@ Tab counts, section counts, search and the random pick all read from this file. 
 
 ## Preview images
 
-When you hover a row, a screenshot of that site floats next to the cursor. The images are made automatically.
+Each card shows a screenshot of its site. The images are made automatically.
 
 1. Install Chromium once: `npx playwright install chromium`
 2. After adding links, run `npm run previews`. It opens each new site, takes a 640 × 400 screenshot and saves it as `public/previews/<slug>.webp`. Existing images are skipped.
@@ -39,7 +39,7 @@ Some sites show cookie banners or block automatic browsers. For those you can:
 - drop your own 16:10 image in `public/previews/` with the same file name, or
 - set `image: '/previews/my-image.jpg'` on the item in the data file.
 
-If a local image is missing, the site falls back to the thum.io screenshot service (free, limited to about 1,000 loads a month), and after that to a gray placeholder with the favicon and domain.
+If a local image is missing, the card falls back to the thum.io screenshot service (free, limited to about 1,000 loads a month), and after that to a gray placeholder with the favicon and domain. The step that worked is remembered per item, so failed images are not requested again.
 
 Commit the generated images so the live site serves them as normal files.
 
@@ -71,7 +71,7 @@ rooted/
     data/references.js      ALL content
     lib/references.js       helpers (slug, search, random, counts)
     lib/platform.js         ⌘ vs Ctrl labels
-    components/             header, intro, tabs, rows, cursor preview, dialogs, footer
+    components/             header, intro, tabs, cards, preview image, dialogs, footer
   scripts/capture-previews.mjs   screenshot script
   public/previews/          generated screenshots
 ```

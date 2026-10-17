@@ -1,6 +1,6 @@
-import ListRow from './ListRow.jsx';
+import Card from './Card.jsx';
 
-// A section label (title left, item count right) followed by its rows.
+// A section label (title left, item count right) followed by its grid of cards.
 export default function ReferenceSection({ section, items }) {
   return (
     <section className="ref-section" aria-labelledby={`section-${section.id}`}>
@@ -8,9 +8,9 @@ export default function ReferenceSection({ section, items }) {
         <h2 id={`section-${section.id}`}>{section.title}</h2>
         <span className="ref-section__count num">{items.length}</span>
       </div>
-      <div className="rows">
+      <div className="card-grid">
         {items.map((item) => (
-          <ListRow key={item.key} item={item} />
+          <Card key={item.key} item={item} />
         ))}
       </div>
     </section>
