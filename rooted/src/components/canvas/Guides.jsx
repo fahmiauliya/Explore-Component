@@ -4,7 +4,7 @@
 const CORNERS = ['nw', 'ne', 'sw', 'se'];
 const SIDES = ['w', 'e'];
 
-export default function Guides({ guides, spacings, box, handles, sideHandles = false, tip, toScreen, zoom, onHandlePointerDown }) {
+export default function Guides({ guides, spacings, box, handles, sideHandles = false, cornersOnly = false, tip, sizeLabel, groupBox, toScreen, zoom, onHandlePointerDown }) {
   return (
     <div className="canvas__overlay" aria-hidden="true">
       {guides.map((g, i) =>
@@ -61,6 +61,19 @@ export default function Guides({ guides, spacings, box, handles, sideHandles = f
         <div className="resize-tip floating num" style={{ left: tip.x + 12, top: tip.y + 12 }}>
           {tip.text}
         </div>
+      )}
+
+      {sizeLabel && (
+        <div className="size-label floating num" style={{ left: toScreen(sizeLabel.x, 0).x, top: toScreen(0, sizeLabel.y).y + 8 }}>
+          {sizeLabel.text}
+        </div>
+      )}
+
+      {groupBox && (
+        <div
+          className="group-box"
+          style={{ left: toScreen(groupBox.x, 0).x - 8, top: toScreen(0, groupBox.y).y - 8, width: groupBox.w * zoom + 16, height: groupBox.h * zoom + 16 }}
+        />
       )}
 
       {handles &&

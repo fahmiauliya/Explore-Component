@@ -1,21 +1,12 @@
 import { FrameIcon, GridIcon, MinusIcon, PlusIcon } from '../Icons.jsx';
 import { modLabel } from '../../lib/platform.js';
 
-// Bottom-right pill: Stack | Spread · − | zoom % | + | grid snap | fit.
-// On phones only the view toggle, "%" (tap = fit) and the grid toggle.
-export default function ZoomBar({ zoom, snap, phone, mode, onMode, onZoomIn, onZoomOut, onReset, onToggleSnap, onFit }) {
+// Bottom-right pill: − | zoom % | + | grid snap | fit to content.
+// On phones only "%" (tap = fit) and the grid toggle; pinch handles zooming.
+export default function ZoomBar({ zoom, snap, phone, onZoomIn, onZoomOut, onReset, onToggleSnap, onFit }) {
   const pct = `${Math.round(zoom * 100)}%`;
   return (
-    <div className="cbar cbar--zoom floating" role="toolbar" aria-label="View and zoom">
-      <span className="cbar__seg" role="group" aria-label="Folder view">
-        <button type="button" className={`cbar__seg-btn${mode === 'stack' ? ' is-active' : ''}`} onClick={() => onMode('stack')} aria-pressed={mode === 'stack'} title="Stack the folders">
-          Stack
-        </button>
-        <button type="button" className={`cbar__seg-btn${mode === 'spread' ? ' is-active' : ''}`} onClick={() => onMode('spread')} aria-pressed={mode === 'spread'} title="Spread the folders out">
-          Spread
-        </button>
-      </span>
-      <span className="cbar__divider" />
+    <div className="cbar cbar--zoom floating" role="toolbar" aria-label="Zoom">
       {!phone && (
         <button type="button" className="cbar__btn" onClick={onZoomOut} aria-label={`Zoom out (${modLabel('−')})`} title={`Zoom out (${modLabel('−')})`}>
           <MinusIcon />

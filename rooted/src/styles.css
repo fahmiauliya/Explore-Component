@@ -1434,11 +1434,11 @@ body.is-canvas {
 
 .citem--folder {
   border-radius: 20px;
-  outline-offset: 2px;
 }
 
-.citem--folder.is-animated {
-  transition: transform 300ms ease-out, width 300ms ease-out, height 300ms ease-out;
+/* The folder's own path carries the hover / selected strokes (see .folder__outline). */
+.citem--folder.is-selected {
+  outline: none;
 }
 
 .folder__svg {
@@ -1448,6 +1448,27 @@ body.is-canvas {
   display: block;
   overflow: visible;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.04)) drop-shadow(0 12px 32px rgba(0, 0, 0, 0.06));
+}
+
+.folder__outline {
+  stroke: transparent;
+  stroke-width: 1.5px;
+  transition: stroke var(--ease-hover);
+}
+
+@media (hover: hover) {
+  .citem--folder:hover > .folder__svg .folder__outline {
+    stroke: rgba(59, 130, 246, 0.45);
+  }
+}
+
+.citem--folder.has-child-selected > .folder__svg .folder__outline {
+  stroke: rgba(59, 130, 246, 0.45);
+}
+
+.citem--folder.is-selected > .folder__svg .folder__outline {
+  stroke: var(--canvas-select);
+  stroke-width: 2px;
 }
 
 .citem--folder.is-flash .folder__svg {
@@ -1464,24 +1485,12 @@ body.is-canvas {
   }
 }
 
-/* Back folders in the stack lift on hover. */
-@media (hover: hover) {
-  .citem--folder.is-back:hover {
-    translate: 0 -4px;
-  }
-}
-
-.citem--folder.is-back {
-  transition: translate 150ms ease, transform 300ms ease-out, width 300ms ease-out, height 300ms ease-out;
-  cursor: pointer;
-}
-
 .folder__title {
   position: absolute;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 1em;
+  padding: 0 20px;
   box-sizing: border-box;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -1495,6 +1504,11 @@ body.is-canvas {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+}
+
+.folder__count {
+  margin-left: 0.6em;
+  opacity: 0.5;
 }
 
 .folder__edit {
@@ -1511,29 +1525,41 @@ body.is-canvas {
   left: 0;
 }
 
-/* View toggle in the zoom bar. */
-.cbar__seg {
-  display: inline-flex;
-  padding: 2px;
-  border-radius: var(--radius-pill);
-  background: var(--surface);
+.folder__hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-sm);
+  opacity: 0.5;
+  pointer-events: none;
 }
 
-.cbar__seg-btn {
-  position: relative;
-  height: 28px;
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-pill);
+/* A selected card inside a folder: rounded outline 3px out from the card. */
+.citem--link.is-selected,
+.citem--image.is-selected.is-child {
+  outline: 2px solid var(--canvas-select);
+  outline-offset: 3px;
+  border-radius: 19px;
+}
+
+/* Dashed box around a multi-selection (8px out). */
+.group-box {
+  position: absolute;
+  border: 1px dashed var(--canvas-select);
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+.size-label {
+  position: absolute;
+  padding: 2px var(--space-2);
+  border-radius: 6px;
   font-size: var(--text-xs);
-  font-weight: 500;
-  color: var(--muted);
-  transition: background-color var(--ease-hover), color var(--ease-hover);
-}
-
-.cbar__seg-btn.is-active {
-  background: #fff;
   color: var(--text);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 /* ---- ribbons on images ---- */
@@ -1730,11 +1756,11 @@ body.is-canvas {
 
 .handle {
   position: absolute;
-  width: 8px;
-  height: 8px;
-  margin: -4px 0 0 -4px;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
   border: 1.5px solid var(--canvas-select);
-  border-radius: 2px;
+  border-radius: 3px;
   background: #fff;
   pointer-events: auto;
 }

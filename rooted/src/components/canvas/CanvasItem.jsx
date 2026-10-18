@@ -2,12 +2,12 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Card from '../Card.jsx';
 import { LockIcon } from '../Icons.jsx';
 import { labelColors, labelMetrics } from './labelColors.js';
-import { FOLDER_PAD, darken, folderColors, folderPath, tabText } from './folders.js';
+import { FOLDER_PAD, darken, folderColors, folderPath, tabTitle } from './folders.js';
 import { RIBBON_BASE_W, RIBBON_FOLD, RIBBON_LIMITS, ribbonLayout, ribbonPath, ribbonStatus, ribbonWidth } from './ribbon.js';
 
 // One thing on the board: a label, a link card or an uploaded image.
 // Positioning is done by the parent (world coordinates); this only draws it.
-export default function CanvasItem({ item, selected, editing, imageUrl, dragging, visible = true, childCount = 0, flash = false, dimmed = false, ribbonEditing = false, geom = null, children = null, onPointerDown, onDoubleClick, onContextMenu, onMeasure, onEditCommit, onEditCancel, onOpen, onRibbonCommit, onRibbonCancel }) {
+export default function CanvasItem({ item, selected, editing, imageUrl, dragging, visible = true, childCount = 0, flash = false, dimmed = false, ribbonEditing = false, geom = null, childSelected = false, dropGhost = null, children = null, onPointerDown, onDoubleClick, onContextMenu, onMeasure, onEditCommit, onEditCancel, onOpen, onRibbonCommit, onRibbonCancel }) {
   const [tip, setTip] = useState(false);
   const ref = useRef(null);
   const editRef = useRef(null);
@@ -56,8 +56,7 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
         transform: `translate(${folder.g.x}px, ${folder.g.y - folder.g.tabH}px)`,
         width: folder.g.w,
         height: folder.g.tabH + folder.g.h,
-        // In the stack, paint order follows the stack (back → front), not z.
-        zIndex: dragging ? 100000 : folder.g.animate ? folder.g.index : item.z,
+        zIndex: dragging ? 100000 : item.z,
       }
     : {
         transform: `translate(${pos.x}px, ${pos.y}px)`,
@@ -82,7 +81,7 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
   return (
     <div
       ref={ref}
-      className={`citem citem--${item.type}${selected ? ' is-selected' : ''}${item.locked ? ' is-locked' : ''}${editing ? ' is-editing' : ''}${dimmed ? ' is-dimmed' : ''}${folder?.g.back ? ' is-back' : ''}${folder?.g.animate ? ' is-animated' : ''}${flash ? ' is-flash' : ''}`}
+      className={`citem citem--${item.type}${selected ? ' is-selected' : ''}${item.locked ? ' is-locked' : ''}${editing ? ' is-editing' : ''}${dimmed ? ' is-dimmed' : ''}${flash ? ' is-flash' : ''}${childSelected ? ' has-child-selected' : ''}${dropGhost ? ' is-drop-target' : ''}${item.parentId ? ' is-child' : ''}`}
       style={style}
       role="group"
       aria-label={label}
@@ -96,6 +95,7 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
       {item.type === 'label' &&
         (editing ? (
           <span
+            key="edit"
             ref={editRef}
             className="citem__label-edit"
             contentEditable
@@ -115,7 +115,7 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
             onPointerDown={(e) => e.stopPropagation()}
           />
         ) : (
-          <span className="citem__label">{item.text}</span>
+          <span key="text" className="citem__label">{item.text}</span>
         ))}
 
       {item.type === 'link' && <Card item={{ ...item, key: item.id }} interactive={false} showImage={visible} />}
@@ -142,7 +142,18 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
             aria-hidden="true"
             data-tab
           >
-            <path d={folderPath(folder.g.w, folder.g.h, folder.g.tabH, folder.g.tabX, folder.g.tabW, folder.g.curve, folder.g.corner)} fill={folder.bg} stroke={flash ? darken(folder.bg) : 'rgba(0,0,0,0.06)'} strokeWidth={flash ? 2 : 1} />
+            <path className="folder__shape" d={folderPath(folder.g.w, folder.g.h, folder.g.tabH, folder.g.tabX, folder.g.tabW, folder.g.curve, folder.g.corner)} fill={folder.bg} stroke={flash ? darken(folder.bg) : 'rgba(0,0,0,0.06)'} strokeWidth={flash ? 2 : 1} />
+            {/* hover / selected stroke along the same path (2px at any zoom) */}
+            <path className="folder__outline" d={folderPath(folder.g.w, folder.g.h, folder.g.tabH, folder.g.tabX, folder.g.tabW, folder.g.curve, folder.g.corner)} fill="none" vectorEffect="non-scaling-stroke" />
+            {childCount === 0 && !item.collapsed && (
+              <rect className="folder__empty-outline" x={12} y={folder.g.tabH + 12} width={folder.g.w - 24} height={folder.g.h - 24} rx={10} fill="none" stroke={folder.text} strokeOpacity="0.2" strokeWidth="1.5" strokeDasharray="6 6" />
+            )}
+            {dropGhost && !item.collapsed && (
+              <>
+                <rect x={12} y={folder.g.tabH + 12} width={folder.g.w - 24} height={folder.g.h - 24} rx={10} fill="none" stroke={darken(folder.bg)} strokeWidth="2" strokeDasharray="8 6" />
+                <rect x={FOLDER_PAD + dropGhost.cx} y={folder.g.tabH + FOLDER_PAD + dropGhost.cy} width={dropGhost.w} height={dropGhost.h} rx={16} fill="rgba(0,0,0,0.12)" />
+              </>
+            )}
           </svg>
           <span
             className="folder__title"
@@ -151,6 +162,7 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
           >
             {editing ? (
               <span
+                key="edit"
                 ref={editRef}
                 className="folder__edit citem__label-edit"
                 contentEditable
@@ -170,12 +182,18 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
                 onPointerDown={(e) => e.stopPropagation()}
               />
             ) : (
-              <span className="folder__text" data-tab-text>
-                {tabText(item, childCount)}
+              <span key="text" className="folder__text" data-tab-text>
+                {tabTitle(item)}
+                <span className="folder__count num">{childCount}</span>
               </span>
             )}
           </span>
-          <div className="folder__body" style={{ top: folder.g.tabH, width: folder.g.w, height: folder.g.h, overflow: item.collapsed || folder.g.back ? 'hidden' : 'visible' }}>
+          <div className="folder__body" style={{ top: folder.g.tabH, width: folder.g.w, height: folder.g.h, overflow: item.collapsed ? 'hidden' : 'visible' }}>
+            {childCount === 0 && !item.collapsed && (
+              <span className="folder__hint" style={{ color: folder.text }}>
+                Drop images or cards here
+              </span>
+            )}
             {children}
           </div>
         </>
