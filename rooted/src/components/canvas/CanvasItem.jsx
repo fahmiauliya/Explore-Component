@@ -2,12 +2,12 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Card from '../Card.jsx';
 import { LockIcon } from '../Icons.jsx';
 import { labelColors, labelMetrics } from './labelColors.js';
-import { FOLDER_RADIUS, FOLDER_STRIP, darken, folderColors, tabMetrics, tabPath, tabText } from './folders.js';
+import { FOLDER_PAD, darken, folderColors, folderPath, tabText } from './folders.js';
 import { RIBBON_BASE_W, RIBBON_FOLD, RIBBON_LIMITS, ribbonLayout, ribbonPath, ribbonStatus, ribbonWidth } from './ribbon.js';
 
 // One thing on the board: a label, a link card or an uploaded image.
 // Positioning is done by the parent (world coordinates); this only draws it.
-export default function CanvasItem({ item, selected, editing, imageUrl, dragging, visible = true, childCount = 0, flash = false, dimmed = false, ribbonEditing = false, onPointerDown, onDoubleClick, onContextMenu, onMeasure, onEditCommit, onEditCancel, onOpen, onRibbonCommit, onRibbonCancel }) {
+export default function CanvasItem({ item, selected, editing, imageUrl, dragging, visible = true, childCount = 0, flash = false, dimmed = false, ribbonEditing = false, geom = null, children = null, onPointerDown, onDoubleClick, onContextMenu, onMeasure, onEditCommit, onEditCancel, onOpen, onRibbonCommit, onRibbonCancel }) {
   const [tip, setTip] = useState(false);
   const ref = useRef(null);
   const editRef = useRef(null);
@@ -48,19 +48,24 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
 
   const chip = item.type === 'label' ? labelColors(item.color) : null;
   const metrics = item.type === 'label' ? labelMetrics(item.fontSize || 14) : null;
-  const folder = item.type === 'folder' ? { ...folderColors(item.color), tab: tabMetrics(item) } : null;
-  const style = {
-    transform: `translate(${item.x}px, ${item.y}px)`,
-    width: item.type === 'label' ? (item.fixedW ? item.w : 'auto') : item.w,
-    height: item.type === 'image' ? item.h : item.type === 'folder' ? (item.collapsed ? FOLDER_STRIP : item.h) : 'auto',
-    zIndex: dragging ? 100000 : item.z,
-    ...(folder
-      ? {
-          background: folder.bg,
-          borderRadius: item.collapsed ? `0 0 ${FOLDER_RADIUS}px ${FOLDER_RADIUS}px` : FOLDER_RADIUS,
-          boxShadow: flash ? `inset 0 0 0 2px ${darken(folder.bg)}, 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.04)` : undefined,
-        }
-      : {}),
+  const folder = item.type === 'folder' && geom ? { ...folderColors(item.color), g: geom } : null;
+  // Children sit inside their folder's padded body; everything else uses world coordinates.
+  const pos = item.parentId ? { x: FOLDER_PAD + (item.cx || 0), y: FOLDER_PAD + (item.cy || 0) } : { x: item.x, y: item.y };
+  const style = folder
+    ? {
+        transform: `translate(${folder.g.x}px, ${folder.g.y - folder.g.tabH}px)`,
+        width: folder.g.w,
+        height: folder.g.tabH + folder.g.h,
+        // In the stack, paint order follows the stack (back → front), not z.
+        zIndex: dragging ? 100000 : folder.g.animate ? folder.g.index : item.z,
+      }
+    : {
+        transform: `translate(${pos.x}px, ${pos.y}px)`,
+        width: item.type === 'label' ? (item.fixedW ? item.w : 'auto') : item.w,
+        height: item.type === 'image' ? item.h : 'auto',
+        zIndex: dragging ? 100000 : item.z,
+      };
+  Object.assign(style, {
     ...(chip
       ? {
           background: chip.bg,
@@ -72,12 +77,12 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
           borderRadius: metrics.radius,
         }
       : {}),
-  };
+  });
 
   return (
     <div
       ref={ref}
-      className={`citem citem--${item.type}${selected ? ' is-selected' : ''}${item.locked ? ' is-locked' : ''}${editing ? ' is-editing' : ''}${dimmed ? ' is-dimmed' : ''}`}
+      className={`citem citem--${item.type}${selected ? ' is-selected' : ''}${item.locked ? ' is-locked' : ''}${editing ? ' is-editing' : ''}${dimmed ? ' is-dimmed' : ''}${folder?.g.back ? ' is-back' : ''}${folder?.g.animate ? ' is-animated' : ''}${flash ? ' is-flash' : ''}`}
       style={style}
       role="group"
       aria-label={label}
@@ -130,19 +135,18 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
       {folder && (
         <>
           <svg
-            className={`folder__tab folder__tab--${item.tabSide === 'right' ? 'right' : 'left'}`}
-            width={folder.tab.width + 2 * folder.tab.curve}
-            height={folder.tab.height + 1}
-            viewBox={`0 0 ${folder.tab.width + 2 * folder.tab.curve} ${folder.tab.height + 1}`}
-            style={{ top: -folder.tab.height, [item.tabSide === 'right' ? 'right' : 'left']: folder.tab.inset - folder.tab.curve }}
+            className="folder__svg"
+            width={folder.g.w}
+            height={folder.g.tabH + folder.g.h}
+            viewBox={`0 0 ${folder.g.w} ${folder.g.tabH + folder.g.h}`}
             aria-hidden="true"
             data-tab
           >
-            <path d={tabPath(folder.tab.width, folder.tab.height + 1, folder.tab.curve, folder.tab.radius)} fill={folder.bg} />
+            <path d={folderPath(folder.g.w, folder.g.h, folder.g.tabH, folder.g.tabX, folder.g.tabW, folder.g.curve, folder.g.corner)} fill={folder.bg} stroke={flash ? darken(folder.bg) : 'rgba(0,0,0,0.06)'} strokeWidth={flash ? 2 : 1} />
           </svg>
           <span
             className="folder__title"
-            style={{ top: -folder.tab.height, height: folder.tab.height, width: folder.tab.width, [item.tabSide === 'right' ? 'right' : 'left']: folder.tab.inset, fontSize: folder.tab.fs, color: folder.text }}
+            style={{ top: 0, left: folder.g.tabX, height: folder.g.tabH, width: folder.g.tabW, fontSize: folder.g.fs, color: folder.text }}
             data-tab
           >
             {editing ? (
@@ -171,6 +175,9 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
               </span>
             )}
           </span>
+          <div className="folder__body" style={{ top: folder.g.tabH, width: folder.g.w, height: folder.g.h, overflow: item.collapsed || folder.g.back ? 'hidden' : 'visible' }}>
+            {children}
+          </div>
         </>
       )}
 

@@ -1434,19 +1434,46 @@ body.is-canvas {
 
 .citem--folder {
   border-radius: 20px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.04);
-  transition: box-shadow 200ms ease;
-}
-
-.citem--folder.is-selected {
   outline-offset: 2px;
 }
 
-.folder__tab {
+.citem--folder.is-animated {
+  transition: transform 300ms ease-out, width 300ms ease-out, height 300ms ease-out;
+}
+
+.folder__svg {
   position: absolute;
+  top: 0;
+  left: 0;
   display: block;
   overflow: visible;
-  pointer-events: auto;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.04)) drop-shadow(0 12px 32px rgba(0, 0, 0, 0.06));
+}
+
+.citem--folder.is-flash .folder__svg {
+  animation: tab-pulse 600ms ease;
+}
+
+@keyframes tab-pulse {
+  0%,
+  100% {
+    transform: none;
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* Back folders in the stack lift on hover. */
+@media (hover: hover) {
+  .citem--folder.is-back:hover {
+    translate: 0 -4px;
+  }
+}
+
+.citem--folder.is-back {
+  transition: translate 150ms ease, transform 300ms ease-out, width 300ms ease-out, height 300ms ease-out;
+  cursor: pointer;
 }
 
 .folder__title {
@@ -1457,7 +1484,7 @@ body.is-canvas {
   padding: 0 1em;
   box-sizing: border-box;
   font-weight: 500;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
   line-height: 1;
@@ -1475,8 +1502,38 @@ body.is-canvas {
   line-height: 1;
   color: inherit;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   min-width: 2ch;
+}
+
+.folder__body {
+  position: absolute;
+  left: 0;
+}
+
+/* View toggle in the zoom bar. */
+.cbar__seg {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+}
+
+.cbar__seg-btn {
+  position: relative;
+  height: 28px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--muted);
+  transition: background-color var(--ease-hover), color var(--ease-hover);
+}
+
+.cbar__seg-btn.is-active {
+  background: #fff;
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 /* ---- ribbons on images ---- */

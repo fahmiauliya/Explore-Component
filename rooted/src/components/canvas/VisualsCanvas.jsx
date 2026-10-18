@@ -35,8 +35,8 @@ import ToolBar, { LABEL_PRESETS } from './ToolBar.jsx';
 import InfoPopover from './InfoPopover.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { alignEntries } from './alignEntries.jsx';
-import { buildDefaultItems, mergeWithData, migrateV1, LABEL_H } from './defaultLayout.js';
-import { DEFAULT_FOLDER_COLOR, FOLDER_MIN_H, FOLDER_MIN_W, FOLDER_PRESETS, childrenOf, folderAt, folderRect, refitFolders, tabMetrics, tidyFolder } from './folders.js';
+import { buildDefaultItems, defaultLayout, mergeWithData, migrateV1, repairV2, LABEL_H } from './defaultLayout.js';
+import { DEFAULT_FOLDER_COLOR, FOLDER_MIN_H, FOLDER_MIN_W, FOLDER_PAD, FOLDER_PRESETS, FOLDER_STRIP, STACK_STEP, childrenOf, nextSlot, refitFolders, spreadTabX, stackTabX, tabMetrics, tidyFolder } from './folders.js';
 import * as storage from './useCanvasStorage.js';
 import { bounds, snapMove, snapResize, snapValue } from './snapping.js';
 import { DEFAULT_LABEL_COLOR, LABEL_PRESETS_COLORS, LABEL_SIZES, clampFontSize, fontSizeForHeight, labelHeight, labelMinWidth, labelNaturalWidth } from './labelColors.js';
@@ -98,6 +98,14 @@ export default function VisualsCanvas() {
   const [ready, setReady] = useState(false);
   const [pending, setPending] = useState([]); // skeletons while dropped images are processed
   const [flashId, setFlashId] = useState(null); // folder that just received a child
+  const [layout, setLayoutState] = useState({ mode: 'stack', stack: { x: 0, y: 40 }, order: [] });
+  const layoutRef = useRef(layout);
+  const setLayout = useCallback((next) => {
+    const value = typeof next === 'function' ? next(layoutRef.current) : next;
+    layoutRef.current = value;
+    setLayoutState(value);
+  }, []);
+  const geomsRef = useRef(new Map());
   const [ribbonEditId, setRibbonEditId] = useState(null); // image whose ribbon text is being edited
   const ribbonEditRef = useRef(null);
   const [ribbonFilter, setRibbonFilter] = useState(null); // 'grey' | 'blue' | ... (not saved)
@@ -157,12 +165,85 @@ export default function VisualsCanvas() {
     toastTimer.current = setTimeout(() => setToast(null), 3000);
   }, []);
 
-  // Children of collapsed folders are kept but hidden.
-  const hiddenIds = (list) => {
-    const collapsed = new Set(list.filter((it) => it.type === 'folder' && it.collapsed).map((it) => it.id));
-    return new Set(list.filter((it) => it.parentId && collapsed.has(it.parentId)).map((it) => it.id));
+  // ---- geometry: world rectangles for every item ----
+  // Folders get { x, y (body top-left), w, h, tabX, tabW, tabH, curve, corner, fs, back }.
+  // Children are placed inside their folder's padded body (cx, cy).
+  function computeGeoms(list, lay) {
+    const map = new Map();
+    const counts = new Map();
+    for (const it of list) if (it.parentId) counts.set(it.parentId, (counts.get(it.parentId) || 0) + 1);
+    const folders = list.filter((it) => it.type === 'folder');
+    const metricsOf = (f) => tabMetrics(f, counts.get(f.id) || 0);
+    if (lay.mode === 'stack' && folders.length) {
+      const ordered = orderedFolders(list, lay);
+      const W = Math.max(...ordered.map((f) => f.w), FOLDER_MIN_W);
+      const N = ordered.length;
+      const front = ordered[N - 1];
+      const frontH = front.collapsed ? FOLDER_STRIP : front.h;
+      ordered.forEach((f, i) => {
+        const m = metricsOf(f);
+        const back = i < N - 1;
+        map.set(f.id, { x: lay.stack.x, y: lay.stack.y + i * STACK_STEP, w: W, h: back ? frontH + (N - 1 - i) * STACK_STEP : frontH, tabX: stackTabX(i, N, W, m.width), tabW: m.width, tabH: m.height, curve: m.curve, corner: m.corner, fs: m.fs, back, animate: true, index: i });
+      });
+    } else {
+      for (const f of folders) {
+        const m = metricsOf(f);
+        map.set(f.id, { x: f.x, y: f.y, w: f.w, h: f.collapsed ? FOLDER_STRIP : f.h, tabX: spreadTabX(f, f.w, m.width), tabW: m.width, tabH: m.height, curve: m.curve, corner: m.corner, fs: m.fs, back: false, animate: false, index: 0 });
+      }
+    }
+    for (const it of list) {
+      if (it.type === 'folder') continue;
+      const fg = it.parentId ? map.get(it.parentId) : null;
+      map.set(it.id, fg ? { x: fg.x + FOLDER_PAD + (it.cx || 0), y: fg.y + FOLDER_PAD + (it.cy || 0), w: it.w, h: it.h } : { x: it.x, y: it.y, w: it.w, h: it.h });
+    }
+    return map;
+  }
+  // Folders in stack order (back → front); folders missing from the order go to the back.
+  function orderedFolders(list, lay) {
+    const folders = list.filter((it) => it.type === 'folder');
+    const known = lay.order.filter((id) => folders.some((f) => f.id === id));
+    const missing = folders.filter((f) => !known.includes(f.id)).map((f) => f.id);
+    return [...missing, ...known].map((id) => folders.find((f) => f.id === id));
+  }
+  const rectOf = (it) => geomsRef.current.get(it.id) || { x: it.x || 0, y: it.y || 0, w: it.w, h: it.h };
+  // Write a world position back to an item (children store it relative to the folder).
+  const setAbs = (it, x, y, list = itemsRef.current) => {
+    if (!it.parentId) return { ...it, x, y };
+    const fg = geomsRef.current.get(it.parentId) || computeGeoms(list, layoutRef.current).get(it.parentId);
+    return { ...it, cx: x - fg.x - FOLDER_PAD, cy: y - fg.y - FOLDER_PAD };
   };
-  const rectOf = (it) => (it.type === 'folder' ? folderRect(it) : it);
+  // Children of collapsed folders (and of back folders in the stack) are kept but hidden.
+  const hiddenIds = (list, lay = layoutRef.current) => {
+    const hiddenFolders = new Set(list.filter((it) => it.type === 'folder' && it.collapsed).map((it) => it.id));
+    if (lay.mode === 'stack') {
+      const ordered = orderedFolders(list, lay);
+      ordered.slice(0, -1).forEach((f) => hiddenFolders.add(f.id));
+    }
+    return new Set(list.filter((it) => it.parentId && hiddenFolders.has(it.parentId)).map((it) => it.id));
+  };
+  // The expanded folder whose body contains a world point (the front one in Stack view).
+  const folderAtPoint = (x, y, excludeIds = new Set()) => {
+    const list = itemsRef.current;
+    const lay = layoutRef.current;
+    const candidates = lay.mode === 'stack' ? orderedFolders(list, lay).slice(-1) : list.filter((it) => it.type === 'folder').sort((a, b) => b.z - a.z);
+    for (const f of candidates) {
+      if (!f || f.collapsed || excludeIds.has(f.id)) continue;
+      const g = rectOf(f);
+      if (x >= g.x && x <= g.x + g.w && y >= g.y && y <= g.y + g.h) return f;
+    }
+    return null;
+  };
+  // A back folder whose tab contains the point (Stack view).
+  const backTabAtPoint = (x, y) => {
+    const lay = layoutRef.current;
+    if (lay.mode !== 'stack') return null;
+    const ordered = orderedFolders(itemsRef.current, lay);
+    for (const f of ordered.slice(0, -1).reverse()) {
+      const g = geomsRef.current.get(f.id);
+      if (g && x >= g.x + g.tabX && x <= g.x + g.tabX + g.tabW && y >= g.y - g.tabH && y <= g.y) return f;
+    }
+    return null;
+  };
 
   // ---- history ----
   const pushHistory = useCallback((prev) => {
@@ -285,7 +366,13 @@ export default function VisualsCanvas() {
   );
   const fitToContent = useCallback(
     (list = itemsRef.current) => {
-      const b = bounds(list);
+      const geoms = computeGeoms(list, layoutRef.current);
+      const hidden = hiddenIds(list);
+      const rects = list.filter((it) => !hidden.has(it.id)).map((it) => {
+        const g = geoms.get(it.id);
+        return it.type === 'folder' ? { x: g.x, y: g.y - g.tabH, w: g.w, h: g.h + g.tabH } : g;
+      });
+      const b = bounds(rects);
       const { w, h } = sizeRef.current;
       if (!b || !w || !h) return;
       const aw = w - 2 * SAFE.side;
@@ -309,13 +396,16 @@ export default function VisualsCanvas() {
       setImages(urls);
       let list;
       if (saved?.items?.length) {
-        legacyRef.current = legacy;
-        list = mergeWithData(legacy ? migrateV1(saved.items, visualsTab) : saved.items, visualsTab);
+        legacyRef.current = Boolean(legacy);
+        const base = legacy === 'v1' ? migrateV1(saved.items, visualsTab) : legacy === 'v2' ? repairV2(saved.items, visualsTab) : saved.items;
+        list = mergeWithData(base, visualsTab);
+        setLayout(saved.layout && saved.layout.mode ? { ...defaultLayout(list), ...saved.layout, order: saved.layout.order || [] } : defaultLayout(list));
         if (saved.view) setView(saved.view);
         else pendingFit.current = true;
         if (typeof saved.snapGrid === 'boolean') setSnapGrid(saved.snapGrid);
       } else {
         list = buildDefaultItems(visualsTab);
+        setLayout(defaultLayout(list));
         pendingFit.current = true;
       }
       setItems(list);
@@ -352,7 +442,7 @@ export default function VisualsCanvas() {
     if (!ready) return undefined;
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      const ok = storage.saveLayout({ items: itemsRef.current, view: viewRef.current, snapGrid });
+      const ok = storage.saveLayout({ items: itemsRef.current, view: viewRef.current, snapGrid, layout: layoutRef.current });
       if (!ok) showToast("Couldn't save in this browser.");
       else if (legacyRef.current) {
         legacyRef.current = false;
@@ -360,7 +450,7 @@ export default function VisualsCanvas() {
       }
     }, 300);
     return () => clearTimeout(saveTimer.current);
-  }, [items, view, snapGrid, ready, showToast]);
+  }, [items, view, snapGrid, layout, ready, showToast]);
 
   // ---- wheel: pan, or zoom with ⌘/Ctrl (trackpad pinch arrives as ctrl+wheel) ----
   useEffect(() => {
@@ -402,7 +492,12 @@ export default function VisualsCanvas() {
       let next = itemsRef.current;
       if (!keepChildren) for (const it of next) if (it.parentId && folders.includes(it.parentId)) idSet.add(it.id);
       const removing = next.filter((it) => idSet.has(it.id));
-      next = next.filter((it) => !idSet.has(it.id)).map((it) => (it.parentId && folders.includes(it.parentId) ? { ...it, parentId: undefined } : it));
+      next = next.filter((it) => !idSet.has(it.id)).map((it) => {
+        if (!(it.parentId && folders.includes(it.parentId))) return it;
+        const r = rectOf(it);
+        return { ...it, parentId: undefined, cx: undefined, cy: undefined, x: r.x, y: r.y };
+      });
+      setLayout((lay) => ({ ...lay, order: lay.order.filter((id) => !folders.includes(id)) }));
       commit(next);
       keepExisting(next);
       for (const it of removing) {
@@ -441,6 +536,8 @@ export default function VisualsCanvas() {
       .map((it) => (it.parentId && idMap.has(it.parentId) ? { ...it, parentId: idMap.get(it.parentId) } : it.parentId && chosenIds.has(it.parentId) ? it : { ...it, parentId: it.parentId && idMap.has(it.parentId) ? idMap.get(it.parentId) : it.parentId }));
     if (!copies.length) return;
     commit([...itemsRef.current, ...copies]);
+    const newFolders = copies.filter((c) => c.type === 'folder').map((c) => c.id);
+    if (newFolders.length) setLayout((lay) => ({ ...lay, order: [...newFolders, ...lay.order] }));
     setSelection(copies.filter((c) => sel.includes([...idMap.entries()].find(([, v]) => v === c.id)?.[0])).map((c) => c.id));
   }, [commit, setSelection]);
 
@@ -467,7 +564,7 @@ export default function VisualsCanvas() {
   const align = useCallback(
     (kind) => {
       const sel = selectionRef.current;
-      const chosen = itemsRef.current.filter((it) => sel.includes(it.id));
+      const chosen = itemsRef.current.filter((it) => sel.includes(it.id)).map((it) => ({ ...it, ...rectOf(it), item: it }));
       if (chosen.length < 2) return;
       const box = bounds(chosen);
       const pos = new Map();
@@ -492,7 +589,12 @@ export default function VisualsCanvas() {
           if (kind === 'bottom') pos.set(it.id, { y: box.y + box.h - it.h });
         }
       }
-      commit(itemsRef.current.map((it) => (pos.has(it.id) && !it.locked ? { ...it, ...pos.get(it.id) } : it)));
+      commit(itemsRef.current.map((it) => {
+        if (!pos.has(it.id) || it.locked) return it;
+        const r = rectOf(it);
+        const p = pos.get(it.id);
+        return setAbs(it, p.x ?? r.x, p.y ?? r.y);
+      }));
     },
     [commit]
   );
@@ -501,8 +603,16 @@ export default function VisualsCanvas() {
     (dx, dy) => {
       const sel = new Set(selectionRef.current);
       if (!sel.size) return;
-      for (const it of itemsRef.current) if (it.parentId && sel.has(it.parentId)) sel.add(it.id);
-      commit(itemsRef.current.map((it) => (sel.has(it.id) && !it.locked ? { ...it, x: it.x + dx, y: it.y + dy } : it)));
+      if (layoutRef.current.mode === 'stack' && itemsRef.current.some((it) => sel.has(it.id) && it.type === 'folder')) {
+        setLayout((lay) => ({ ...lay, stack: { x: lay.stack.x + dx, y: lay.stack.y + dy } }));
+        sel.forEach((id) => itemsRef.current.find((it) => it.id === id)?.type === 'folder' && sel.delete(id));
+        if (!sel.size) return;
+      }
+      commit(itemsRef.current.map((it) => {
+        if (!sel.has(it.id) || it.locked) return it;
+        const r = rectOf(it);
+        return setAbs(it, r.x + dx, r.y + dy);
+      }));
     },
     [commit]
   );
@@ -514,7 +624,7 @@ export default function VisualsCanvas() {
     const c = viewCenterWorld();
     const list = itemsRef.current;
     const margin = 16;
-    const free = (x, y) => !list.some((it) => x < it.x + it.w + margin && it.x < x + w + margin && y < it.y + it.h + margin && it.y < y + h + margin);
+    const free = (x, y) => !list.some((it) => { const r = rectOf(it); return x < r.x + r.w + margin && r.x < x + w + margin && y < r.y + r.h + margin && r.y < y + h + margin; });
     const cx = snapValue(c.x - w / 2);
     const cy = snapValue(c.y - h / 2);
     if (free(cx, cy)) return { x: cx, y: cy };
@@ -591,8 +701,9 @@ export default function VisualsCanvas() {
       if (saveFailed) showToast("Couldn't save in this browser.");
       if (!added.length) return;
       setImages((prev) => ({ ...prev, ...urls }));
-      const target = at ? folderAt(itemsRef.current, at.x, at.y) : null;
-      commit([...itemsRef.current, ...added.map((it) => (target ? { ...it, parentId: target.id } : it))]);
+      const target = at ? folderAtPoint(at.x, at.y) : null;
+      const tg = target ? rectOf(target) : null;
+      commit([...itemsRef.current, ...added.map((it) => (target ? { ...it, parentId: target.id, cx: Math.max(0, it.x - tg.x - FOLDER_PAD), cy: Math.max(0, it.y - tg.y - FOLDER_PAD) } : it))]);
       setSelection(added.map((it) => it.id));
     },
     [commit, setSelection, showToast]
@@ -706,6 +817,14 @@ export default function VisualsCanvas() {
     [commit]
   );
   const setTabSide = useCallback((side) => updateFolders((f) => ({ ...f, tabSide: side })), [updateFolders]);
+  const bringFolderToFront = useCallback(
+    (id) => {
+      setLayout((lay) => ({ ...lay, order: [...orderedFolders(itemsRef.current, lay).map((f) => f.id).filter((x) => x !== id), id] }));
+      setSelection([id]);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [setLayout, setSelection]
+  );
   const toggleCollapse = useCallback(
     (id) => {
       const ids = id ? [id] : selectedFolderIds();
@@ -732,9 +851,10 @@ export default function VisualsCanvas() {
       const spot = findFreeSpot(FOLDER_MIN_W, FOLDER_MIN_H + tab);
       folder.x = spot.x;
       folder.y = spot.y + tab;
-      // Folders sit below everything else: give it the lowest z among folders.
       folder.z = Math.min(0, ...itemsRef.current.filter((it) => it.type === 'folder').map((it) => it.z)) - 1;
       commit([...itemsRef.current, folder]);
+      // In Stack view the new folder goes to the back of the stack.
+      setLayout((lay) => ({ ...lay, order: [folder.id, ...lay.order] }));
       setSelection([folder.id]);
       setEditingId(folder.id);
       canvasRef.current?.focus({ preventScroll: true });
@@ -762,8 +882,10 @@ export default function VisualsCanvas() {
     history.current = { past: [], future: [] };
     const list = buildDefaultItems(visualsTab);
     setItems(list);
+    setLayout(defaultLayout(list));
     setSelection([]);
     setDialog(null);
+    geomsRef.current = computeGeoms(list, defaultLayout(list));
     fitToContent(list);
   }, [fitToContent, images, setItems, setSelection]);
 
@@ -849,14 +971,22 @@ export default function VisualsCanvas() {
     }
     const nextSel = sel.includes(item.id) ? sel : [item.id];
     setSelection(nextSel);
+    // Stack view: pressing any folder drags the whole stack; a tap on a back
+    // folder's tab brings it to the front (on release, if the pointer didn't move).
+    if (item.type === 'folder' && layoutRef.current.mode === 'stack') {
+      const g = geomsRef.current.get(item.id);
+      const tap = g?.back && e.target.closest?.('[data-tab]') ? { type: 'front' } : dbl;
+      gesture.current = { type: 'stackMove', pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, startStack: layoutRef.current.stack, moved: false, dbl: tap, primary: item.id };
+      canvasRef.current.setPointerCapture(e.pointerId);
+      armLongPress(e, item);
+      return;
+    }
     if (item.locked) {
       if (dbl?.type === 'collapse') toggleCollapse(item.id);
       return;
     }
-    // Selected folders bring their children along.
-    const movingIds = new Set(nextSel);
-    for (const it of itemsRef.current) if (it.parentId && movingIds.has(it.parentId)) movingIds.add(it.id);
-    const moving = new Map(itemsRef.current.filter((it) => movingIds.has(it.id) && !it.locked).map((it) => [it.id, { x: it.x, y: it.y }]));
+    // Children ride along inside their folder's element, so only the selected items move.
+    const moving = new Map(itemsRef.current.filter((it) => nextSel.includes(it.id) && !it.locked).map((it) => [it.id, { x: rectOf(it).x, y: rectOf(it).y }]));
     gesture.current = { type: 'move', pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, startItems: itemsRef.current, primary: item.id, moving, moved: false, dbl };
     canvasRef.current.setPointerCapture(e.pointerId);
     armLongPress(e, item);
@@ -889,7 +1019,8 @@ export default function VisualsCanvas() {
     const it = itemsRef.current.find((x) => x.id === selectionRef.current[0]);
     if (!it || it.locked) return;
     const heightFor = it.type === 'link' ? cardHeight : it.type === 'image' ? (w) => imageHeight(it, w) : undefined;
-    gesture.current = { type: 'resize', pointerId: e.pointerId, id: it.id, corner, start: { x: it.x, y: it.y, w: it.w, h: it.h, fontSize: it.fontSize || 14, fixedW: Boolean(it.fixedW), text: it.text }, startItems: itemsRef.current, heightFor, label: it.type === 'label', folder: it.type === 'folder' };
+    const r0 = rectOf(it);
+    gesture.current = { type: 'resize', pointerId: e.pointerId, id: it.id, corner, start: { x: r0.x, y: r0.y, w: r0.w, h: r0.h, fontSize: it.fontSize || 14, fixedW: Boolean(it.fixedW), text: it.text }, startItems: itemsRef.current, heightFor, label: it.type === 'label', folder: it.type === 'folder' };
     canvasRef.current.setPointerCapture(e.pointerId);
     setDraggingIds([it.id]);
   }
@@ -911,7 +1042,15 @@ export default function VisualsCanvas() {
     const v = viewRef.current;
     const threshold = 6 / v.zoom;
 
-    if (g.type === 'pan') {
+    if (g.type === 'stackMove') {
+      const dx = (p.clientX - g.startX) / v.zoom;
+      const dy = (p.clientY - g.startY) / v.zoom;
+      if (!g.moved && Math.hypot(p.clientX - g.startX, p.clientY - g.startY) < DRAG_START) return;
+      g.moved = true;
+      clearTimeout(longPress.current);
+      setCursor('grabbing');
+      setLayout({ ...layoutRef.current, stack: { x: g.startStack.x + dx, y: g.startStack.y + dy } });
+    } else if (g.type === 'pan') {
       setView({ ...g.startView, panX: g.startView.panX + (p.clientX - g.startX), panY: g.startView.panY + (p.clientY - g.startY) });
     } else if (g.type === 'pinch') {
       const pts = [...pointers.current.values()];
@@ -942,13 +1081,15 @@ export default function VisualsCanvas() {
         setCursor('grabbing');
       }
       const primary = g.startItems.find((it) => it.id === g.primary);
-      const rect = { ...rectOf(primary), x: primary.x + dx, y: primary.y + dy };
+      const start = g.moving.get(g.primary);
+      const rect = { ...rectOf(primary), x: start.x + dx, y: start.y + dy };
       const hidden = hiddenIds(g.startItems);
-      const others = g.startItems.filter((it) => !g.moving.has(it.id) && !hidden.has(it.id)).map(rectOf);
+      const insideMoving = (it) => g.moving.has(it.id) || (it.parentId && g.moving.has(it.parentId));
+      const others = g.startItems.filter((it) => !insideMoving(it) && !hidden.has(it.id)).map(rectOf);
       const snapped = snapMove(rect, others, { threshold, grid: snapGridRef.current, noSnap: p.altKey });
-      const sdx = snapped.x - primary.x;
-      const sdy = snapped.y - primary.y;
-      setItems(g.startItems.map((it) => (g.moving.has(it.id) ? { ...it, x: g.moving.get(it.id).x + sdx, y: g.moving.get(it.id).y + sdy } : it)));
+      const sdx = snapped.x - start.x;
+      const sdy = snapped.y - start.y;
+      setItems(g.startItems.map((it) => (g.moving.has(it.id) ? setAbs(it, g.moving.get(it.id).x + sdx, g.moving.get(it.id).y + sdy, g.startItems) : it)));
       setOverlay({ guides: snapped.guides, spacings: snapped.spacings, box: null, tip: null });
     } else if (g.type === 'resize' && g.label) {
       // Labels: side handles change the width; corners scale the whole chip.
@@ -988,7 +1129,7 @@ export default function VisualsCanvas() {
       w = Math.max(labelMinWidth(st.text, fs), Math.round(w));
       const h = labelHeight(fs);
       const rect = { x: right ? anchorX : anchorX - w, y: bottom ? anchorY : anchorY - h, w, h };
-      setItems(g.startItems.map((it) => (it.id === g.id ? { ...it, ...rect, fontSize: fs, fixedW } : it)));
+      setItems(g.startItems.map((it) => (it.id === g.id ? { ...setAbs(it, rect.x, rect.y, g.startItems), w: rect.w, h: rect.h, fontSize: fs, fixedW } : it)));
       const r = canvasRect();
       setOverlay({ guides, spacings: [], box: null, tip: { x: p.clientX - r.left, y: p.clientY - r.top, text: `W ${w} · ${fs}px` } });
     } else if (g.type === 'resize') {
@@ -996,11 +1137,14 @@ export default function VisualsCanvas() {
       const others = g.startItems.filter((it) => it.id !== g.id);
       const { rect, guides } = snapResize(g.start, g.corner, pointer, others.map(rectOf), { threshold, grid: snapGridRef.current, noSnap: p.altKey, heightFor: g.heightFor, minW: g.folder ? FOLDER_MIN_W : 80 });
       if (g.folder) rect.h = Math.max(FOLDER_MIN_H, rect.h);
-      setItems(g.startItems.map((it) => (it.id === g.id ? { ...it, ...rect, ...(g.folder ? { autoSize: false } : {}) } : it)));
+      setItems(g.startItems.map((it) => (it.id === g.id ? (g.folder && layoutRef.current.mode === 'stack' ? { ...it, w: rect.w, h: rect.h, autoSize: false } : { ...setAbs(it, rect.x, rect.y, g.startItems), w: rect.w, h: rect.h, ...(g.folder ? { autoSize: false } : {}) }) : it)));
       const r = canvasRect();
       setOverlay({ guides, spacings: [], box: null, tip: { x: p.clientX - r.left, y: p.clientY - r.top, text: `${Math.round(rect.w)} × ${Math.round(rect.h)}` } });
     }
   }
+
+  // World point of the last pointer position (for drop targets).
+  const p0 = () => (latest.current ? toWorld(latest.current.clientX, latest.current.clientY) : { x: -1e9, y: -1e9 });
 
   function onPointerUp(e) {
     pointers.current.delete(e.pointerId);
@@ -1017,28 +1161,42 @@ export default function VisualsCanvas() {
     } catch {
       /* ignore */
     }
-    if (g.type === 'move' && !g.moved && g.dbl) {
+    if ((g.type === 'move' || g.type === 'stackMove') && !g.moved && g.dbl) {
       const it = itemsRef.current.find((x) => x.id === g.primary);
       if (it && g.dbl.type === 'rename') {
         setSelection([it.id]);
         setEditingId(it.id);
       } else if (it && g.dbl.type === 'collapse') toggleCollapse(it.id);
       else if (it && g.dbl.type === 'ribbon') startRibbonEdit(it.id);
+      else if (it && g.dbl.type === 'front') bringFolderToFront(it.id);
     }
     if (g.type === 'move' && g.moved) {
       pushHistory(g.startItems);
       // Cards and images dropped inside a folder body join it; dragged out, they leave it.
       let next = itemsRef.current;
-      const movedTop = [...g.moving.keys()].filter((id) => !g.moving.has(next.find((it) => it.id === id)?.parentId));
+      const movedTop = [...g.moving.keys()];
       let received = null;
       for (const id of movedTop) {
         const it = next.find((x) => x.id === id);
         if (!it || it.type === 'folder' || it.type === 'label') continue;
-        const target = folderAt(next, it.x + it.w / 2, it.y + it.h / 2, new Set(movedTop));
-        const parentId = target ? target.id : undefined;
-        if (parentId !== it.parentId) {
-          next = next.map((x) => (x.id === id ? { ...x, parentId } : x));
-          if (parentId) received = parentId;
+        const r = rectOf(it);
+        const cx = r.x + r.w / 2;
+        const cy = r.y + r.h / 2;
+        // Dropped on a back folder's tab (Stack view): file it in the next free slot.
+        const tab = backTabAtPoint(cx, cy) || backTabAtPoint(p0().x, p0().y);
+        if (tab) {
+          const slot = nextSlot(next, tab.id, it.w, it.h);
+          next = next.map((x) => (x.id === id ? { ...x, parentId: tab.id, cx: slot.cx, cy: slot.cy } : x));
+          received = tab.id;
+          continue;
+        }
+        const target = folderAtPoint(cx, cy, new Set(movedTop));
+        if (target) {
+          const tg = rectOf(target);
+          next = next.map((x) => (x.id === id ? { ...x, parentId: target.id, cx: Math.max(0, r.x - tg.x - FOLDER_PAD), cy: Math.max(0, r.y - tg.y - FOLDER_PAD) } : x));
+          if (target.id !== it.parentId) received = target.id;
+        } else if (it.parentId) {
+          next = next.map((x) => (x.id === id ? { ...x, parentId: undefined, cx: undefined, cy: undefined, x: r.x, y: r.y } : x));
         }
       }
       setItems(refitFolders(next));
@@ -1049,6 +1207,7 @@ export default function VisualsCanvas() {
       }
     }
     if (g.type === 'resize') pushHistory(g.startItems);
+    if (g.type === 'stackMove') setCursor('');
     endGesture();
   }
 
@@ -1276,13 +1435,25 @@ export default function VisualsCanvas() {
   }
 
   // ---- render ----
+  // World geometry for this render (also kept in a ref for the event handlers).
+  const geoms = useMemo(() => computeGeoms(items, layout), [items, layout]);
+  geomsRef.current = geoms;
   const single = selectedItems.length === 1 ? selectedItems[0] : null;
-  const handles = single && !single.locked && !editingId ? { x: single.x, y: single.y, w: single.w, h: single.h } : null;
-  // Folders always render beneath cards and images; children of collapsed folders are hidden.
+  const singleRect = single ? geoms.get(single.id) : null;
+  const handles = single && singleRect && !single.locked && !editingId && !(single.type === 'folder' && singleRect.back) ? { x: singleRect.x, y: singleRect.y, w: singleRect.w, h: singleRect.h } : null;
+  // Folders render first (stack order, or by z), then loose items by z. Children
+  // render inside their folder's element.
   const sorted = useMemo(() => {
-    const hidden = hiddenIds(items);
     const byZ = (a, b) => a.z - b.z;
-    return [...items.filter((it) => it.type === 'folder').sort(byZ), ...items.filter((it) => it.type !== 'folder' && !hidden.has(it.id)).sort(byZ)];
+    const folders = layout.mode === 'stack' ? orderedFolders(items, layout) : items.filter((it) => it.type === 'folder').sort(byZ);
+    return [...folders, ...items.filter((it) => it.type !== 'folder' && !it.parentId).sort(byZ)];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, layout]);
+  const childrenByFolder = useMemo(() => {
+    const m = new Map();
+    for (const it of items) if (it.parentId) (m.get(it.parentId) || m.set(it.parentId, []).get(it.parentId)).push(it);
+    for (const list of m.values()) list.sort((a, b) => a.z - b.z);
+    return m;
   }, [items]);
   const childCounts = useMemo(() => {
     const m = new Map();
@@ -1308,7 +1479,38 @@ export default function VisualsCanvas() {
   const vy0 = -view.panY / view.zoom - margin;
   const vx1 = (size.w - view.panX) / view.zoom + margin;
   const vy1 = (size.h - view.panY) / view.zoom + margin;
-  const inView = (it) => it.x + it.w > vx0 && it.x < vx1 && it.y + it.h > vy0 && it.y < vy1;
+  const inView = (it) => {
+    const r = geoms.get(it.id) || it;
+    return r.x + r.w > vx0 && r.x < vx1 && r.y + r.h > vy0 && r.y < vy1;
+  };
+  const renderItem = (item, extra = {}) => (
+    <CanvasItem
+      key={item.id}
+      item={item}
+      selected={selection.includes(item.id)}
+      editing={editingId === item.id}
+      dragging={draggingIds?.includes(item.id)}
+      visible={inView(item)}
+      childCount={childCounts.get(item.id) || 0}
+      flash={flashId === item.id}
+      dimmed={Boolean(ribbonFilter) && item.type === 'image' && item.ribbon?.status !== ribbonFilter}
+      ribbonEditing={ribbonEditId === item.id && !phone}
+      imageUrl={item.type === 'image' ? images[item.imageKey] : undefined}
+      geom={item.type === 'folder' ? geoms.get(item.id) : null}
+      onPointerDown={onItemPointerDown}
+      onDoubleClick={onItemDoubleClick}
+      onContextMenu={onItemContextMenu}
+      onMeasure={onMeasure}
+      onEditCommit={onEditCommit}
+      onEditCancel={onEditCancel}
+      onOpen={openLink}
+      onRibbonCommit={onRibbonCommit}
+      onRibbonCancel={onRibbonCancel}
+      {...extra}
+    >
+      {item.type === 'folder' && !item.collapsed && !geoms.get(item.id)?.back ? (childrenByFolder.get(item.id) || []).map((child) => renderItem(child)) : null}
+    </CanvasItem>
+  );
   const firstLabel = selectedItems.find((it) => it.type === 'label');
 
   return (
@@ -1334,31 +1536,7 @@ export default function VisualsCanvas() {
         onPaste={onPaste}
       >
         <div className="canvas__world" style={{ transform: `translate(${view.panX}px, ${view.panY}px) scale(${view.zoom})` }}>
-          {ready &&
-            sorted.map((item) => (
-              <CanvasItem
-                key={item.id}
-                item={item}
-                selected={selection.includes(item.id)}
-                editing={editingId === item.id}
-                dragging={draggingIds?.includes(item.id)}
-                visible={inView(item)}
-                childCount={childCounts.get(item.id) || 0}
-                flash={flashId === item.id}
-                dimmed={Boolean(ribbonFilter) && item.type === 'image' && item.ribbon?.status !== ribbonFilter}
-                ribbonEditing={ribbonEditId === item.id && !phone}
-                onRibbonCommit={onRibbonCommit}
-                onRibbonCancel={onRibbonCancel}
-                imageUrl={item.type === 'image' ? images[item.imageKey] : undefined}
-                onPointerDown={onItemPointerDown}
-                onDoubleClick={onItemDoubleClick}
-                onContextMenu={onItemContextMenu}
-                onMeasure={onMeasure}
-                onEditCommit={onEditCommit}
-                onEditCancel={onEditCancel}
-                onOpen={openLink}
-              />
-            ))}
+          {ready && sorted.map((item) => renderItem(item))}
         </div>
 
         {pending.length > 0 && (
@@ -1407,6 +1585,8 @@ export default function VisualsCanvas() {
           zoom={view.zoom}
           snap={snapGrid}
           phone={phone}
+          mode={layout.mode}
+          onMode={(mode) => setLayout((lay) => ({ ...lay, mode }))}
           onZoomIn={() => zoomTo(viewRef.current.zoom + ZOOM_STEP)}
           onZoomOut={() => zoomTo(viewRef.current.zoom - ZOOM_STEP)}
           onReset={() => zoomTo(1)}

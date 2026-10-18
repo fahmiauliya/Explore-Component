@@ -1,14 +1,16 @@
-// Folder items: geometry, presets, auto-fit and tidy-up.
+// Folder items: geometry, presets, stacking, auto-fit and tidy-up.
+// Children (cards, images) live INSIDE a folder: their `cx`, `cy` are relative
+// to the body's padded top-left. Folders keep `x`, `y` as their Spread position.
 import { measureLabelText, textOn } from './labelColors.js';
 
 export const FOLDER_PRESETS = [
-  { id: 'paper', name: 'Paper', bg: '#F6F5F2', text: '#111111' },
-  { id: 'stone', name: 'Stone', bg: '#E8E5DC', text: '#111111' },
-  { id: 'sky', name: 'Sky', bg: '#A9C8F2', text: '#111111' },
-  { id: 'mint', name: 'Mint', bg: '#CFE8D5', text: '#111111' },
-  { id: 'butter', name: 'Butter', bg: '#F6E7A8', text: '#111111' },
-  { id: 'blush', name: 'Blush', bg: '#F4D3D8', text: '#111111' },
-  { id: 'lilac', name: 'Lilac', bg: '#DCD3F4', text: '#111111' },
+  { id: 'paper', name: 'Paper', bg: '#FFFFFF', text: '#111111' },
+  { id: 'stone', name: 'Stone', bg: '#E7E3D8', text: '#111111' },
+  { id: 'sky', name: 'Sky', bg: '#B7D0F5', text: '#111111' },
+  { id: 'mint', name: 'Mint', bg: '#CDE7D3', text: '#111111' },
+  { id: 'butter', name: 'Butter', bg: '#F5E3A1', text: '#111111' },
+  { id: 'blush', name: 'Blush', bg: '#F3CFD5', text: '#111111' },
+  { id: 'lilac', name: 'Lilac', bg: '#D9D0F2', text: '#111111' },
   { id: 'ink', name: 'Ink', bg: '#1F1F1F', text: '#FFFFFF' },
 ];
 export const DEFAULT_FOLDER_COLOR = 'paper';
@@ -18,9 +20,14 @@ export const FOLDER_MIN_H = 200;
 export const FOLDER_RADIUS = 20;
 export const FOLDER_STRIP = 12; // body height while collapsed
 export const FOLDER_FS = 13; // default tab text size
+export const TAB_H = 40; // at 13px
+export const TAB_CURVE = 16; // concave curve into the body
+export const TAB_CORNER = 14;
+export const TAB_INSET = 24;
+export const STACK_STEP = 56; // each stacked folder sits 56px lower (tab + 16px strip)
 export const TIDY_COLS = 4;
 export const TIDY_GAP = 24;
-export const RIBBON_ROOM = 12; // extra space above images with a ribbon
+export const RIBBON_ROOM = 12;
 
 export function folderColors(color) {
   const preset = FOLDER_PRESETS.find((p) => p.id === (color || DEFAULT_FOLDER_COLOR));
@@ -29,7 +36,6 @@ export function folderColors(color) {
   return folderColors(DEFAULT_FOLDER_COLOR);
 }
 
-// A darker shade of the folder color for the "received a child" hint.
 export function darken(hex, amount = 0.18) {
   const n = hex.replace('#', '');
   const full = n.length === 3 ? n.split('').map((c) => c + c).join('') : n;
@@ -37,81 +43,97 @@ export function darken(hex, amount = 0.18) {
   return `#${ch.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
 }
 
-// Tab metrics scale with the font size (36px tall at 13px).
-export function tabMetrics(folder) {
-  const fs = folder.fontSize || FOLDER_FS;
-  const k = fs / FOLDER_FS;
-  const text = tabText(folder);
-  const textW = measureLabelText(text, fs) + text.length * fs * 0.06; // letter-spacing .06em
-  return { fs, k, height: Math.round(36 * k), width: Math.round(textW + 32 * k), curve: Math.round(12 * k), radius: 14 * k, inset: 24 };
-}
+export const childrenOf = (items, folderId) => items.filter((it) => it.parentId === folderId);
 
 export function tabText(folder, childCount = 0) {
   const title = (folder.title || 'Folder').toUpperCase();
   return folder.collapsed ? `${title} · ${childCount}` : title;
 }
 
-// One path: flare up from the body on the left, rounded tab, flare back down.
-export function tabPath(width, height, curve, radius) {
-  const r = Math.min(radius, width / 2, height / 2);
-  const W = width + 2 * curve;
-  const H = height;
+// Tab metrics scale with the font size (40px tall, text + 48px wide at 13px).
+export function tabMetrics(folder, childCount = 0) {
+  const fs = folder.fontSize || FOLDER_FS;
+  const k = fs / FOLDER_FS;
+  const text = tabText(folder, childCount);
+  const textW = measureLabelText(text, fs) + text.length * fs * 0.08;
+  return { fs, k, height: Math.round(TAB_H * k), width: Math.round(textW + 48 * k), curve: Math.round(TAB_CURVE * k), corner: TAB_CORNER * k };
+}
+
+// Tab + body as ONE path. Origin: the tab's top-left row (y = 0); the body
+// starts at y = tabH. `tabX` is the tab's left edge within the folder width.
+export function folderPath(w, bodyH, tabH, tabX, tabW, curve, corner) {
+  const R = Math.min(FOLDER_RADIUS, bodyH / 2);
+  const c = Math.min(curve, tabX, w - tabX - tabW);
+  const r = Math.min(corner, tabW / 2);
+  const y0 = tabH;
+  const H = y0 + bodyH;
   return [
-    `M0 ${H}`,
-    `C${curve * 0.55} ${H} ${curve} ${H - curve * 0.45} ${curve} ${H - curve}`,
-    `L${curve} ${r}`,
-    `A${r} ${r} 0 0 1 ${curve + r} 0`,
-    `L${curve + width - r} 0`,
-    `A${r} ${r} 0 0 1 ${curve + width} ${r}`,
-    `L${curve + width} ${H - curve}`,
-    `C${curve + width} ${H - curve * 0.45} ${W - curve * 0.55} ${H} ${W} ${H}`,
+    `M${R} ${y0}`,
+    `L${tabX - c} ${y0}`,
+    `A${c} ${c} 0 0 0 ${tabX} ${y0 - c}`,
+    `L${tabX} ${r}`,
+    `A${r} ${r} 0 0 1 ${tabX + r} 0`,
+    `L${tabX + tabW - r} 0`,
+    `A${r} ${r} 0 0 1 ${tabX + tabW} ${r}`,
+    `L${tabX + tabW} ${y0 - c}`,
+    `A${c} ${c} 0 0 0 ${tabX + tabW + c} ${y0}`,
+    `L${w - R} ${y0}`,
+    `A${R} ${R} 0 0 1 ${w} ${y0 + R}`,
+    `L${w} ${H - R}`,
+    `A${R} ${R} 0 0 1 ${w - R} ${H}`,
+    `L${R} ${H}`,
+    `A${R} ${R} 0 0 1 0 ${H - R}`,
+    `L0 ${y0 + R}`,
+    `A${R} ${R} 0 0 1 ${R} ${y0}`,
     'Z',
   ].join(' ');
 }
 
-// The rectangle that stands for the folder body (collapsed = a thin strip).
-export const folderRect = (f) => (f.collapsed ? { x: f.x, y: f.y, w: f.w, h: FOLDER_STRIP } : { x: f.x, y: f.y, w: f.w, h: f.h });
+// The tab's flare (16px) must clear the body's 20px corner, so the smallest
+// inset that keeps one clean path is 36px.
+const MIN_INSET = FOLDER_RADIUS + TAB_CURVE;
+const clampTabX = (x, w, tabW) => Math.max(MIN_INSET, Math.min(w - MIN_INSET - tabW, x));
 
-export const childrenOf = (items, folderId) => items.filter((it) => it.parentId === folderId);
+// Tab x within a folder for the Spread view (left or right side).
+export const spreadTabX = (folder, w, tabW) => clampTabX(folder.tabSide === 'right' ? w - TAB_INSET - tabW : TAB_INSET, w, tabW);
 
-// Auto-fit: the body wraps its children with 24px padding (min 320 × 200).
-export function fitFolder(folder, children) {
-  if (!children.length) return { ...folder, w: Math.max(FOLDER_MIN_W, folder.w || 0), h: Math.max(FOLDER_MIN_H, folder.h || 0) };
-  const top = (c) => c.y - (c.type === 'image' && c.ribbon ? RIBBON_ROOM : 0);
-  const minX = Math.min(...children.map((c) => c.x));
-  const minY = Math.min(...children.map(top));
-  const maxX = Math.max(...children.map((c) => c.x + c.w));
-  const maxY = Math.max(...children.map((c) => c.y + c.h));
-  return { ...folder, x: minX - FOLDER_PAD, y: minY - FOLDER_PAD, w: Math.max(FOLDER_MIN_W, maxX - minX + 2 * FOLDER_PAD), h: Math.max(FOLDER_MIN_H, maxY - minY + 2 * FOLDER_PAD) };
+// Staggered tab slots for a stack of N: left, right, left-center, right-center, …
+export function stackTabX(index, count, w, tabW) {
+  const pair = Math.floor(index / 2);
+  const step = count > 1 ? (w - 2 * MIN_INSET - tabW) / count : 0;
+  return clampTabX(index % 2 === 0 ? MIN_INSET + pair * step : w - MIN_INSET - tabW - pair * step, w, tabW);
 }
 
-// Re-fit every auto-sized, expanded folder around its children.
+// Auto-fit around the children's relative rects (min 320 × 200).
+export function fitFolder(folder, children) {
+  if (!children.length) return { ...folder, w: Math.max(FOLDER_MIN_W, folder.autoSize === false ? folder.w : FOLDER_MIN_W), h: Math.max(FOLDER_MIN_H, folder.autoSize === false ? folder.h : FOLDER_MIN_H) };
+  const right = Math.max(...children.map((c) => (c.cx || 0) + c.w));
+  const bottom = Math.max(...children.map((c) => (c.cy || 0) + c.h));
+  return { ...folder, w: Math.max(FOLDER_MIN_W, Math.round(right + 2 * FOLDER_PAD)), h: Math.max(FOLDER_MIN_H, Math.round(bottom + 2 * FOLDER_PAD)) };
+}
+
 export function refitFolders(items) {
   let out = items;
   for (const f of items) {
-    if (f.type !== 'folder' || f.autoSize === false || f.collapsed) continue;
-    const kids = childrenOf(items, f.id);
-    const fitted = fitFolder(f, kids);
-    if (fitted.x !== f.x || fitted.y !== f.y || fitted.w !== f.w || fitted.h !== f.h) out = out.map((it) => (it.id === f.id ? fitted : it));
+    if (f.type !== 'folder' || f.autoSize === false) continue;
+    const fitted = fitFolder(f, childrenOf(items, f.id));
+    if (fitted.w !== f.w || fitted.h !== f.h) out = out.map((it) => (it.id === f.id ? fitted : it));
   }
   return out;
 }
 
-// Arrange a folder's children in a grid (4 per row, 24px gaps, reading order)
-// starting at the folder's padding, then fit the folder. Returns new items.
+// Grid the children (4 per row, 24px gaps, reading order), then fit.
 export function tidyFolder(items, folderId) {
-  const folder = items.find((it) => it.id === folderId);
-  if (!folder) return items;
-  const kids = childrenOf(items, folderId).sort((a, b) => a.y - b.y || a.x - b.x);
+  const kids = childrenOf(items, folderId).sort((a, b) => (a.cy || 0) - (b.cy || 0) || (a.cx || 0) - (b.cx || 0));
   if (!kids.length) return items;
   const moved = new Map();
-  let y = folder.y + FOLDER_PAD;
+  let y = 0;
   for (let i = 0; i < kids.length; i += TIDY_COLS) {
     const row = kids.slice(i, i + TIDY_COLS);
     const room = row.some((c) => c.type === 'image' && c.ribbon) ? RIBBON_ROOM : 0;
-    let x = folder.x + FOLDER_PAD;
+    let x = 0;
     for (const c of row) {
-      moved.set(c.id, { x, y: y + room });
+      moved.set(c.id, { cx: x, cy: y + room });
       x += c.w + TIDY_GAP;
     }
     y += room + Math.max(...row.map((c) => c.h)) + TIDY_GAP;
@@ -120,8 +142,13 @@ export function tidyFolder(items, folderId) {
   return refitFolders(next);
 }
 
-// Topmost expanded folder whose body contains the point.
-export function folderAt(items, x, y, excludeIds = new Set()) {
-  const hits = items.filter((it) => it.type === 'folder' && !it.collapsed && !excludeIds.has(it.id) && x >= it.x && x <= it.x + it.w && y >= it.y && y <= it.y + it.h);
-  return hits.sort((a, b) => b.z - a.z)[0] || null;
+// The next free grid slot in a folder (for cards dropped onto a back tab).
+export function nextSlot(items, folderId, w, h) {
+  const kids = childrenOf(items, folderId);
+  if (!kids.length) return { cx: 0, cy: 0 };
+  const bottom = Math.max(...kids.map((c) => (c.cy || 0) + c.h));
+  const lastRow = kids.filter((c) => (c.cy || 0) + c.h >= bottom - 1);
+  const right = Math.max(...lastRow.map((c) => (c.cx || 0) + c.w));
+  if (lastRow.length < TIDY_COLS) return { cx: right + TIDY_GAP, cy: Math.min(...lastRow.map((c) => c.cy || 0)) };
+  return { cx: 0, cy: bottom + TIDY_GAP };
 }
