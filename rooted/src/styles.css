@@ -1479,6 +1479,90 @@ body.is-canvas {
   min-width: 2ch;
 }
 
+/* ---- ribbons on images ---- */
+
+.ribbon {
+  position: absolute;
+  display: block;
+  z-index: 2;
+  cursor: default;
+}
+
+.ribbon__svg {
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.12)) drop-shadow(0 6px 12px rgba(0, 0, 0, 0.08));
+}
+
+.ribbon__edit {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+
+.ribbon__input {
+  width: 90%;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+  background: transparent;
+  font-family: var(--font);
+  font-weight: 500;
+  line-height: 1.3;
+  color: inherit;
+  text-align: center;
+  outline: none;
+}
+
+.ribbon__input--big {
+  letter-spacing: -0.01em;
+}
+
+.ribbon__tip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  padding: 2px var(--space-2);
+  border-radius: 6px;
+  font-size: var(--text-xs);
+  color: var(--text);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.citem.is-dimmed {
+  opacity: 0.2;
+}
+
+.info-pop__filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.info-pop__dots {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.status-dot {
+  width: 20px;
+  height: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+}
+
+.status-dot.is-active {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px var(--text);
+}
+
 /* Skeletons while dropped images are processed. */
 .canvas__world--pending {
   pointer-events: none;
@@ -1535,6 +1619,7 @@ body.is-canvas {
 .canvas__overlay {
   position: absolute;
   inset: 0;
+  z-index: 3; /* above the world (1), below the bars (5) */
   pointer-events: none;
   overflow: hidden;
 }

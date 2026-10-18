@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ChevronDownIcon, CloseIcon, FolderIcon, ImageIcon, LockIcon, PencilIcon, PlusIcon, TextSizeIcon, TrashIcon, UnlockIcon } from '../Icons.jsx';
+import { ChevronDownIcon, CloseIcon, FolderIcon, ImageIcon, LockIcon, PencilIcon, PlusIcon, RibbonIcon, TextSizeIcon, TrashIcon, UnlockIcon } from '../Icons.jsx';
 import { FOLDER_PRESETS } from './folders.js';
 import ContextMenu from './ContextMenu.jsx';
 import SheetMenu from './SheetMenu.jsx';
@@ -11,7 +11,7 @@ export const LABEL_PRESETS = ['Font', 'Color', 'Image style', 'Illustration styl
 
 // Bottom-center bar. Shows the add tools, or the selection tools while
 // something is selected. On phones the menus open as bottom sheets.
-export default function ToolBar({ selectionCount, canEdit, allLocked, labelColor, labelSize, folderColor, folderEntries, phone, onPickColor, onPickSize, onAddLabel, onAddFolder, onUploadFiles, onEdit, onAlign, onToggleLock, onDelete, onClearSelection }) {
+export default function ToolBar({ selectionCount, canEdit, allLocked, labelColor, labelSize, folderColor, folderEntries, ribbonEntries, onRibbonMenu, phone, onPickColor, onPickSize, onAddLabel, onAddFolder, onUploadFiles, onEdit, onAlign, onToggleLock, onDelete, onClearSelection }) {
   const [menu, setMenu] = useState(null); // { x, y, kind: 'label' | 'align' | 'size' | 'color' }
   const [colorOpen, setColorOpen] = useState(false);
   const colorBtn = useRef(null);
@@ -29,11 +29,22 @@ export default function ToolBar({ selectionCount, canEdit, allLocked, labelColor
     label: [...LABEL_PRESETS.map((text) => ({ label: text, onSelect: () => onAddLabel(text) })), 'divider', { label: 'Custom…', onSelect: () => onAddLabel(null) }],
     folder: [...LABEL_PRESETS.map((text) => ({ label: text, onSelect: () => onAddFolder(text) })), 'divider', { label: 'Custom…', onSelect: () => onAddFolder(null) }],
     folderMore: folderEntries || [],
+    ribbon: ribbonEntries || [],
     align: alignEntries(selectionCount, onAlign),
     size: LABEL_SIZES.map((sz) => ({ label: `${sz.id} (${sz.fs})`, selected: labelSize === sz.fs, onSelect: () => onPickSize(sz.fs) })),
     color: (folderColor !== undefined ? FOLDER_PRESETS : LABEL_PRESETS_COLORS).map((p) => ({ label: p.name, swatch: p.bg, selected: (folderColor ?? labelColor) === p.id, onSelect: () => onPickColor(p.id) })),
   };
-  const titles = { label: 'Add label', folder: 'Add folder', folderMore: 'Folder', align: 'Align', size: 'Size', color: 'Color' };
+  const titles = { label: 'Add label', folder: 'Add folder', folderMore: 'Folder', ribbon: 'Ribbon', align: 'Align', size: 'Size', color: 'Color' };
+  const ribbonBtn = useRef(null);
+  const open = (kind, btn) => {
+    if (phone) setMenu({ kind });
+    else openMenu(kind, btn);
+    if (kind === 'ribbon') onRibbonMenu?.(true);
+  };
+  const close = () => {
+    if (menu?.kind === 'ribbon') onRibbonMenu?.(false);
+    setMenu(null);
+  };
   const colorValue = folderColor !== undefined ? folderColor : labelColor;
   const presets = folderColor !== undefined ? FOLDER_PRESETS : LABEL_PRESETS_COLORS;
   const folderBtn = useRef(null);
@@ -64,6 +75,11 @@ export default function ToolBar({ selectionCount, canEdit, allLocked, labelColor
           {isLabel && (
             <button ref={sizeBtn} type="button" className="cbar__btn" onClick={() => (phone ? setMenu({ kind: 'size' }) : openMenu('size', sizeBtn))} aria-label="Label size" title="Label size" aria-haspopup="menu" aria-expanded={menu?.kind === 'size'}>
               <TextSizeIcon />
+            </button>
+          )}
+          {ribbonEntries && ribbonEntries.length > 0 && (
+            <button ref={ribbonBtn} type="button" className="cbar__btn" onClick={() => open('ribbon', ribbonBtn)} aria-label="Ribbon" title="Ribbon (R)" aria-haspopup="menu" aria-expanded={menu?.kind === 'ribbon'}>
+              <RibbonIcon />
             </button>
           )}
           {folderEntries && folderEntries.length > 0 && (
@@ -126,9 +142,9 @@ export default function ToolBar({ selectionCount, canEdit, allLocked, labelColor
       />
       {menu &&
         (phone ? (
-          <SheetMenu entries={entriesFor[menu.kind]} onClose={() => setMenu(null)} label={titles[menu.kind]} />
+          <SheetMenu entries={entriesFor[menu.kind]} onClose={close} label={titles[menu.kind]} />
         ) : (
-          <ContextMenu x={menu.x} y={menu.y} above entries={entriesFor[menu.kind]} onClose={() => setMenu(null)} label={titles[menu.kind]} />
+          <ContextMenu x={menu.x} y={menu.y} above entries={entriesFor[menu.kind]} onClose={close} label={titles[menu.kind]} />
         ))}
     </div>
   );

@@ -93,7 +93,8 @@ export default function App() {
         return;
       }
       // 1–4 switch tabs, except while typing or while the Visuals canvas has focus.
-      const inCanvas = Boolean(e.target?.closest?.('[data-canvas]'));
+      // Canvas menus and popovers render in portals, so check for them too.
+      const inCanvas = Boolean(e.target?.closest?.('[data-canvas], .cmenu, .sheet-backdrop, .color-pop, .info-pop'));
       if (!mod && !e.altKey && /^[1-4]$/.test(e.key) && !typing && !dialog && !inCanvas) {
         const next = tabs[Number(e.key) - 1];
         if (next) selectTab(next.id);

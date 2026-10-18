@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { socials } from '../../data/references.js';
 import { InfoIcon, socialIcons } from '../Icons.jsx';
 import { modLabel } from '../../lib/platform.js';
+import { RIBBON_STATUSES } from './ribbon.js';
 
 // Bottom-left "i" button with a small popover: credit, socials, shortcuts, copyright.
-export default function InfoPopover() {
+export default function InfoPopover({ ribbonFilter = null, onRibbonFilter }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const year = new Date().getFullYear();
@@ -45,6 +46,23 @@ export default function InfoPopover() {
             Drag to pan · {modLabel('')}+ scroll to zoom · Right-click for options · {modLabel('Z')} undo
           </p>
           <p className="info-pop__shortcuts show-on-touch">Drag to move · Pinch to zoom · Long-press for options</p>
+          <div className="info-pop__filter">
+            <span>Show only</span>
+            <span className="info-pop__dots">
+              {RIBBON_STATUSES.map((st) => (
+                <button
+                  key={st.id}
+                  type="button"
+                  className={`status-dot${ribbonFilter === st.id ? ' is-active' : ''}`}
+                  style={{ background: `linear-gradient(${st.light}, ${st.dark})` }}
+                  onClick={() => onRibbonFilter?.(ribbonFilter === st.id ? null : st.id)}
+                  aria-pressed={ribbonFilter === st.id}
+                  aria-label={`Show only ${st.name}`}
+                  title={st.name}
+                />
+              ))}
+            </span>
+          </div>
           <p className="footer__small">© {year} Rooted</p>
         </div>
       )}

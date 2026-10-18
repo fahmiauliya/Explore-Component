@@ -26,6 +26,7 @@ import {
   UnlockIcon,
   ZoomInIcon,
   AlignLeftIcon,
+  RibbonIcon,
 } from '../Icons.jsx';
 import CanvasItem from './CanvasItem.jsx';
 import Guides from './Guides.jsx';
@@ -40,6 +41,7 @@ import * as storage from './useCanvasStorage.js';
 import { bounds, snapMove, snapResize, snapValue } from './snapping.js';
 import { DEFAULT_LABEL_COLOR, LABEL_PRESETS_COLORS, LABEL_SIZES, clampFontSize, fontSizeForHeight, labelHeight, labelMinWidth, labelNaturalWidth } from './labelColors.js';
 import SheetMenu from './SheetMenu.jsx';
+import { DEFAULT_RIBBON, RIBBON_LIMITS, RIBBON_STATUSES, cleanLines } from './ribbon.js';
 import { snapEdgeX } from './snapping.js';
 
 const visualsTab = tabs.find((t) => t.id === 'visuals');
@@ -96,6 +98,10 @@ export default function VisualsCanvas() {
   const [ready, setReady] = useState(false);
   const [pending, setPending] = useState([]); // skeletons while dropped images are processed
   const [flashId, setFlashId] = useState(null); // folder that just received a child
+  const [ribbonEditId, setRibbonEditId] = useState(null); // image whose ribbon text is being edited
+  const ribbonEditRef = useRef(null);
+  const [ribbonFilter, setRibbonFilter] = useState(null); // 'grey' | 'blue' | ... (not saved)
+  const ribbonMenuOpen = useRef(false);
   const flashTimer = useRef(0);
   const legacyRef = useRef(false); // v1 layout migrated; remove it after the first v2 save
   const [dropping, setDropping] = useState(false);
@@ -620,6 +626,75 @@ export default function VisualsCanvas() {
     [commit]
   );
 
+  // ---- ribbons (uploaded images only) ----
+  const selectedImageIds = () => itemsRef.current.filter((it) => it.type === 'image' && selectionRef.current.includes(it.id)).map((it) => it.id);
+  const startRibbonEdit = useCallback(
+    (id) => {
+      ribbonEditRef.current = id;
+      setRibbonEditId(id);
+    },
+    []
+  );
+  const addOrEditRibbon = useCallback(
+    (ids = selectedImageIds()) => {
+      if (!ids.length) return;
+      const missing = ids.filter((id) => !itemsRef.current.find((it) => it.id === id)?.ribbon);
+      if (missing.length) commit(itemsRef.current.map((it) => (missing.includes(it.id) ? { ...it, ribbon: { ...DEFAULT_RIBBON, lines: [...DEFAULT_RIBBON.lines] } } : it)));
+      if (ids.length === 1) startRibbonEdit(ids[0]);
+    },
+    [commit, startRibbonEdit]
+  );
+  const setRibbon = useCallback(
+    (patch, ids = selectedImageIds()) => {
+      const set = new Set(ids);
+      commit(itemsRef.current.map((it) => (set.has(it.id) && it.ribbon ? { ...it, ribbon: { ...it.ribbon, ...patch } } : it)));
+    },
+    [commit]
+  );
+  const removeRibbon = useCallback(
+    (ids = selectedImageIds()) => {
+      const set = new Set(ids);
+      commit(itemsRef.current.map((it) => (set.has(it.id) && it.ribbon ? { ...it, ribbon: undefined } : it)));
+    },
+    [commit]
+  );
+  const onRibbonCommit = useCallback(
+    (item, rawLines) => {
+      if (ribbonEditRef.current !== item.id) return;
+      ribbonEditRef.current = null;
+      setRibbonEditId(null);
+      const lines = cleanLines(rawLines);
+      const current = itemsRef.current.find((it) => it.id === item.id);
+      if (!current?.ribbon) return;
+      if (!lines.length) removeRibbon([item.id]);
+      else if (JSON.stringify(lines) !== JSON.stringify(current.ribbon.lines)) setRibbon({ lines }, [item.id]);
+      canvasRef.current?.focus({ preventScroll: true });
+    },
+    [removeRibbon, setRibbon]
+  );
+  const onRibbonCancel = useCallback(() => {
+    ribbonEditRef.current = null;
+    setRibbonEditId(null);
+    canvasRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  // Menu entries for the ribbon of the selected image(s).
+  const ribbonEntriesFor = (images) => {
+    if (!images.length) return null;
+    const one = images.length === 1 ? images[0] : null;
+    const withRibbon = images.filter((it) => it.ribbon);
+    if (one && !one.ribbon) return [{ label: 'Add ribbon', icon: RibbonIcon, onSelect: () => addOrEditRibbon([one.id]) }];
+    if (!withRibbon.length) return [{ label: 'Add ribbons', icon: RibbonIcon, onSelect: () => addOrEditRibbon(images.map((it) => it.id)) }];
+    const status = withRibbon[0].ribbon.status;
+    const ids = withRibbon.map((it) => it.id);
+    const entries = [];
+    if (one) entries.push({ label: 'Edit text…', icon: PencilIcon, onSelect: () => startRibbonEdit(one.id) });
+    entries.push({ label: 'Status', icon: RibbonIcon, submenu: RIBBON_STATUSES.map((st, i) => ({ label: st.name, shortcut: String(i + 1), swatch: `linear-gradient(${st.light}, ${st.dark})`, selected: status === st.id, onSelect: () => setRibbon({ status: st.id }, ids) })) });
+    if (one) entries.push({ label: 'Side', icon: TabSideIcon, submenu: [{ label: 'Left', selected: one.ribbon.side === 'left', onSelect: () => setRibbon({ side: 'left' }, [one.id]) }, { label: 'Right', selected: one.ribbon.side !== 'left', onSelect: () => setRibbon({ side: 'right' }, [one.id]) }] });
+    entries.push({ label: withRibbon.length > 1 ? 'Remove ribbons' : 'Remove ribbon', icon: TrashIcon, danger: true, onSelect: () => removeRibbon(ids) });
+    return entries;
+  };
+
   // ---- folders ----
   const selectedFolderIds = () => itemsRef.current.filter((it) => it.type === 'folder' && selectionRef.current.includes(it.id)).map((it) => it.id);
   const updateFolders = useCallback(
@@ -758,6 +833,7 @@ export default function VisualsCanvas() {
     if (last.id === item.id && now - last.time < 400 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 6) {
       lastPress.current = { id: null, time: 0, x: 0, y: 0 };
       if (item.type === 'label' && !item.locked) dbl = { type: 'rename' };
+      if (item.type === 'image' && item.ribbon && e.target.closest?.('[data-ribbon]')) dbl = { type: 'ribbon' };
       if (item.type === 'folder') {
         const onText = Boolean(e.target.closest?.('[data-tab-text]'));
         dbl = onText && !item.collapsed && !item.locked ? { type: 'rename' } : { type: 'collapse' };
@@ -947,6 +1023,7 @@ export default function VisualsCanvas() {
         setSelection([it.id]);
         setEditingId(it.id);
       } else if (it && g.dbl.type === 'collapse') toggleCollapse(it.id);
+      else if (it && g.dbl.type === 'ribbon') startRibbonEdit(it.id);
     }
     if (g.type === 'move' && g.moved) {
       pushHistory(g.startItems);
@@ -1061,6 +1138,12 @@ export default function VisualsCanvas() {
       entries.push({ label: 'Tidy up', icon: TidyIcon, onSelect: tidySelected });
       entries.push({ label: 'Fit to content', icon: FrameIcon, onSelect: fitSelectedFolders });
     }
+    const imagesChosen = chosen.filter((it) => it.type === 'image');
+    const ribbonEntries = ribbonEntriesFor(imagesChosen);
+    if (ribbonEntries) {
+      if (ribbonEntries.length === 1) entries.push(ribbonEntries[0]);
+      else entries.push({ label: 'Ribbon', icon: RibbonIcon, submenu: ribbonEntries });
+    }
     const labels = chosen.filter((it) => it.type === 'label');
     if (labels.length) {
       const current = labels[0].color || 'gray';
@@ -1087,15 +1170,27 @@ export default function VisualsCanvas() {
     entries.push('divider');
     entries.push({ label: 'Remove', icon: TrashIcon, danger: true, shortcut: 'Del', disabled: allLocked, onSelect: deleteSelected });
     return entries;
-  }, [menu, snapGrid, addLabel, addFolder, fitToContent, zoomTo, startEdit, duplicateSelected, bringToFront, sendToBack, align, toggleLock, deleteSelected, setLabelColor, setLabelSize, setTabSide, toggleCollapse, tidySelected, fitSelectedFolders]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menu, snapGrid, addLabel, addFolder, fitToContent, zoomTo, startEdit, duplicateSelected, bringToFront, sendToBack, align, toggleLock, deleteSelected, setLabelColor, setLabelSize, setTabSide, toggleCollapse, tidySelected, fitSelectedFolders, addOrEditRibbon, setRibbon, removeRibbon, startRibbonEdit]);
 
   // ---- keyboard (only while the canvas has focus) ----
   function onKeyDown(e) {
-    if (e.target.closest?.('.modal, .cmenu, .citem__label-edit, input, textarea')) return;
-    if (editingRef.current) return;
     const mod = e.metaKey || e.ctrlKey;
     const k = e.key;
     const lower = k.toLowerCase();
+    // 1–4 set the ribbon status while the ribbon menu is open.
+    if (ribbonMenuOpen.current && /^[1-4]$/.test(k) && !mod) {
+      e.preventDefault();
+      setRibbon({ status: RIBBON_STATUSES[Number(k) - 1].id });
+      return;
+    }
+    if (e.target.closest?.('.modal, .cmenu, .citem__label-edit, .ribbon__edit, input, textarea')) return;
+    if (editingRef.current || ribbonEditRef.current) return;
+    if (lower === 'r' && !mod && !e.altKey && selectedImageIds().length) {
+      e.preventDefault();
+      addOrEditRibbon();
+      return;
+    }
     if (k === ' ') {
       e.preventDefault();
       if (!spaceRef.current) {
@@ -1250,6 +1345,10 @@ export default function VisualsCanvas() {
                 visible={inView(item)}
                 childCount={childCounts.get(item.id) || 0}
                 flash={flashId === item.id}
+                dimmed={Boolean(ribbonFilter) && item.type === 'image' && item.ribbon?.status !== ribbonFilter}
+                ribbonEditing={ribbonEditId === item.id && !phone}
+                onRibbonCommit={onRibbonCommit}
+                onRibbonCancel={onRibbonCancel}
                 imageUrl={item.type === 'image' ? images[item.imageKey] : undefined}
                 onPointerDown={onItemPointerDown}
                 onDoubleClick={onItemDoubleClick}
@@ -1288,6 +1387,10 @@ export default function VisualsCanvas() {
           labelSize={firstLabel ? firstLabel.fontSize || 14 : firstFolder ? firstFolder.fontSize || 13 : undefined}
           folderColor={!firstLabel && firstFolder ? firstFolder.color || DEFAULT_FOLDER_COLOR : undefined}
           folderEntries={folderEntries}
+          ribbonEntries={ribbonEntriesFor(selectedItems.filter((it) => it.type === 'image'))}
+          onRibbonMenu={(open) => {
+            ribbonMenuOpen.current = open;
+          }}
           onAddFolder={addFolder}
           phone={phone}
           onPickColor={setLabelColor}
@@ -1310,7 +1413,7 @@ export default function VisualsCanvas() {
           onToggleSnap={() => setSnapGrid(!snapGridRef.current)}
           onFit={() => fitToContent()}
         />
-        <InfoPopover />
+        <InfoPopover ribbonFilter={ribbonFilter} onRibbonFilter={setRibbonFilter} />
         {toast ? (
           <div className="canvas__toast canvas__toast--dark" role="status">
             {toast}
@@ -1362,6 +1465,35 @@ export default function VisualsCanvas() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      <Modal open={phone && Boolean(ribbonEditId)} onClose={onRibbonCancel} title="Ribbon text" subtitle="Up to 3 short lines (4, 8 and 8 characters)." width={420}>
+        {phone && ribbonEditId && (
+          <form
+            className="cdialog"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const it = itemsRef.current.find((x) => x.id === ribbonEditId);
+              const values = [0, 1, 2].map((i) => e.currentTarget.elements[`rb-line-${i}`].value);
+              if (it) onRibbonCommit(it, values);
+            }}
+          >
+            {[0, 1, 2].map((i) => (
+              <div className="field" key={i}>
+                <label htmlFor={`rb-line-${i}`}>Line {i + 1}</label>
+                <input id={`rb-line-${i}`} name={`rb-line-${i}`} type="text" maxLength={RIBBON_LIMITS[i]} defaultValue={itemsRef.current.find((x) => x.id === ribbonEditId)?.ribbon?.lines?.[i] || ''} data-autofocus={i === 0 ? true : undefined} />
+              </div>
+            ))}
+            <div className="modal__actions">
+              <button type="button" className="button button--light" onClick={onRibbonCancel}>
+                Cancel
+              </button>
+              <button type="submit" className="button button--dark">
+                Save
+              </button>
+            </div>
+          </form>
+        )}
       </Modal>
 
       <Modal open={dialog?.type === 'image'} onClose={() => setDialog(null)} title="Edit image" width={420}>

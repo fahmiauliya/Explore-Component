@@ -46,19 +46,23 @@ Ad and tracker requests are blocked during capture so banners don't end up in th
 
 If a local image is missing, the card falls back to the thum.io screenshot service (free, limited to about 1,000 loads a month), and after that to a gray placeholder with the favicon and domain. The step that worked is remembered per item, so failed images are not requested again.
 
+**GitHub repos** (`github.com/{owner}/{repo}`) don't get a screenshot. The script asks the GitHub API for the README and uses its first real showcase image (at least 600px wide, wider than tall); if there is none it uses the repo's social preview. The result is saved uncropped and listed in `public/previews/manifest.json` with its source (`readme` images are shown cropped to 16:10, `social` cards are shown whole). The API allows 60 requests an hour without a token; set `GITHUB_TOKEN=ghp_…` in the environment to raise that. Owner-only links such as `github.com/phosphor-icons` keep a screenshot, and the log suggests the likely main repo.
+
 Commit the generated images so the live site serves them as normal files.
 
 ## The Visuals canvas
 
-The Visuals tab is a full-screen board instead of a grid, under the floating header and tabs. Its link cards come from the same data file; the first visit lays them out in one row per section under a label. The bars sit at the bottom: tools in the middle (add a label or upload; they switch to Edit, Align, Lock and Delete while something is selected), zoom on the right, and an "i" button on the left with credits, social links and shortcuts.
+The Visuals tab is a full-screen board instead of a grid, under the floating header and tabs. Its link cards come from the same data file; the first visit puts each section's cards in a colored **folder** (a tab on top, a body that holds the cards). The bars sit at the bottom: tools in the middle (add a label or upload; they switch to Edit, Align, Lock and Delete while something is selected), zoom on the right, and an "i" button on the left with credits, social links and shortcuts.
 
 - **Move around:** drag empty space, hold Space and drag, or scroll. Pinch or ⌘/Ctrl + scroll to zoom (25–200%). The zoom bar has −, +, a snap-to-grid toggle and fit-to-content.
 - **Select:** click, Shift + click, Shift + drag for a box, ⌘/Ctrl + A. Drag to move, corner handles to resize, arrow keys to nudge (Shift for 8px). Hold Alt/Option to drag without snapping.
 - **Add:** "+ Label" (presets or custom text; double-click a label to rename it) and "Upload image" (also drag files onto the board, or paste). PNG, JPG, WebP, GIF and AVIF up to 10MB, 20 per drop; images are scaled to at most 1600px and stored as WebP.
+- **Folders:** "+ Folder" adds one. Drag a card or image into a folder's body to put it inside; drag it out to remove it. Moving a folder moves its contents. The folder grows to fit its contents until you resize it by hand ("Fit to content" switches back). "Tidy up" arranges the contents in a grid, "Collapse" shrinks the folder to its tab, and the menu also offers 8 colors, 4 tab sizes, the tab side, duplicate and delete (which can keep the items).
+- **Ribbons:** an uploaded image can carry a bookmark ribbon with up to 3 short lines (4, 8 and 8 characters) and a status: Saved (grey), Inspiration (blue), To review (yellow) or Favorite (red). Right-click the image, use the ribbon button in the selection bar, press R, or double-click the ribbon to edit it. The "i" popover can dim every image that doesn't have a chosen status.
 - **Label colors and sizes:** labels are chips with 9 preset colors (White is the default) plus a custom color, and four sizes S/M/L/XL (14–40px). Change them from the selection bar or the right-click menu. Side handles change a label's width; corner handles scale it. Color, size and width are saved with the label.
 - **Phones:** the options open as bottom sheets. Tap an item to select it, then drag to move it; one finger on empty space pans, two fingers pinch, and a long press opens the options.
 - **Arrange:** the toolbar at the bottom and the right-click menu offer Edit, Duplicate (⌘D), Open link, Bring to front (⌘]), Send to back (⌘[), Align and Distribute, Lock (⌘L) and Remove. ⌘Z / ⌘⇧Z undo and redo.
-- **Saving:** every change is saved in the visitor's own browser (layout in localStorage, images in IndexedDB). Other people don't see those changes. "Reset canvas" in the right-click menu on empty space restores the default. If the data file gains or loses a Visuals link, the board picks that up on the next load without touching labels or uploaded images.
+- **Saving:** every change is saved in the visitor's own browser (layout in localStorage under `rooted:visuals-canvas:v2`, images in IndexedDB). Older v1 layouts are converted on first load. Other people don't see those changes. "Reset canvas" in the right-click menu on empty space restores the default. If the data file gains or loses a Visuals link, the board picks that up on the next load without touching labels or uploaded images.
 
 ## Change the intro text
 

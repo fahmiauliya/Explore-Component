@@ -1,12 +1,14 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Card from '../Card.jsx';
 import { LockIcon } from '../Icons.jsx';
 import { labelColors, labelMetrics } from './labelColors.js';
 import { FOLDER_RADIUS, FOLDER_STRIP, darken, folderColors, tabMetrics, tabPath, tabText } from './folders.js';
+import { RIBBON_BASE_W, RIBBON_FOLD, RIBBON_LIMITS, ribbonLayout, ribbonPath, ribbonStatus, ribbonWidth } from './ribbon.js';
 
 // One thing on the board: a label, a link card or an uploaded image.
 // Positioning is done by the parent (world coordinates); this only draws it.
-export default function CanvasItem({ item, selected, editing, imageUrl, dragging, visible = true, childCount = 0, flash = false, onPointerDown, onDoubleClick, onContextMenu, onMeasure, onEditCommit, onEditCancel, onOpen }) {
+export default function CanvasItem({ item, selected, editing, imageUrl, dragging, visible = true, childCount = 0, flash = false, dimmed = false, ribbonEditing = false, onPointerDown, onDoubleClick, onContextMenu, onMeasure, onEditCommit, onEditCancel, onOpen, onRibbonCommit, onRibbonCancel }) {
+  const [tip, setTip] = useState(false);
   const ref = useRef(null);
   const editRef = useRef(null);
 
@@ -75,7 +77,7 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
   return (
     <div
       ref={ref}
-      className={`citem citem--${item.type}${selected ? ' is-selected' : ''}${item.locked ? ' is-locked' : ''}${editing ? ' is-editing' : ''}`}
+      className={`citem citem--${item.type}${selected ? ' is-selected' : ''}${item.locked ? ' is-locked' : ''}${editing ? ' is-editing' : ''}${dimmed ? ' is-dimmed' : ''}`}
       style={style}
       role="group"
       aria-label={label}
@@ -121,6 +123,7 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
             <span className="citem__img citem__img--missing" />
           )}
           {item.caption && <span className="citem__caption">{item.caption}</span>}
+          {item.ribbon && <Ribbon item={item} editing={ribbonEditing} tip={tip} setTip={setTip} onCommit={onRibbonCommit} onCancel={onRibbonCancel} />}
         </>
       )}
 
@@ -177,5 +180,109 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
         </span>
       )}
     </div>
+  );
+}
+
+
+// The metal bookmark ribbon over an image's top edge. One SVG path, scaled with
+// the image (width = clamp(48, image width × 0.22, 96)).
+function Ribbon({ item, editing, tip, setTip, onCommit, onCancel }) {
+  const r = item.ribbon;
+  const status = ribbonStatus(r.status);
+  const lines = r.lines && r.lines.length ? r.lines : ['New'];
+  const width = ribbonWidth(item.w);
+  const scale = width / RIBBON_BASE_W;
+  const layout = ribbonLayout(lines);
+  const height = layout.height * scale;
+  const uid = `rb-${item.id.replace(/[^a-z0-9]/gi, '')}`;
+  const sideStyle = r.side === 'left' ? { left: 24 * scale } : { right: 24 * scale };
+  const path = ribbonPath(layout.height);
+  const inputs = useRef([]);
+
+  // Inline editor: three stacked inputs in the ribbon shape.
+  useEffect(() => {
+    if (!editing) return undefined;
+    const first = inputs.current[0];
+    first?.focus();
+    first?.select();
+    const onDown = (e) => {
+      if (!e.target.closest?.(`[data-ribbon-edit="${item.id}"]`)) onCommit(item, inputs.current.map((i) => i?.value ?? ''));
+    };
+    const t = setTimeout(() => document.addEventListener('pointerdown', onDown, true), 0);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener('pointerdown', onDown, true);
+    };
+  }, [editing, item, onCommit]);
+
+  return (
+    <span className="ribbon" style={{ width, height, top: -RIBBON_FOLD * scale, ...sideStyle }} data-ribbon onMouseEnter={() => setTip(true)} onMouseLeave={() => setTip(false)} title={undefined}>
+      <svg className="ribbon__svg" width={width} height={height} viewBox={`0 0 ${RIBBON_BASE_W} ${layout.height}`} aria-label={`${status.name} ribbon: ${lines.join(' ')}`} role="img">
+        <defs>
+          <linearGradient id={`${uid}-fill`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={status.light} />
+            <stop offset="1" stopColor={status.dark} />
+          </linearGradient>
+          <linearGradient id={`${uid}-shine`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#fff" stopOpacity="0.6" />
+            <stop offset="1" stopColor="#fff" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id={`${uid}-fold`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#000" stopOpacity="0.12" />
+            <stop offset="1" stopColor="#000" stopOpacity="0" />
+          </linearGradient>
+          <clipPath id={`${uid}-clip`}>
+            <path d={path} />
+          </clipPath>
+        </defs>
+        <path d={path} fill={`url(#${uid}-fill)`} />
+        <g clipPath={`url(#${uid}-clip)`}>
+          <rect x="0" y="0" width={RIBBON_BASE_W / 3} height={layout.height} fill={`url(#${uid}-shine)`} />
+          <rect x="0" y="0" width={RIBBON_BASE_W} height={RIBBON_FOLD} fill={`url(#${uid}-fold)`} />
+          <path d={path} fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2" />
+        </g>
+        <path d={path} fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="1" />
+        {!editing && (
+          <g fill={status.text} fontFamily="Geist, system-ui, sans-serif" fontWeight="500" textAnchor="middle">
+            <text x={RIBBON_BASE_W / 2} y={layout.line1Y} fontSize="20" letterSpacing="-0.2">
+              {lines[0]}
+            </text>
+            {lines.length > 1 && <line x1={RIBBON_BASE_W * 0.15} x2={RIBBON_BASE_W * 0.85} y1={layout.dividerY} y2={layout.dividerY} stroke="currentColor" strokeOpacity="0.3" style={{ color: status.text }} />}
+            {lines.slice(1).map((l, i) => (
+              <text key={i} x={RIBBON_BASE_W / 2} y={layout.lineYs[i]} fontSize="12">
+                {l}
+              </text>
+            ))}
+          </g>
+        )}
+      </svg>
+      {editing && (
+        <span className="ribbon__edit" data-ribbon-edit={item.id} style={{ paddingTop: (RIBBON_FOLD + 4) * scale, color: status.text }} onPointerDown={(e) => e.stopPropagation()}>
+          {[0, 1, 2].map((i) => (
+            <input
+              key={i}
+              ref={(el) => (inputs.current[i] = el)}
+              className={`ribbon__input${i === 0 ? ' ribbon__input--big' : ''}`}
+              style={{ fontSize: (i === 0 ? 20 : 12) * scale, height: (i === 0 ? 24 : 15.6) * scale, marginTop: i === 1 ? 13 * scale : 0 }}
+              defaultValue={lines[i] || ''}
+              maxLength={RIBBON_LIMITS[i]}
+              placeholder={i === 0 ? 'Ref' : ''}
+              aria-label={`Ribbon line ${i + 1} (max ${RIBBON_LIMITS[i]} characters)`}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  onCommit(item, inputs.current.map((x) => x?.value ?? ''));
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  onCancel();
+                }
+              }}
+            />
+          ))}
+        </span>
+      )}
+      {tip && !editing && <span className="ribbon__tip floating">{status.name}</span>}
+    </span>
   );
 }
