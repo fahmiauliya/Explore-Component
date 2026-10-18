@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { ChevronDownIcon, CloseIcon, ImageIcon, LockIcon, PencilIcon, PlusIcon, TextSizeIcon, TrashIcon, UnlockIcon } from '../Icons.jsx';
+import { ChevronDownIcon, CloseIcon, FolderIcon, ImageIcon, LockIcon, PencilIcon, PlusIcon, TextSizeIcon, TrashIcon, UnlockIcon } from '../Icons.jsx';
+import { FOLDER_PRESETS } from './folders.js';
 import ContextMenu from './ContextMenu.jsx';
 import SheetMenu from './SheetMenu.jsx';
 import { alignEntries } from './alignEntries.jsx';
@@ -10,9 +11,10 @@ export const LABEL_PRESETS = ['Font', 'Color', 'Image style', 'Illustration styl
 
 // Bottom-center bar. Shows the add tools, or the selection tools while
 // something is selected. On phones the menus open as bottom sheets.
-export default function ToolBar({ selectionCount, canEdit, allLocked, labelColor, labelSize, phone, onPickColor, onPickSize, onAddLabel, onUploadFiles, onEdit, onAlign, onToggleLock, onDelete, onClearSelection }) {
+export default function ToolBar({ selectionCount, canEdit, allLocked, labelColor, labelSize, folderColor, folderEntries, phone, onPickColor, onPickSize, onAddLabel, onAddFolder, onUploadFiles, onEdit, onAlign, onToggleLock, onDelete, onClearSelection }) {
   const [menu, setMenu] = useState(null); // { x, y, kind: 'label' | 'align' | 'size' | 'color' }
   const [colorOpen, setColorOpen] = useState(false);
+  const colorBtn = useRef(null);
   const fileRef = useRef(null);
   const labelBtn = useRef(null);
   const alignBtn = useRef(null);
@@ -25,15 +27,22 @@ export default function ToolBar({ selectionCount, canEdit, allLocked, labelColor
 
   const entriesFor = {
     label: [...LABEL_PRESETS.map((text) => ({ label: text, onSelect: () => onAddLabel(text) })), 'divider', { label: 'Custom…', onSelect: () => onAddLabel(null) }],
+    folder: [...LABEL_PRESETS.map((text) => ({ label: text, onSelect: () => onAddFolder(text) })), 'divider', { label: 'Custom…', onSelect: () => onAddFolder(null) }],
+    folderMore: folderEntries || [],
     align: alignEntries(selectionCount, onAlign),
     size: LABEL_SIZES.map((sz) => ({ label: `${sz.id} (${sz.fs})`, selected: labelSize === sz.fs, onSelect: () => onPickSize(sz.fs) })),
-    color: LABEL_PRESETS_COLORS.map((p) => ({ label: p.name, swatch: p.bg, selected: labelColor === p.id, onSelect: () => onPickColor(p.id) })),
+    color: (folderColor !== undefined ? FOLDER_PRESETS : LABEL_PRESETS_COLORS).map((p) => ({ label: p.name, swatch: p.bg, selected: (folderColor ?? labelColor) === p.id, onSelect: () => onPickColor(p.id) })),
   };
-  const titles = { label: 'Add label', align: 'Align', size: 'Label size', color: 'Label color' };
+  const titles = { label: 'Add label', folder: 'Add folder', folderMore: 'Folder', align: 'Align', size: 'Size', color: 'Color' };
+  const colorValue = folderColor !== undefined ? folderColor : labelColor;
+  const presets = folderColor !== undefined ? FOLDER_PRESETS : LABEL_PRESETS_COLORS;
+  const folderBtn = useRef(null);
+  const moreBtn = useRef(null);
 
   const LockOrUnlock = allLocked ? UnlockIcon : LockIcon;
   const selecting = selectionCount > 0;
-  const isLabel = labelColor !== undefined;
+  const isLabel = labelColor !== undefined || folderColor !== undefined;
+  const colorBg = (presets.find((p) => p.id === colorValue) || {}).bg || (colorValue && colorValue.startsWith('#') ? colorValue : labelColors(colorValue).bg);
 
   return (
     <div className="cbar cbar--tools floating" role="toolbar" aria-label={selecting ? 'Selection' : 'Add'}>
@@ -46,15 +55,20 @@ export default function ToolBar({ selectionCount, canEdit, allLocked, labelColor
           </button>
           {isLabel && (
             <span className="cbar__color">
-              <button type="button" className="cbar__btn" onClick={() => (phone ? setMenu({ kind: 'color' }) : setColorOpen((o) => !o))} aria-label="Label color" title="Label color" aria-haspopup="dialog" aria-expanded={colorOpen}>
-                <span className="color-dot" style={{ background: labelColors(labelColor).bg }} />
+              <button ref={colorBtn} type="button" className="cbar__btn" onClick={() => (phone ? setMenu({ kind: 'color' }) : setColorOpen((o) => !o))} aria-label="Label color" title="Label color" aria-haspopup="dialog" aria-expanded={colorOpen}>
+                <span className="color-dot" style={{ background: colorBg }} />
               </button>
-              {colorOpen && !phone && <ColorPopover active={labelColor} onPick={(c) => { onPickColor(c); setColorOpen(false); }} onClose={() => setColorOpen(false)} />}
+              {colorOpen && !phone && <ColorPopover active={colorValue} presets={presets} anchor={colorBtn.current?.getBoundingClientRect()} onPick={(c) => { onPickColor(c); setColorOpen(false); }} onClose={() => setColorOpen(false)} />}
             </span>
           )}
           {isLabel && (
             <button ref={sizeBtn} type="button" className="cbar__btn" onClick={() => (phone ? setMenu({ kind: 'size' }) : openMenu('size', sizeBtn))} aria-label="Label size" title="Label size" aria-haspopup="menu" aria-expanded={menu?.kind === 'size'}>
               <TextSizeIcon />
+            </button>
+          )}
+          {folderEntries && folderEntries.length > 0 && (
+            <button ref={moreBtn} type="button" className="cbar__btn" onClick={() => (phone ? setMenu({ kind: 'folderMore' }) : openMenu('folderMore', moreBtn))} aria-label="Folder options" title="Folder options" aria-haspopup="menu" aria-expanded={menu?.kind === 'folderMore'}>
+              <FolderIcon />
             </button>
           )}
           {selectionCount >= 2 && (
@@ -80,6 +94,12 @@ export default function ToolBar({ selectionCount, canEdit, allLocked, labelColor
         </div>
       ) : (
         <div className="cbar__fade" key="add">
+          <button ref={folderBtn} type="button" className="cbar__text" onClick={() => (phone ? setMenu({ kind: 'folder' }) : openMenu('folder', folderBtn))} aria-haspopup="menu" aria-expanded={menu?.kind === 'folder'} aria-label="Add folder" title="Add folder">
+            <FolderIcon />
+            <span className="cbar__word">Folder</span>
+            <ChevronDownIcon width={12} height={12} className="cbar__word" />
+          </button>
+          <span className="cbar__divider" />
           <button ref={labelBtn} type="button" className="cbar__text" onClick={() => (phone ? setMenu({ kind: 'label' }) : openMenu('label', labelBtn))} aria-haspopup="menu" aria-expanded={menu?.kind === 'label'} aria-label="Add label" title="Add label">
             <PlusIcon />
             <span className="cbar__word">Label</span>

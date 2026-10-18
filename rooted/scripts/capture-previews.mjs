@@ -7,18 +7,25 @@
 //   npm run previews -- --headed          use your installed Google Chrome in a visible
 //                                         window; many bot checks (Cloudflare) pass this way
 //
+// GitHub repos get their README showcase image (or the social preview) through
+// the GitHub API instead of a screenshot; set GITHUB_TOKEN to raise the API limit.
+// public/previews/manifest.json records the source ("readme" | "social") and size.
+//
 // Needs Chromium once: npx playwright install chromium
 
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import sharp from 'sharp';
 import { tabs } from '../src/data/references.js';
 import { getSlug, githubRepo } from '../src/lib/references.js';
+import { fetchRepoImage, suggestRepo } from './github-image.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = resolve(ROOT, 'public/previews');
+const MANIFEST = resolve(OUT_DIR, 'manifest.json');
+const TOKEN = process.env.GITHUB_TOKEN || '';
 const HEADED = process.argv.includes('--headed');
 const onlyArg = process.argv.find((a) => a.startsWith('--only'));
 const ONLY = onlyArg ? (onlyArg.includes('=') ? onlyArg.split('=')[1] : process.argv[process.argv.indexOf(onlyArg) + 1] || '').split(',').filter(Boolean) : null;
@@ -36,8 +43,10 @@ const OUTPUT = { width: 640, height: 400 };
 const USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36';
 
-// Every unique URL across all tabs.
+// Every unique URL across all tabs. GitHub repos are handled through the API.
 const items = [];
+const repos = [];
+const ownersOnly = [];
 const seen = new Set();
 for (const tab of tabs) {
   for (const section of tab.sections) {
@@ -45,9 +54,20 @@ for (const tab of tabs) {
       if (seen.has(item.url)) continue;
       seen.add(item.url);
       if (ONLY && !ONLY.includes(getSlug(item.url))) continue;
-      if (githubRepo(item.url)) continue; // repos use GitHub's own preview image
-      items.push(item);
+      if (githubRepo(item.url)) repos.push(item);
+      else if (/^https?:\/\/(www\.)?github\.com\/[^/?#]+\/?$/i.test(item.url)) {
+        ownersOnly.push(item);
+        items.push(item);
+      } else items.push(item);
     }
+  }
+}
+
+function readManifest() {
+  try {
+    return JSON.parse(readFileSync(MANIFEST, 'utf8'));
+  } catch {
+    return {};
   }
 }
 
@@ -104,7 +124,40 @@ async function capture(browser, item) {
   }
 }
 
+async function captureRepos() {
+  const manifest = readManifest();
+  for (const item of repos) {
+    const { owner, repo } = githubRepo(item.url);
+    const slug = getSlug(item.url);
+    const file = resolve(OUT_DIR, `${slug}.webp`);
+    if (!FORCE && existsSync(file) && manifest[slug]) {
+      stats.skipped += 1;
+      console.log(`– ${item.name} (exists, ${manifest[slug].source})`);
+      continue;
+    }
+    try {
+      const img = await fetchRepoImage(owner, repo, TOKEN);
+      const out = await sharp(img.buf, { pages: 1 }).resize({ width: 1280, withoutEnlargement: true }).webp({ quality: 80 }).toBuffer({ resolveWithObject: true });
+      writeFileSync(file, out.data);
+      manifest[slug] = { source: img.source, width: out.info.width, height: out.info.height };
+      stats.captured += 1;
+      console.log(`✓ ${item.name} (${img.source})`);
+    } catch (err) {
+      stats.failed += 1;
+      console.log(`✗ ${item.name}: ${err.message.split('\n')[0]}`);
+    }
+  }
+  writeFileSync(MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`);
+
+  for (const item of ownersOnly) {
+    const owner = item.url.replace(/^https?:\/\/(www\.)?github\.com\//i, '').replace(/\/$/, '');
+    const suggestion = await suggestRepo(owner, TOKEN).catch(() => null);
+    console.log(`ℹ ${item.name}: ${item.url} is an owner page, not a repo (screenshot kept).${suggestion ? ` Likely main repo: ${suggestion}` : ''}`);
+  }
+}
+
 async function main() {
+  await captureRepos();
   const browser = await chromium.launch(
     HEADED
       ? { channel: 'chrome', headless: false, args: ['--disable-blink-features=AutomationControlled'] }

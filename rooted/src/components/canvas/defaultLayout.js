@@ -2,14 +2,19 @@
 // and keeps a saved canvas in step with later edits to that file.
 import { getDomain, getSlug } from '../../lib/references.js';
 import { labelHeight } from './labelColors.js';
+import { FOLDER_PAD, fitFolder, tabMetrics, tidyFolder } from './folders.js';
 
 export const CARD_W = 280;
 export const CARD_H = 263; // rendered height of a 280-wide card (tags, screenshot, text); re-measure if the card changes
-export const GROUP_LABEL_FS = 20; // group labels start at M
+export const GROUP_LABEL_FS = 20; // (v1) group labels started at M
 export const LABEL_H = labelHeight(GROUP_LABEL_FS);
+export { fitFolder };
 const GAP = 24; // between cards
 const LABEL_GAP = 16; // label -> cards
 const GROUP_GAP = 80;
+const FOLDER_GAP = 48; // between folders (tab to previous body)
+// Default folder colours per section, tabs alternating left / right.
+const FOLDER_COLORS = { fonts: 'paper', colors: 'sky', 'image-style': 'stone', 'illustration-style': 'lilac' };
 
 export function linkId(url) {
   return `link:${getSlug(url)}`;
@@ -35,18 +40,42 @@ function linkItem(item, section, x, y, z) {
   };
 }
 
+export const folderId = (sectionId) => `folder:${sectionId}`;
+
+// 4 folders stacked with 48px gaps, same left edge, tabs alternating sides,
+// each holding its link cards in a tidy grid.
 export function buildDefaultItems(tab) {
-  const items = [];
+  let items = [];
   let y = 0;
   let z = 1;
-  for (const section of tab.sections) {
-    items.push({ id: `label:${section.id}`, type: 'label', text: section.title, color: 'black', fontSize: GROUP_LABEL_FS, x: 0, y, w: 80, h: LABEL_H, z: z++, locked: false });
-    y += LABEL_H + LABEL_GAP;
-    section.items.forEach((item, i) => {
-      items.push(linkItem(item, section, i * (CARD_W + GAP), y, z++));
-    });
-    y += CARD_H + GROUP_GAP;
-  }
+  tab.sections.forEach((section, i) => {
+    const folder = { id: folderId(section.id), type: 'folder', title: section.title, color: FOLDER_COLORS[section.id] || 'paper', tabSide: i % 2 === 0 ? 'left' : 'right', fontSize: 13, collapsed: false, autoSize: true, x: 0, y: 0, w: 320, h: 200, z: z++, locked: false };
+    y += tabMetrics(folder).height; // room for the tab above the body
+    folder.y = y;
+    items.push(folder);
+    section.items.forEach((item) => items.push({ ...linkItem(item, section, 0, 0, z++), parentId: folder.id }));
+    items = tidyFolder(items, folder.id);
+    const fitted = items.find((it) => it.id === folder.id);
+    y = fitted.y + fitted.h + FOLDER_GAP;
+  });
+  return items;
+}
+
+// v1 canvases had a label per section with the cards in a row under it.
+// Turn each of those 4 labels into a folder holding its section's cards;
+// user labels and uploaded images stay exactly where they are.
+export function migrateV1(saved, tab) {
+  let items = saved.filter((it) => it.type !== 'folder');
+  let z = items.reduce((m, it) => Math.max(m, it.z || 0), 0) + 1;
+  tab.sections.forEach((section, i) => {
+    const label = items.find((it) => it.id === `label:${section.id}`);
+    if (!label) return;
+    const folder = { id: folderId(section.id), type: 'folder', title: label.text || section.title, color: FOLDER_COLORS[section.id] || 'paper', tabSide: i % 2 === 0 ? 'left' : 'right', fontSize: 13, collapsed: false, autoSize: true, x: label.x, y: label.y + tabMetrics({ fontSize: 13 }).height, w: 320, h: 200, z: z++, locked: false };
+    items = items.filter((it) => it.id !== label.id);
+    items = items.map((it) => (it.type === 'link' && it.sectionId === section.id && !it.parentId ? { ...it, parentId: folder.id } : it));
+    items = [folder, ...items];
+    items = tidyFolder(items, folder.id);
+  });
   return items;
 }
 
@@ -77,27 +106,23 @@ export function mergeWithData(saved, tab) {
   for (const section of tab.sections) {
     for (const item of section.items) {
       if (present.has(item.url)) continue;
-      const row = items.filter((it) => it.type === 'link' && it.sectionId === section.id);
-      let x = 0;
-      let y;
-      if (row.length) {
-        const last = row.reduce((a, b) => (b.x + b.w > a.x + a.w ? b : a));
-        x = last.x + last.w + GAP;
-        y = last.y;
-      } else {
-        const label = items.find((it) => it.id === `label:${section.id}`);
-        if (label) {
-          x = label.x;
-          y = label.y + label.h + LABEL_GAP;
-        } else {
-          y = bottom + GROUP_GAP;
-          items.push({ id: `label:${section.id}`, type: 'label', text: section.title, color: 'black', fontSize: GROUP_LABEL_FS, x: 0, y, w: 80, h: LABEL_H, z: z++, locked: false });
-          y += LABEL_H + LABEL_GAP;
-          bottom = y + CARD_H;
-        }
+      const folder = items.find((it) => it.id === folderId(section.id));
+      if (folder) {
+        items.push({ ...linkItem(item, section, folder.x + FOLDER_PAD, folder.y + FOLDER_PAD, z++), parentId: folder.id });
+        present.add(item.url);
+        items = tidyFolder(items, folder.id);
+        continue;
       }
-      items.push(linkItem(item, section, x, y, z++));
+      // No folder for this section yet (it was deleted, or the data file gained a
+      // section): add one below everything else and put the link in it.
+      const i = tab.sections.indexOf(section);
+      const made = { id: folderId(section.id), type: 'folder', title: section.title, color: FOLDER_COLORS[section.id] || 'paper', tabSide: i % 2 === 0 ? 'left' : 'right', fontSize: 13, collapsed: false, autoSize: true, x: 0, y: bottom + FOLDER_GAP + tabMetrics({ fontSize: 13 }).height, w: 320, h: 200, z: z++, locked: false };
+      items.push(made);
+      items.push({ ...linkItem(item, section, made.x + FOLDER_PAD, made.y + FOLDER_PAD, z++), parentId: made.id });
       present.add(item.url);
+      items = tidyFolder(items, made.id);
+      bottom = Math.max(bottom, ...items.map((it) => it.y + it.h));
+      continue;
     }
   }
   return items;

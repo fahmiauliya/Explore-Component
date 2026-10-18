@@ -1,9 +1,12 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckIcon } from '../Icons.jsx';
 import { LABEL_PRESETS_COLORS } from './labelColors.js';
 
 // 3 × 3 swatches + Custom, shown above the selection bar's color dot.
-export default function ColorPopover({ active, onPick, onClose }) {
+// Rendered in a portal above the button (`anchor` = the button's rect), so the
+// scrolling selection bar never clips it.
+export default function ColorPopover({ active, onPick, onClose, presets = LABEL_PRESETS_COLORS, anchor }) {
   const ref = useRef(null);
   const colorInput = useRef(null);
 
@@ -25,17 +28,18 @@ export default function ColorPopover({ active, onPick, onClose }) {
     };
   }, [onClose]);
 
-  const isCustom = active && !LABEL_PRESETS_COLORS.some((p) => p.id === active);
+  const isCustom = active && !presets.some((p) => p.id === active);
 
-  return (
-    <div ref={ref} className="color-pop floating" role="dialog" aria-label="Label color">
+  const style = anchor ? { position: 'fixed', left: anchor.left + anchor.width / 2, bottom: window.innerHeight - anchor.top + 8, transform: 'translateX(-50%)' } : undefined;
+  return createPortal(
+    <div ref={ref} className="color-pop floating" role="dialog" aria-label="Color" style={style}>
       <div className="color-pop__grid">
-        {LABEL_PRESETS_COLORS.map((p) => (
+        {presets.map((p) => (
           <button
             key={p.id}
             type="button"
             className={`swatch${active === p.id ? ' is-active' : ''}`}
-            style={{ background: p.bg, color: p.text, borderColor: p.id === 'black' ? '#111' : p.border }}
+            style={{ background: p.bg, color: p.text, borderColor: p.id === 'black' || p.id === 'ink' ? '#111' : p.border }}
             onClick={() => onPick(p.id)}
             aria-label={p.name}
             aria-pressed={active === p.id}
@@ -50,6 +54,7 @@ export default function ColorPopover({ active, onPick, onClose }) {
         Custom…
       </button>
       <input ref={colorInput} type="color" className="visually-hidden" tabIndex={-1} defaultValue={isCustom ? active : '#AABBCC'} onChange={(e) => onPick(e.target.value)} aria-hidden="true" />
-    </div>
+    </div>,
+    document.body
   );
 }

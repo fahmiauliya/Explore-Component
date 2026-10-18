@@ -686,6 +686,51 @@ a.card__name:focus-visible {
   }
 }
 
+/* Image box: shimmer while loading, then a 200ms fade-in. */
+.shot {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-hover) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+.shot.is-loaded {
+  animation: none;
+  background: #fff;
+}
+
+.shot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.shot.is-loaded img {
+  opacity: 1;
+}
+
+/* Social cards (2:1 with text) are shown whole on white. */
+.shot--contain img {
+  object-fit: contain;
+  object-position: center;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
 /* Placeholder when there is no screenshot (cards and the Random dialog). */
 .preview-placeholder {
   display: flex;
@@ -1261,6 +1306,7 @@ body.is-canvas {
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 1; /* keeps item z-indexes below the bars and overlays */
   transform-origin: 0 0;
   will-change: transform;
 }
@@ -1382,6 +1428,55 @@ body.is-canvas {
 .citem--label .citem__lock {
   right: -14px;
   top: 4px;
+}
+
+/* ---- folders ---- */
+
+.citem--folder {
+  border-radius: 20px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 200ms ease;
+}
+
+.citem--folder.is-selected {
+  outline-offset: 2px;
+}
+
+.folder__tab {
+  position: absolute;
+  display: block;
+  overflow: visible;
+  pointer-events: auto;
+}
+
+.folder__title {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1em;
+  box-sizing: border-box;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.folder__text,
+.folder__edit {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.folder__edit {
+  font-size: inherit;
+  line-height: 1;
+  color: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  min-width: 2ch;
 }
 
 /* Skeletons while dropped images are processed. */
@@ -1656,11 +1751,8 @@ body.is-canvas {
 }
 
 .color-pop {
-  position: absolute;
-  bottom: 44px;
-  left: 50%;
-  z-index: 7;
-  transform: translateX(-50%);
+  position: fixed;
+  z-index: 70;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);

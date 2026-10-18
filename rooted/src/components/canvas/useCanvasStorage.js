@@ -3,16 +3,30 @@
 //   - uploaded images as Blobs in IndexedDB (localStorage is too small for them)
 // Every call is wrapped so a blocked or full storage never breaks the board.
 
-const LS_KEY = 'rooted:visuals-canvas:v1';
+const LS_KEY = 'rooted:visuals-canvas:v2';
+const LEGACY_KEY = 'rooted:visuals-canvas:v1';
 const DB_NAME = 'rooted';
 const DB_STORE = 'images';
 
+// Returns { data, legacy }: `legacy` is true when only the v1 layout exists
+// (it is kept until the first v2 save; see removeLegacy).
 export function loadLayout() {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (raw) return { data: JSON.parse(raw), legacy: false };
+    const old = localStorage.getItem(LEGACY_KEY);
+    if (old) return { data: JSON.parse(old), legacy: true };
   } catch {
-    return null;
+    /* ignore */
+  }
+  return { data: null, legacy: false };
+}
+
+export function removeLegacy() {
+  try {
+    localStorage.removeItem(LEGACY_KEY);
+  } catch {
+    /* ignore */
   }
 }
 
@@ -28,6 +42,7 @@ export function saveLayout(data) {
 export function clearLayout() {
   try {
     localStorage.removeItem(LS_KEY);
+    localStorage.removeItem(LEGACY_KEY);
   } catch {
     /* ignore */
   }

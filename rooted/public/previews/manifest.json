@@ -1,0 +1,47 @@
+{
+  "github-com-radix-ui-primitives": {
+    "source": "readme",
+    "width": 1280,
+    "height": 719
+  },
+  "github-com-shadcn-ui-ui": {
+    "source": "readme",
+    "width": 1280,
+    "height": 672
+  },
+  "github-com-pacocoursey-cmdk": {
+    "source": "readme",
+    "width": 1200,
+    "height": 630
+  },
+  "github-com-emilkowalski-vaul": {
+    "source": "social",
+    "width": 1200,
+    "height": 600
+  },
+  "github-com-lucide-icons-lucide": {
+    "source": "readme",
+    "width": 1280,
+    "height": 640
+  },
+  "github-com-tabler-tabler-icons": {
+    "source": "readme",
+    "width": 1280,
+    "height": 731
+  },
+  "github-com-penpot-penpot": {
+    "source": "readme",
+    "width": 1230,
+    "height": 305
+  },
+  "github-com-excalidraw-excalidraw": {
+    "source": "readme",
+    "width": 1280,
+    "height": 336
+  },
+  "github-com-tldraw-tldraw": {
+    "source": "readme",
+    "width": 1280,
+    "height": 640
+  }
+}

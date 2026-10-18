@@ -397,3 +397,56 @@ export function BackIcon(props) {
     </svg>
   );
 }
+
+export function FolderIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
+    </svg>
+  );
+}
+
+export function TidyIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="4" y="4" width="7" height="7" rx="1.5" />
+      <rect x="13" y="4" width="7" height="7" rx="1.5" />
+      <rect x="4" y="13" width="7" height="7" rx="1.5" />
+      <rect x="13" y="13" width="7" height="7" rx="1.5" />
+    </svg>
+  );
+}
+
+export function CollapseIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="m7 10 5 5 5-5" />
+      <path d="M5 5h14" />
+    </svg>
+  );
+}
+
+export function ExpandIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="m7 14 5-5 5 5" />
+      <path d="M5 19h14" />
+    </svg>
+  );
+}
+
+export function TabSideIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 9h5V5h6v4h5v10H4V9Z" />
+    </svg>
+  );
+}
+
+export function RibbonIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M7 3h10v18l-5-4-5 4V3Z" />
+    </svg>
+  );
+}
