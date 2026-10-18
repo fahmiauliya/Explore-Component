@@ -60,7 +60,8 @@ export function tabMetrics(section, childCount = 0) {
   const k = fs / SECTION_FS;
   const text = `${tabTitle(section)}  ${childCount}`;
   const textW = measureLabelText(text, fs) + text.length * fs * 0.08;
-  return { fs, k, height: Math.round(TAB_H * k), width: Math.round(textW + 2 * TAB_PAD * k), curve: Math.round(TAB_CURVE * k), corner: TAB_CORNER * k };
+  // +2px so canvas-measured text never ends up a hair wider than its tab (that would show an ellipsis).
+  return { fs, k, height: Math.round(TAB_H * k), width: Math.round(textW + 2 * TAB_PAD * k) + 2, curve: Math.round(TAB_CURVE * k), corner: TAB_CORNER * k };
 }
 
 // Tab + body as ONE path. Origin: the tab's top row (y = 0); the body starts at

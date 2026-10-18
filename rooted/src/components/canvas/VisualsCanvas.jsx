@@ -36,6 +36,8 @@ import {
   FillIcon,
   TransparentIcon,
   ListIcon,
+  CheckIcon,
+  ClipboardIcon,
 } from '../Icons.jsx';
 import CanvasItem from './CanvasItem.jsx';
 import Guides from './Guides.jsx';
@@ -45,11 +47,11 @@ import InfoPopover from './InfoPopover.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { alignEntries } from './alignEntries.jsx';
 import { CARD_H, buildDefaultItems, mergeWithData, migrateV1, migrateV3, migrateV4, repairV2, LABEL_H } from './defaultLayout.js';
-import { DEFAULT_COLS, DEFAULT_SECTION_COLOR, SECTION_GAP, sectionColors, SECTION_MIN_H, SECTION_MIN_W, SECTION_PAD, SECTION_PRESETS, SECTION_STRIP, MAX_COLS, TAB_H, childrenOf, clearOverlaps, colsForWidth, insertChildAt, refitSections, slotAt, tabMetrics, tabXFor, tidySection, widthForCols } from './sections.js';
+import { DEFAULT_COLS, DEFAULT_SECTION_COLOR, SECTION_GAP, sectionColors, SECTION_MIN_H, SECTION_MIN_W, SECTION_PAD, SECTION_PRESETS, SECTION_STRIP, MAX_COLS, TAB_H, TAB_INSET, childrenOf, clearOverlaps, colsForWidth, insertChildAt, orderedChildren, refitSections, slotAt, tabMetrics, tabXFor, tidySection, widthForCols } from './sections.js';
 import * as storage from './useCanvasStorage.js';
 import { exportBoard, parseBackup } from './backup.js';
 import { bounds, snapMove, snapResize, snapValue } from './snapping.js';
-import { DEFAULT_LABEL_COLOR, LABEL_PRESETS_COLORS, LABEL_SIZES, clampFontSize, fontSizeForHeight, labelHeight, labelMinWidth, labelNaturalWidth } from './labelColors.js';
+import { DEFAULT_LABEL_COLOR, LABEL_PRESETS_COLORS, LABEL_SIZES, clampFontSize, fontSizeForHeight, labelHeight, labelMinWidth, labelNaturalWidth, labelMetrics } from './labelColors.js';
 import SheetMenu from './SheetMenu.jsx';
 import { DEFAULT_RIBBON, RIBBON_LIMITS, RIBBON_STATUSES, cleanLines } from './ribbon.js';
 import { TEXT_COLOR_PRESETS, TEXT_MIN_W, TEXT_SIZE_IDS, estimateTextSize, textColors, textSize } from './text.js';
@@ -76,6 +78,8 @@ const DRAG_START = 3; // screen px before a press becomes a drag
 const LONG_PRESS = 500;
 
 const clampZoom = (z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+// Copied items travel as text so a paste works across tabs of the same browser.
+const CLIP_MARK = 'rooted-items:';
 const newId = (type) => `${type}:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
@@ -100,6 +104,7 @@ export default function VisualsCanvas() {
   const editingRef = useRef(null);
   const [menu, setMenu] = useState(null);
   const [toast, setToast] = useState(null);
+  const [saveState, setSaveState] = useState('saved'); // 'saving' while a change waits for the 300ms autosave
   const [images, setImages] = useState({});
   const [overlay, setOverlay] = useState({ guides: [], spacings: [], box: null, tip: null });
   const [phone, setPhone] = useState(() => phoneQuery().matches);
@@ -118,6 +123,20 @@ export default function VisualsCanvas() {
   const ribbonEditRef = useRef(null);
   const [ribbonFilter, setRibbonFilter] = useState(null); // 'grey' | 'blue' | ... (not saved)
   const ribbonMenuOpen = useRef(false);
+  const clipboardRef = useRef(null); // { items, pastes } from the last copy
+  const pendingPaste = useRef(null);
+  const imagesRef = useRef({});
+  imagesRef.current = images;
+  const [clipHas, setClipHas] = useState(false);
+  // Tab widths are measured with canvas text; measure again once Geist has loaded.
+  const [fontsReady, setFontsReady] = useState(false);
+  useEffect(() => {
+    let on = true;
+    document.fonts?.ready.then(() => on && setFontsReady(true));
+    return () => {
+      on = false;
+    };
+  }, []);
   const flashTimer = useRef(0);
   const legacyRef = useRef(false); // v1 layout migrated; remove it after the first v2 save
   const [dropping, setDropping] = useState(false);
@@ -183,7 +202,9 @@ export default function VisualsCanvas() {
     for (const f of list) {
       if (f.type !== 'section') continue;
       const m = tabMetrics(f, counts.get(f.id) || 0);
-      map.set(f.id, { x: f.x, y: f.y, w: f.w, h: f.collapsed ? SECTION_STRIP : f.h, tabX: tabXFor(f, f.w, m.width), tabW: m.width, tabH: m.height, curve: m.curve, corner: m.corner, fs: m.fs });
+      // The tab hugs its name; only a name wider than the section itself gets cut (ellipsis).
+      const tabW = Math.min(m.width, Math.max(80, f.w - 2 * TAB_INSET));
+      map.set(f.id, { x: f.x, y: f.y, w: f.w, h: f.collapsed ? SECTION_STRIP : f.h, tabX: tabXFor(f, f.w, tabW), tabW, tabH: m.height, curve: m.curve, corner: m.corner, fs: m.fs });
     }
     for (const it of list) {
       if (it.type === 'section') continue;
@@ -467,6 +488,7 @@ export default function VisualsCanvas() {
   useEffect(() => {
     if (!ready) return undefined;
     clearTimeout(saveTimer.current);
+    setSaveState('saving');
     saveTimer.current = setTimeout(() => {
       const ok = storage.saveLayout({ items: itemsRef.current, view: viewRef.current, snapGrid });
       if (!ok) showToast("Couldn't save in this browser.");
@@ -474,9 +496,19 @@ export default function VisualsCanvas() {
         legacyRef.current = false;
         storage.removeLegacy();
       }
+      setSaveState(ok ? 'saved' : 'failed');
     }, 300);
     return () => clearTimeout(saveTimer.current);
   }, [items, view, snapGrid, ready, showToast]);
+
+  // The "Saved" note sits just right of the tool bar, whatever width the bar has.
+  useEffect(() => {
+    const bar = canvasRef.current?.querySelector('.cbar--tools');
+    if (!bar || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(() => canvasRef.current?.style.setProperty('--tools-w', `${bar.offsetWidth}px`));
+    ro.observe(bar);
+    return () => ro.disconnect();
+  }, [ready, phone]);
 
   // ---- wheel: pan, or zoom with ⌘/Ctrl (trackpad pinch arrives as ctrl+wheel) ----
   useEffect(() => {
@@ -526,7 +558,8 @@ export default function VisualsCanvas() {
       commit(next);
       keepExisting(next);
       for (const it of removing) {
-        if (it.type === 'image' && !next.some((o) => o.type === 'image' && o.imageKey === it.imageKey)) storage.deleteImage(it.imageKey);
+        const inClipboard = (clipboardRef.current?.items || []).some((c) => c.imageKey === it.imageKey);
+        if (it.type === 'image' && !inClipboard && !next.some((o) => o.type === 'image' && o.imageKey === it.imageKey)) storage.deleteImage(it.imageKey);
       }
     },
     [commit, keepExisting]
@@ -545,24 +578,91 @@ export default function VisualsCanvas() {
     removeItems(ids, false);
   }, [removeItems]);
 
+  // Copies of `sources` (a section brings its children along). A child of a
+  // section that still exists is filed into that grid right after its original;
+  // free copies land `offset` px down-right of theirs, or at `at`. `raw` keeps
+  // every copy exactly where its original is (Option-drag moves it from there).
+  const cloneItems = (list, sources, { offset = 16, at = null, raw = false } = {}) => {
+    const chosen = new Map(sources.map((it) => [it.id, it]));
+    for (const it of list) if (it.parentId && chosen.has(it.parentId) && !chosen.has(it.id)) chosen.set(it.id, it);
+    const all = [...chosen.values()];
+    const idMap = new Map(all.map((it) => [it.id, newId(it.type)]));
+    let z = list.reduce((m, it) => Math.max(m, it.z), 0);
+    let next = [...list];
+    const filed = [];
+    const free = all.filter((it) => !(it.parentId && idMap.has(it.parentId)));
+    const origin = at ? bounds(free.map(rectOf)) : null;
+    for (const src of all) {
+      const copy = { ...src, id: idMap.get(src.id), z: ++z, locked: false };
+      if (src.parentId && idMap.has(src.parentId)) {
+        next.push({ ...copy, parentId: idMap.get(src.parentId) });
+        continue;
+      }
+      if (src.parentId && list.some((it) => it.id === src.parentId)) {
+        if (raw) next.push(copy);
+        else filed.push({ copy, src });
+        continue;
+      }
+      const r = rectOf(src);
+      const x = raw ? r.x : origin ? at.x + (r.x - origin.x) : r.x + offset;
+      const y = raw ? r.y : origin ? at.y + (r.y - origin.y) : r.y + offset;
+      next.push({ ...copy, parentId: undefined, cx: undefined, cy: undefined, order: undefined, x, y });
+    }
+    for (const { copy, src } of filed) {
+      const siblings = orderedChildren(next, copy.parentId);
+      const i = siblings.findIndex((c) => c.id === src.id);
+      next.push(copy);
+      next = insertChildAt(next, copy.parentId, copy.id, i < 0 ? siblings.length : i + 1);
+    }
+    return { next, ids: free.map((it) => idMap.get(it.id)), idMap };
+  };
+
   const duplicateSelected = useCallback(() => {
     const sel = selectionRef.current;
-    let z = maxZ();
-    const chosenIds = new Set(sel);
-    for (const it of itemsRef.current) if (it.parentId && chosenIds.has(it.parentId)) chosenIds.add(it.id);
-    const idMap = new Map();
-    const copies = itemsRef.current
-      .filter((it) => chosenIds.has(it.id))
-      .map((it) => {
-        const id = newId(it.type);
-        idMap.set(it.id, id);
-        return { ...it, id, x: it.x + 16, y: it.y + 16, z: ++z, locked: false };
-      })
-      .map((it) => (it.parentId && idMap.has(it.parentId) ? { ...it, parentId: idMap.get(it.parentId) } : it.parentId && chosenIds.has(it.parentId) ? it : { ...it, parentId: it.parentId && idMap.has(it.parentId) ? idMap.get(it.parentId) : it.parentId }));
-    if (!copies.length) return;
-    commit([...itemsRef.current, ...copies]);
-    setSelection(copies.filter((c) => sel.includes([...idMap.entries()].find(([, v]) => v === c.id)?.[0])).map((c) => c.id));
+    const sources = itemsRef.current.filter((it) => sel.includes(it.id));
+    if (!sources.length) return;
+    const { next, ids } = cloneItems(itemsRef.current, sources);
+    commit(next);
+    setSelection(ids);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commit, setSelection]);
+
+  // ---- clipboard: ⌘C keeps a snapshot (and writes it as text), ⌘V clones it ----
+  const snapshotSelection = () => {
+    const chosen = new Set(selectionRef.current);
+    for (const it of itemsRef.current) if (it.parentId && chosen.has(it.parentId)) chosen.add(it.id);
+    // Children carry their world position too, so a paste still works when their section is gone.
+    const items = itemsRef.current.filter((it) => chosen.has(it.id)).map((it) => ({ ...it, x: rectOf(it).x, y: rectOf(it).y }));
+    return items.length ? items : null;
+  };
+  const copySelection = useCallback((e) => {
+    const items = snapshotSelection();
+    if (!items) return false;
+    clipboardRef.current = { items, pastes: 0 };
+    setClipHas(true);
+    const text = CLIP_MARK + JSON.stringify(items);
+    if (e?.clipboardData) {
+      e.clipboardData.setData('text/plain', text);
+      e.preventDefault();
+    } else navigator.clipboard?.writeText(text).catch(() => {});
+    return true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const pasteItems = useCallback(
+    (sources, at = null) => {
+      if (!sources?.length) return;
+      const have = sources.filter((it) => it.type !== 'image' || imagesRef.current[it.imageKey]);
+      if (have.length < sources.length) showToast(have.length ? 'Some images are no longer available.' : 'That image is no longer available.');
+      if (!have.length) return;
+      const clip = clipboardRef.current;
+      const n = clip ? (clip.pastes += 1) : 1; // every paste of the same copy steps 16px further
+      const { next, ids } = cloneItems(itemsRef.current, have, { offset: 16 * n, at });
+      commit(next);
+      setSelection(ids);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [commit, setSelection, showToast]
+  );
 
   const bringToFront = useCallback(() => {
     const sel = selectionRef.current;
@@ -1118,12 +1218,14 @@ export default function VisualsCanvas() {
     dismissHint();
     trackPointer(e);
     if (pointers.current.size >= 2) return startPinch();
-    if (e.shiftKey && !spaceRef.current && e.button === 0) {
-      gesture.current = { type: 'box', pointerId: e.pointerId, start: toWorld(e.clientX, e.clientY), startSel: selectionRef.current };
+    if (!e.shiftKey && editingRef.current === null) setSelection([]);
+    // A drag on empty space draws a selection box (Shift keeps the current
+    // selection and adds to it). Space + drag, the middle button and touch pan.
+    if (e.pointerType !== 'touch' && !spaceRef.current && e.button === 0) {
+      gesture.current = { type: 'box', pointerId: e.pointerId, start: toWorld(e.clientX, e.clientY), startSel: e.shiftKey ? selectionRef.current : [] };
       canvasRef.current.setPointerCapture(e.pointerId);
       return;
     }
-    if (!e.shiftKey && editingRef.current === null) setSelection([]);
     startPan(e);
     armLongPress(e, null);
   }
@@ -1143,12 +1245,24 @@ export default function VisualsCanvas() {
     setDraggingIds([it.id]);
   }
 
+  // Option-drag: the originals stay put and fresh copies follow the pointer.
+  function startDupe(g) {
+    const sources = g.startItems.filter((it) => g.moving.has(it.id));
+    const { next, ids, idMap } = cloneItems(g.startItems, sources, { raw: true });
+    g.dupe = true;
+    g.historyBase = g.startItems;
+    g.startItems = next;
+    g.moving = new Map([...g.moving].map(([id, pos]) => [idMap.get(id), pos]));
+    g.primary = idMap.get(g.primary);
+    setSelection(ids);
+  }
+
   function onPointerMove(e) {
     if (pointers.current.has(e.pointerId)) trackPointer(e);
     const g = gesture.current;
     if (!g) return;
     if (longPress.current && Math.hypot(e.clientX - (g.startX ?? e.clientX), e.clientY - (g.startY ?? e.clientY)) > 6) clearTimeout(longPress.current);
-    latest.current = { clientX: e.clientX, clientY: e.clientY, altKey: e.altKey, shiftKey: e.shiftKey };
+    latest.current = { clientX: e.clientX, clientY: e.clientY, altKey: e.altKey, shiftKey: e.shiftKey, noSnap: e.metaKey || e.ctrlKey, pointerType: e.pointerType };
     if (!raf.current) raf.current = requestAnimationFrame(processMove);
   }
 
@@ -1175,7 +1289,10 @@ export default function VisualsCanvas() {
       const cur = toWorld(p.clientX, p.clientY);
       const bx = { x: Math.min(g.start.x, cur.x), y: Math.min(g.start.y, cur.y), w: Math.abs(cur.x - g.start.x), h: Math.abs(cur.y - g.start.y) };
       const hidden = hiddenIds(itemsRef.current);
-      const touched = itemsRef.current.filter((it) => !hidden.has(it.id)).filter((it) => { const r = rectOf(it); return r.x < bx.x + bx.w && bx.x < r.x + r.w && r.y < bx.y + bx.h && bx.y < r.y + r.h; }).map((it) => it.id);
+      const hits = itemsRef.current.filter((it) => !hidden.has(it.id)).filter((it) => { const r = rectOf(it); return r.x < bx.x + bx.w && bx.x < r.x + r.w && r.y < bx.y + bx.h && bx.y < r.y + r.h; });
+      // A section stands for its contents: don't also pick the cards inside it.
+      const hitIds = new Set(hits.map((it) => it.id));
+      const touched = hits.filter((it) => !(it.parentId && hitIds.has(it.parentId))).map((it) => it.id);
       setSelection([...new Set([...g.startSel, ...touched])]);
       const a = { x: g.start.x * v.zoom + v.panX, y: g.start.y * v.zoom + v.panY };
       const b = { x: cur.x * v.zoom + v.panX, y: cur.y * v.zoom + v.panY };
@@ -1187,8 +1304,9 @@ export default function VisualsCanvas() {
         if (Math.hypot(p.clientX - g.startX, p.clientY - g.startY) < DRAG_START) return;
         g.moved = true;
         clearTimeout(longPress.current);
+        if (p.altKey && p.pointerType !== 'touch') startDupe(g);
         setDraggingIds([...g.moving.keys()]);
-        setCursor('grabbing');
+        setCursor(g.dupe ? 'copy' : 'grabbing');
       }
       const primary = g.startItems.find((it) => it.id === g.primary);
       const start = g.moving.get(g.primary);
@@ -1196,7 +1314,7 @@ export default function VisualsCanvas() {
       const hidden = hiddenIds(g.startItems);
       const insideMoving = (it) => g.moving.has(it.id) || (it.parentId && g.moving.has(it.parentId));
       const others = g.startItems.filter((it) => !insideMoving(it) && !hidden.has(it.id)).map(rectOf);
-      const snapped = snapMove(rect, others, { threshold, grid: snapGridRef.current, noSnap: p.altKey });
+      const snapped = snapMove(rect, others, { threshold, grid: snapGridRef.current, noSnap: p.noSnap });
       const sdx = snapped.x - start.x;
       const sdy = snapped.y - start.y;
       setItems(g.startItems.map((it) => (g.moving.has(it.id) ? setAbs(it, g.moving.get(it.id).x + sdx, g.moving.get(it.id).y + sdy, g.startItems) : it)));
@@ -1218,7 +1336,7 @@ export default function VisualsCanvas() {
       const right = g.corner === 'e';
       const anchorX = right ? g.start.x : g.start.x + g.start.w;
       let w = Math.max(TEXT_MIN_W, Math.round(Math.abs(pointer.x - anchorX)));
-      if (!p.altKey && snapGridRef.current) w = Math.max(TEXT_MIN_W, snapValue(w));
+      if (!p.noSnap && snapGridRef.current) w = Math.max(TEXT_MIN_W, snapValue(w));
       const x = right ? anchorX : anchorX - w;
       setItems(g.startItems.map((it) => (it.id === g.id ? { ...setAbs(it, x, g.start.y, g.startItems), w } : it)));
       const r = canvasRect();
@@ -1249,7 +1367,7 @@ export default function VisualsCanvas() {
         fs = clampFontSize(st.fontSize * (wPointer / st.w));
         w = st.fixedW ? Math.round((st.w * fs) / st.fontSize) : labelNaturalWidth(st.text, fs);
       }
-      if (!p.altKey && (side || p.shiftKey)) {
+      if (!p.noSnap && (side || p.shiftKey)) {
         const edge = right ? anchorX + w : anchorX - w;
         const tentative = { x: right ? anchorX : anchorX - w, y: st.y, w, h: labelHeight(fs) };
         const snap = snapEdgeX(edge, tentative, others, threshold);
@@ -1282,7 +1400,7 @@ export default function VisualsCanvas() {
         setOverlay({ guides: [], spacings: [], box: null, tip: { x: p.clientX - r.left, y: p.clientY - r.top, text: `${g.cols} column${g.cols === 1 ? '' : 's'}` } });
         return;
       }
-      const { rect, guides } = snapResize(g.start, g.corner, pointer, others.map(rectOf), { threshold, grid: snapGridRef.current, noSnap: p.altKey, heightFor: g.heightFor, minW: g.image ? 160 : 80 });
+      const { rect, guides } = snapResize(g.start, g.corner, pointer, others.map(rectOf), { threshold, grid: snapGridRef.current, noSnap: p.noSnap, heightFor: g.heightFor, minW: g.image ? 160 : 80 });
       setItems(g.startItems.map((it) => (it.id === g.id ? { ...setAbs(it, rect.x, rect.y, g.startItems), w: rect.w, h: rect.h } : it)));
       const r = canvasRect();
       setOverlay({ guides, spacings: [], box: null, tip: { x: p.clientX - r.left, y: p.clientY - r.top, text: `${Math.round(rect.w)} × ${Math.round(rect.h)}` } });
@@ -1313,7 +1431,7 @@ export default function VisualsCanvas() {
       else if (it && g.dbl.type === 'ribbon') startRibbonEdit(it.id);
     }
     if (g.type === 'move' && g.moved) {
-      pushHistory(g.startItems);
+      pushHistory(g.historyBase || g.startItems);
       // Cards and images dropped inside a section body join it; dragged out, they leave it.
       let next = itemsRef.current;
       const movedTop = [...g.moving.keys()];
@@ -1355,6 +1473,12 @@ export default function VisualsCanvas() {
     }
     setDropTarget(null);
     endGesture();
+    // A dropped card is re-parented in the DOM (into or out of a section), which
+    // drops the focus it took on press; keep the keyboard on the canvas.
+    requestAnimationFrame(() => {
+      const el = canvasRef.current;
+      if (el && !el.contains(document.activeElement)) el.focus({ preventScroll: true });
+    });
   }
 
   // ---- labels: measuring and inline editing ----
@@ -1431,6 +1555,7 @@ export default function VisualsCanvas() {
         { label: 'Add section', icon: SectionIcon, onSelect: () => addSection() },
         { label: 'Add text', icon: TextIcon, onSelect: () => addText() },
         { label: 'Upload image', icon: ImageIcon, onSelect: () => document.getElementById('canvas-file-input')?.click() },
+        { label: 'Paste', icon: ClipboardIcon, shortcut: mod('V'), disabled: !clipHas, onSelect: () => pasteItems(clipboardRef.current?.items, menu.world) },
         { label: 'Zoom to fit', icon: FrameIcon, onSelect: () => fitToContent() },
         { label: 'Zoom to 100%', icon: ZoomInIcon, shortcut: mod('0'), onSelect: () => zoomTo(1) },
         { label: 'Snap to grid', icon: GridIcon, checked: snapGrid, onSelect: () => setSnapGrid(!snapGridRef.current) },
@@ -1442,7 +1567,7 @@ export default function VisualsCanvas() {
     const one = chosen.length === 1 ? chosen[0] : null;
     const allLocked = chosen.length > 0 && chosen.every((it) => it.locked);
     const entries = [];
-    if (one && one.type !== 'link' && !(one.type === 'section' && one.collapsed)) entries.push({ label: 'Edit', icon: PencilIcon, onSelect: startEdit });
+    if (one && one.type !== 'link' && one.type !== 'image' && !(one.type === 'section' && one.collapsed)) entries.push({ label: 'Edit', icon: PencilIcon, onSelect: startEdit });
     const sections = chosen.filter((it) => it.type === 'section');
     if (sections.length) {
       const f = sections[0];
@@ -1483,6 +1608,7 @@ export default function VisualsCanvas() {
       });
     }
     entries.push({ label: 'Duplicate', icon: CopyIcon, shortcut: mod('D'), onSelect: duplicateSelected });
+    entries.push({ label: 'Copy', icon: ClipboardIcon, shortcut: mod('C'), onSelect: () => copySelection() });
     if (one?.url) entries.push({ label: 'Open link', icon: ExternalLinkIcon, onSelect: () => openLink(one) });
     entries.push({ label: 'Bring to front', icon: BringFrontIcon, shortcut: mod(']'), onSelect: bringToFront });
     entries.push({ label: 'Send to back', icon: SendBackIcon, shortcut: mod('['), onSelect: sendToBack });
@@ -1496,7 +1622,7 @@ export default function VisualsCanvas() {
     entries.push({ label: 'Remove', icon: TrashIcon, danger: true, shortcut: 'Del', disabled: allLocked, onSelect: deleteSelected });
     return entries;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menu, snapGrid, addLabel, addSection, fitToContent, zoomTo, startEdit, duplicateSelected, bringToFront, sendToBack, align, toggleLock, deleteSelected, setLabelColor, setLabelSize, setTabSide, toggleCollapse, tidySelected, addOrEditRibbon, setRibbon, removeRibbon, startRibbonEdit, setTextProps]);
+  }, [menu, snapGrid, clipHas, copySelection, pasteItems, addLabel, addSection, fitToContent, zoomTo, startEdit, duplicateSelected, bringToFront, sendToBack, align, toggleLock, deleteSelected, setLabelColor, setLabelSize, setTabSide, toggleCollapse, tidySelected, addOrEditRibbon, setRibbon, removeRibbon, startRibbonEdit, setTextProps]);
 
   // ---- keyboard (only while the canvas has focus) ----
   function onKeyDown(e) {
@@ -1509,7 +1635,7 @@ export default function VisualsCanvas() {
       setRibbon({ status: RIBBON_STATUSES[Number(k) - 1].id });
       return;
     }
-    if (e.target.closest?.('.modal, .cmenu, .citem__label-edit, .ribbon__edit, input, textarea')) return;
+    if (e.target.closest?.('.modal, .cmenu, .citem__label-edit, .ribbon__edit, [contenteditable="true"], input, textarea')) return;
     if (editingRef.current || ribbonEditRef.current) return;
     if (lower === 'r' && !mod && !e.altKey && selectedImageIds().length) {
       e.preventDefault();
@@ -1549,6 +1675,23 @@ export default function VisualsCanvas() {
     if (mod && lower === 'd') {
       e.preventDefault();
       duplicateSelected();
+      return;
+    }
+    if (mod && lower === 'c') {
+      copySelection(); // the browser's own copy event follows and fills the system clipboard
+      return;
+    }
+    if (mod && lower === 'v') {
+      // The paste event carries the clipboard; if none arrives (empty system
+      // clipboard), fall back to the last copy made here.
+      if (clipboardRef.current) {
+        const t = setTimeout(() => {
+          if (pendingPaste.current !== t) return;
+          pendingPaste.current = null;
+          pasteItems(clipboardRef.current.items);
+        }, 150);
+        pendingPaste.current = t;
+      }
       return;
     }
     if (mod && k === ']') return e.preventDefault(), bringToFront();
@@ -1597,22 +1740,53 @@ export default function VisualsCanvas() {
       showToast('Save the image to your computer first, then drop the file.');
     }
   }
+  const typing = (e) => Boolean(e.target.closest?.('[contenteditable="true"], input, textarea') || editingRef.current || ribbonEditRef.current);
+  function onCopy(e) {
+    if (typing(e)) return;
+    copySelection(e);
+  }
   function onPaste(e) {
+    clearTimeout(pendingPaste.current);
+    pendingPaste.current = null;
+    if (typing(e)) return;
     const files = [...(e.clipboardData?.files || [])];
     if (files.length) {
       e.preventDefault();
       addFiles(files, null);
+      return;
+    }
+    const text = e.clipboardData?.getData('text/plain') || '';
+    if (text.startsWith(CLIP_MARK)) {
+      e.preventDefault();
+      try {
+        const items = JSON.parse(text.slice(CLIP_MARK.length));
+        if (!clipboardRef.current || JSON.stringify(clipboardRef.current.items) !== JSON.stringify(items)) clipboardRef.current = { items, pastes: 0 };
+        setClipHas(true);
+        pasteItems(clipboardRef.current.items);
+      } catch {
+        /* not ours */
+      }
+      return;
+    }
+    if (clipboardRef.current) {
+      e.preventDefault();
+      pasteItems(clipboardRef.current.items);
     }
   }
 
   // ---- render ----
   // World geometry for this render (also kept in a ref for the event handlers).
-  const geoms = useMemo(() => computeGeoms(items), [items]);
+  const geoms = useMemo(() => computeGeoms(items), [items, fontsReady]);
   geomsRef.current = geoms;
   const single = selectedItems.length === 1 ? selectedItems[0] : null;
   const singleRect = single ? geoms.get(single.id) : null;
   // Section handles sit on the tab + body frame; link cards have no handles.
-  const handles = single && singleRect && !single.locked && !editingId && single.type !== 'link' ? (single.type === 'section' ? { x: singleRect.x, y: singleRect.y - singleRect.tabH, w: singleRect.w, h: singleRect.h + singleRect.tabH } : { x: singleRect.x, y: singleRect.y, w: singleRect.w, h: singleRect.h }) : null;
+  const handles = single && singleRect && !single.locked && !editingId && single.type !== 'link' ? (single.type === 'section' ? { x: singleRect.x, y: singleRect.y - singleRect.tabH, w: singleRect.w, h: singleRect.h + singleRect.tabH, section: true } : { x: singleRect.x, y: singleRect.y, w: singleRect.w, h: singleRect.h }) : null;
+  // Selection outlines are drawn in the overlay (zoom-independent gap and stroke);
+  // each follows its item's corner radius. Sections stroke their own shape instead.
+  const radiusFor = (it) => (it.type === 'image' ? 16 : it.type === 'link' ? 12 : it.type === 'text' ? 10 : it.type === 'label' ? labelMetrics(it.fontSize || 14).radius : 0);
+  const hiddenNow = hiddenIds(items);
+  const outlines = selectedItems.filter((it) => it.type !== 'section' && !hiddenNow.has(it.id) && geoms.get(it.id)).map((it) => { const g = geoms.get(it.id); return { id: it.id, x: g.x, y: g.y, w: g.w, h: g.h, radius: radiusFor(it) }; });
   const sizeLabel = single?.type === 'section' && singleRect ? { x: singleRect.x, y: singleRect.y + singleRect.h, text: `${single.cols || DEFAULT_COLS} column${(single.cols || DEFAULT_COLS) === 1 ? '' : 's'} · ${Math.round(singleRect.w)} × ${Math.round(singleRect.h)}` } : null;
   const groupBox = selectedItems.length > 1 ? bounds(selectedItems.map((it) => { const g = geoms.get(it.id); return it.type === 'section' ? { x: g.x, y: g.y - g.tabH, w: g.w, h: g.h + g.tabH } : g; })) : null;
   const selectedParents = new Set(selectedItems.map((it) => it.parentId).filter(Boolean));
@@ -1708,6 +1882,7 @@ export default function VisualsCanvas() {
         onDragOver={(e) => e.preventDefault()}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
+        onCopy={onCopy}
         onPaste={onPaste}
       >
         <div className="canvas__world" style={{ transform: `translate(${view.panX}px, ${view.panY}px) scale(${view.zoom})` }}>
@@ -1730,11 +1905,11 @@ export default function VisualsCanvas() {
           </div>
         )}
 
-        <Guides guides={overlay.guides} spacings={overlay.spacings} box={overlay.box} handles={handles} sideHandles={single?.type === 'label' || single?.type === 'section' || single?.type === 'text'} sidesOnly={single?.type === 'text'} tip={overlay.tip} sizeLabel={sizeLabel} groupBox={groupBox} toScreen={toScreen} zoom={view.zoom} onHandlePointerDown={onHandlePointerDown} />
+        <Guides guides={overlay.guides} spacings={overlay.spacings} box={overlay.box} handles={handles} sideHandles={single?.type === 'label' || single?.type === 'section' || single?.type === 'text'} sidesOnly={single?.type === 'text'} tip={overlay.tip} sizeLabel={sizeLabel} groupBox={groupBox} outlines={outlines} toScreen={toScreen} zoom={view.zoom} onHandlePointerDown={onHandlePointerDown} />
 
         <ToolBar
           selectionCount={selection.length}
-          canEdit={!!single && single.type !== 'link' && !(single.type === 'section' && single.collapsed)}
+          canEdit={!!single && single.type !== 'link' && single.type !== 'image' && !(single.type === 'section' && single.collapsed)}
           allLocked={selectedItems.length > 0 && selectedItems.every((it) => it.locked)}
           labelColor={firstLabel ? firstLabel.color || DEFAULT_LABEL_COLOR : undefined}
           labelSize={firstLabel ? firstLabel.fontSize || 14 : firstSection ? firstSection.fontSize || 13 : undefined}
@@ -1759,6 +1934,12 @@ export default function VisualsCanvas() {
           onDelete={deleteSelected}
           onClearSelection={() => setSelection([])}
         />
+        {ready && !phone && (
+          <span className={`canvas__saved${saveState === 'saving' ? ' is-saving' : ''}${saveState === 'failed' ? ' is-failed' : ''}`} role="status">
+            {saveState === 'saved' && <CheckIcon width={12} height={12} />}
+            {saveState === 'saving' ? 'Saving…' : saveState === 'failed' ? 'Not saved' : 'Saved'}
+          </span>
+        )}
         <ZoomBar
           zoom={view.zoom}
           snap={snapGrid}

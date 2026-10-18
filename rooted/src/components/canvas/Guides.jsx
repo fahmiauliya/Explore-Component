@@ -4,9 +4,21 @@
 const CORNERS = ['nw', 'ne', 'sw', 'se'];
 const SIDES = ['w', 'e'];
 
-export default function Guides({ guides, spacings, box, handles, sideHandles = false, sidesOnly = false, tip, sizeLabel, groupBox, toScreen, zoom, onHandlePointerDown }) {
+// Selection outline: a 4px gap between the item and a 1.5px stroke, so the
+// stroke's centre line runs 4.75px outside the item. Handles sit on that line.
+const GAP = 4;
+const STROKE = 1.5;
+const MID = GAP + STROKE / 2;
+
+export default function Guides({ guides, spacings, box, handles, sideHandles = false, sidesOnly = false, tip, sizeLabel, groupBox, outlines = [], toScreen, zoom, onHandlePointerDown }) {
+  // Sections carry their stroke on their own shape, so their handles sit on the frame itself.
+  const off = handles?.section ? 0 : MID;
   return (
     <div className="canvas__overlay" aria-hidden="true">
+      {outlines.map((o) => {
+        const p = toScreen(o.x, o.y);
+        return <div key={o.id} className="sel-outline" style={{ left: p.x - GAP - STROKE, top: p.y - GAP - STROKE, width: o.w * zoom + 2 * (GAP + STROKE), height: o.h * zoom + 2 * (GAP + STROKE), borderRadius: o.radius * zoom + GAP + STROKE }} />;
+      })}
       {guides.map((g, i) =>
         g.axis === 'x' ? (
           <div
@@ -54,7 +66,7 @@ export default function Guides({ guides, spacings, box, handles, sideHandles = f
         SIDES.map((c) => {
           const x = c === 'e' ? handles.x + handles.w : handles.x;
           const p = toScreen(x, handles.y + handles.h / 2);
-          return <div key={c} className={`handle handle--${c}`} style={{ left: p.x, top: p.y }} onPointerDown={(e) => onHandlePointerDown(e, c)} />;
+          return <div key={c} className={`handle handle--${c}`} style={{ left: p.x + (c === 'e' ? off : -off), top: p.y }} onPointerDown={(e) => onHandlePointerDown(e, c)} />;
         })}
 
       {tip && (
@@ -86,7 +98,7 @@ export default function Guides({ guides, spacings, box, handles, sideHandles = f
             <div
               key={c}
               className={`handle handle--${c}`}
-              style={{ left: p.x, top: p.y }}
+              style={{ left: p.x + (c.includes('e') ? off : -off), top: p.y + (c.includes('s') ? off : -off) }}
               onPointerDown={(e) => onHandlePointerDown(e, c)}
             />
           );

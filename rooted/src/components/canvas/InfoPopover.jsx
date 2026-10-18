@@ -43,7 +43,7 @@ export default function InfoPopover({ ribbonFilter = null, onRibbonFilter, onExp
             })}
           </div>
           <p className="info-pop__shortcuts hide-on-touch">
-            Drag to pan · {modLabel('')}+ scroll to zoom · Right-click for options · {modLabel('Z')} undo
+            Drag to select · Space + drag to pan · {modLabel('')}+ scroll to zoom · Right-click for options · {modLabel('Z')} undo
           </p>
           <p className="info-pop__shortcuts show-on-touch">Drag to move · Pinch to zoom · Long-press for options</p>
           <div className="info-pop__filter">

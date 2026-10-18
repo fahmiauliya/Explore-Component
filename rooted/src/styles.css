@@ -15,7 +15,7 @@
   --line: #ebebeb;
   --canvas: #f5f5f5;
   --canvas-dot: #d6d6d6;
-  --canvas-select: #3b82f6;
+  --canvas-select: #111111; /* selection, handles and hover: the neutral text color */
   --canvas-guide: #ff3b30;
   --dark-hover: #333333;
   --font: 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -1296,6 +1296,11 @@ body.is-canvas {
   cursor: grab;
 }
 
+.canvas.is-copy,
+.canvas.is-copy .citem {
+  cursor: copy;
+}
+
 .canvas.is-grabbing,
 .canvas.is-grabbing .citem {
   cursor: grabbing;
@@ -1323,8 +1328,7 @@ body.is-canvas {
 }
 
 .citem.is-selected {
-  outline: 1.5px solid var(--canvas-select);
-  outline-offset: 4px;
+  outline: none; /* the selection outline is drawn in the screen overlay (.sel-outline) */
 }
 
 .citem:focus-visible:not(.is-selected) {
@@ -1410,12 +1414,6 @@ body.is-canvas {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
-.citem--image.is-selected {
-  outline: 2px solid var(--canvas-select);
-  outline-offset: 3px;
-  border-radius: 19px;
-}
-
 .citem__img {
   display: block;
   width: 100%;
@@ -1477,17 +1475,17 @@ body.is-canvas {
 
 @media (hover: hover) {
   .citem--section:hover > .section__svg .section__outline {
-    stroke: rgba(59, 130, 246, 0.45);
+    stroke: rgba(17, 17, 17, 0.3);
   }
 }
 
 .citem--section.has-child-selected > .section__svg .section__outline {
-  stroke: rgba(59, 130, 246, 0.45);
+  stroke: rgba(17, 17, 17, 0.3);
 }
 
 .citem--section.is-selected > .section__svg .section__outline {
   stroke: var(--canvas-select);
-  stroke-width: 2px;
+  stroke-width: 1.5px;
 }
 
 .citem--section.is-flash .section__svg {
@@ -1553,14 +1551,6 @@ body.is-canvas {
   font-size: var(--text-sm);
   opacity: 0.5;
   pointer-events: none;
-}
-
-/* A selected card inside a section: rounded outline 3px out from the card. */
-.citem--link.is-selected,
-.citem--image.is-selected.is-child {
-  outline: 2px solid var(--canvas-select);
-  outline-offset: 3px;
-  border-radius: 19px;
 }
 
 /* Dashed box around a multi-selection (8px out). */
@@ -1755,7 +1745,7 @@ body.is-canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(59, 130, 246, 0.04);
+  background: rgba(17, 17, 17, 0.03);
   box-shadow: inset 0 0 0 2px transparent;
   outline: 2px dashed var(--canvas-select);
   outline-offset: -8px;
@@ -1828,7 +1818,15 @@ body.is-canvas {
 .box-select {
   position: absolute;
   border: 1px solid var(--canvas-select);
-  background: rgba(59, 130, 246, 0.08);
+  background: rgba(17, 17, 17, 0.05);
+}
+
+/* Selection outline: 4px outside the item, 1.5px stroke, corners = item radius + 4. */
+.sel-outline {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1.5px solid var(--canvas-select);
+  pointer-events: none;
 }
 
 .handle {
@@ -2130,6 +2128,36 @@ body.is-canvas {
   color: var(--muted);
   white-space: nowrap;
   animation: pop-in var(--ease-open);
+}
+
+/* Autosave note, right of the tool bar (hidden on phones; the bar fills the width). */
+.canvas__saved {
+  position: absolute;
+  bottom: calc(var(--space-5) + 12px + env(safe-area-inset-bottom)); /* centered on the 40px bar */
+  left: calc(50% + var(--tools-w, 0px) / 2 + var(--space-3));
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 16px;
+  font-size: var(--text-xs);
+  color: var(--faint);
+  white-space: nowrap;
+  pointer-events: none;
+  transition: color var(--ease-hover);
+}
+
+.canvas__saved svg {
+  width: 12px;
+  height: 12px;
+}
+
+.canvas__saved.is-saving {
+  color: #bdbdbd;
+}
+
+.canvas__saved.is-failed {
+  color: #b42318;
 }
 
 .canvas__toast--dark {

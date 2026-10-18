@@ -1,6 +1,6 @@
 // Everything the canvas keeps in this browser:
 //   - layout + view in localStorage (small JSON)
-//   - uploaded images as Blobs in IndexedDB (localStorage is too small for them)
+//   - uploaded images as bytes in IndexedDB (localStorage is too small for them)
 // Every call is wrapped so a blocked or full storage never breaks the board.
 
 const LS_KEY = 'rooted:visuals-canvas:v5';
@@ -84,7 +84,15 @@ function withStore(mode, fn) {
   );
 }
 
-export const putImage = (key, blob) => withStore('readwrite', (s) => s.put(blob, key)).then(() => true).catch(() => false);
+// Images are stored as raw bytes + type rather than Blob objects: some browsers
+// (Safari) hand back Blobs from IndexedDB that fail to load after a reload.
+export const putImage = (key, blob) =>
+  blob
+    .arrayBuffer()
+    .then((buf) => withStore('readwrite', (s) => s.put({ type: blob.type || 'image/webp', buf }, key)))
+    .then(() => true)
+    .catch(() => false);
+const toBlob = (value) => (value instanceof Blob ? value : value && value.buf ? new Blob([value.buf], { type: value.type || 'image/webp' }) : null);
 export const deleteImage = (key) => withStore('readwrite', (s) => s.delete(key)).then(() => true).catch(() => false);
 export const clearImages = () => withStore('readwrite', (s) => s.clear()).then(() => true).catch(() => false);
 
@@ -101,7 +109,8 @@ export function getAllImages() {
           req.onsuccess = () => {
             const cursor = req.result;
             if (!cursor) return;
-            out.set(cursor.key, cursor.value);
+            const blob = toBlob(cursor.value);
+            if (blob) out.set(cursor.key, blob);
             cursor.continue();
           };
           tx.oncomplete = () => {
