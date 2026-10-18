@@ -585,13 +585,12 @@ button.card__tag:hover {
   font-weight: 500;
 }
 
-/* The screenshot floats as a smaller panel in the middle of the gray tile. */
+/* The screenshot fills the card's inner width at 16:10. */
 .card__frame {
   display: block;
-  width: 76%;
-  margin: var(--space-2) auto;
+  width: 100%;
   aspect-ratio: 16 / 10;
-  border-radius: var(--radius-sm);
+  border-radius: 10px;
   overflow: hidden;
   background: #fff;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
@@ -1367,6 +1366,8 @@ body.is-canvas {
 
 .citem--link .card {
   pointer-events: none;
+  padding: var(--space-3);
+  gap: var(--space-3);
   background: #fff;
   border: 1px solid #e8e8e8;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
@@ -1389,22 +1390,40 @@ body.is-canvas {
 }
 
 .citem--image {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  border-radius: 10px;
+  display: block;
+  border-radius: var(--radius-lg);
+}
+
+/* Moodboard image card: the same container as link cards, image only. */
+.icard {
+  display: block;
+  padding: var(--space-3);
+  border: 1px solid #e8e8e8;
+  border-radius: var(--radius-lg);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: border-color var(--ease-hover), box-shadow var(--ease-hover);
+}
+
+.citem--image:hover .icard {
+  border-color: #dcdcdc;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.citem--image.is-selected {
+  outline: 2px solid var(--canvas-select);
+  outline-offset: 3px;
+  border-radius: 19px;
 }
 
 .citem__img {
   display: block;
   width: 100%;
   border-radius: 10px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   pointer-events: none;
 }
 
 .citem__img--missing {
-  aspect-ratio: 16 / 10;
   background: #e4e4e4;
 }
 
@@ -1430,18 +1449,18 @@ body.is-canvas {
   top: 4px;
 }
 
-/* ---- folders ---- */
+/* ---- sections ---- */
 
-.citem--folder {
+.citem--section {
   border-radius: 20px;
 }
 
-/* The folder's own path carries the hover / selected strokes (see .folder__outline). */
-.citem--folder.is-selected {
+/* The section's own path carries the hover / selected strokes (see .section__outline). */
+.citem--section.is-selected {
   outline: none;
 }
 
-.folder__svg {
+.section__svg {
   position: absolute;
   top: 0;
   left: 0;
@@ -1450,28 +1469,28 @@ body.is-canvas {
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.04)) drop-shadow(0 12px 32px rgba(0, 0, 0, 0.06));
 }
 
-.folder__outline {
+.section__outline {
   stroke: transparent;
   stroke-width: 1.5px;
   transition: stroke var(--ease-hover);
 }
 
 @media (hover: hover) {
-  .citem--folder:hover > .folder__svg .folder__outline {
+  .citem--section:hover > .section__svg .section__outline {
     stroke: rgba(59, 130, 246, 0.45);
   }
 }
 
-.citem--folder.has-child-selected > .folder__svg .folder__outline {
+.citem--section.has-child-selected > .section__svg .section__outline {
   stroke: rgba(59, 130, 246, 0.45);
 }
 
-.citem--folder.is-selected > .folder__svg .folder__outline {
+.citem--section.is-selected > .section__svg .section__outline {
   stroke: var(--canvas-select);
   stroke-width: 2px;
 }
 
-.citem--folder.is-flash .folder__svg {
+.citem--section.is-flash .section__svg {
   animation: tab-pulse 600ms ease;
 }
 
@@ -1485,7 +1504,7 @@ body.is-canvas {
   }
 }
 
-.folder__title {
+.section__title {
   position: absolute;
   display: flex;
   align-items: center;
@@ -1499,19 +1518,19 @@ body.is-canvas {
   line-height: 1;
 }
 
-.folder__text,
-.folder__edit {
+.section__text,
+.section__edit {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
 }
 
-.folder__count {
+.section__count {
   margin-left: 0.6em;
   opacity: 0.5;
 }
 
-.folder__edit {
+.section__edit {
   font-size: inherit;
   line-height: 1;
   color: inherit;
@@ -1520,12 +1539,12 @@ body.is-canvas {
   min-width: 2ch;
 }
 
-.folder__body {
+.section__body {
   position: absolute;
   left: 0;
 }
 
-.folder__hint {
+.section__hint {
   position: absolute;
   inset: 0;
   display: flex;
@@ -1536,7 +1555,7 @@ body.is-canvas {
   pointer-events: none;
 }
 
-/* A selected card inside a folder: rounded outline 3px out from the card. */
+/* A selected card inside a section: rounded outline 3px out from the card. */
 .citem--link.is-selected,
 .citem--image.is-selected.is-child {
   outline: 2px solid var(--canvas-select);
@@ -1560,6 +1579,64 @@ body.is-canvas {
   color: var(--text);
   white-space: nowrap;
   pointer-events: none;
+}
+
+/* ---- text items ---- */
+
+.citem--text {
+  display: block;
+  box-sizing: border-box;
+  border: 0 solid transparent;
+  border-radius: 10px;
+  font-family: var(--font);
+  max-width: none;
+}
+
+.ctext__text,
+.ctext__edit {
+  display: block;
+  white-space: inherit;
+  word-break: break-word;
+  min-width: 1ch;
+}
+
+.ctext__edit {
+  outline: none;
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+  text-transform: none;
+  letter-spacing: normal;
+  line-height: inherit;
+  font-size: inherit;
+}
+
+/* Segmented control in the selection bar (Fill, Weight). */
+.cbar__seg {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+}
+
+.cbar__seg-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 28px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--muted);
+  transition: background-color var(--ease-hover), color var(--ease-hover);
+}
+
+.cbar__seg-btn.is-active {
+  background: #fff;
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 /* ---- ribbons on images ---- */
@@ -2019,6 +2096,18 @@ body.is-canvas {
   animation: pop-in var(--ease-open);
 }
 
+.info-pop__backup {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.info-pop__backup .button {
+  flex: 1;
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-xs);
+}
+
 .info-pop__shortcuts {
   font-size: var(--text-xs);
   color: var(--muted);
@@ -2055,13 +2144,13 @@ body.is-canvas {
   height: 28px;
 }
 
-/* ---- right-click menu ---- */
+/* ---- menus (right-click, popovers, section list): one style ---- */
 
 .cmenu {
   position: fixed;
   z-index: 70;
   min-width: 220px;
-  padding: var(--space-1);
+  padding: 6px;
   border-radius: var(--radius-md);
   outline: none;
   animation: pop-in var(--ease-open);
@@ -2070,19 +2159,23 @@ body.is-canvas {
 .cmenu__row {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: 10px;
   width: 100%;
-  height: 36px;
-  padding: 0 var(--space-2);
+  height: 32px;
+  padding: 0 10px;
   border-radius: var(--radius-sm);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--text);
   text-align: left;
   white-space: nowrap;
+  transition: background-color var(--ease-hover);
 }
 
-.cmenu__row.is-active:not(:disabled) {
+.cmenu__row.is-active:not(:disabled),
+.cmenu__row:focus-visible {
   background: var(--surface);
+  outline: none;
 }
 
 .cmenu__row:disabled {
@@ -2091,17 +2184,24 @@ body.is-canvas {
 }
 
 .cmenu__row.is-danger {
-  color: #b54708;
+  color: #b42318;
+}
+
+.cmenu__row.is-danger.is-active {
+  background: #fef3f2;
 }
 
 .cmenu__icon {
   display: inline-flex;
   width: 16px;
   justify-content: center;
+  flex: 0 0 16px;
 }
 
 .cmenu__label {
   flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cmenu__hint {
@@ -2109,10 +2209,41 @@ body.is-canvas {
   color: var(--faint);
 }
 
+.cmenu__check {
+  color: var(--text);
+}
+
 .cmenu__divider {
   height: 1px;
-  margin: var(--space-1) var(--space-2);
+  margin: 6px 0;
   background: var(--line);
+}
+
+.cmenu__swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 50%;
+}
+
+.cmenu__search {
+  display: block;
+  width: 100%;
+  height: 32px;
+  margin-bottom: 6px;
+  padding: 0 10px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  font-size: var(--text-sm);
+  color: var(--text);
+  outline: none;
+}
+
+.cmenu__search::placeholder {
+  color: var(--faint);
 }
 
 .cdialog {
@@ -2348,9 +2479,6 @@ body.is-canvas {
     overflow: hidden;
   }
 
-  .card__frame {
-    width: 84%;
-  }
 
   /* Inputs at 16px so iPhone Safari doesn't zoom in. */
   .field input,

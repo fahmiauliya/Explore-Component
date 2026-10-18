@@ -16,9 +16,10 @@ import {
   ResetIcon,
   SendBackIcon,
   TagIcon,
+  TextIcon,
   TextSizeIcon,
   TrashIcon,
-  FolderIcon,
+  SectionIcon,
   TidyIcon,
   CollapseIcon,
   ExpandIcon,
@@ -27,21 +28,31 @@ import {
   ZoomInIcon,
   AlignLeftIcon,
   RibbonIcon,
+  AlignTextLeftIcon,
+  AlignTextCenterIcon,
+  AlignTextRightIcon,
+  AutoWidthIcon,
+  BoldIcon,
+  FillIcon,
+  TransparentIcon,
+  ListIcon,
 } from '../Icons.jsx';
 import CanvasItem from './CanvasItem.jsx';
 import Guides from './Guides.jsx';
 import ZoomBar from './ZoomBar.jsx';
-import ToolBar, { LABEL_PRESETS } from './ToolBar.jsx';
+import ToolBar from './ToolBar.jsx';
 import InfoPopover from './InfoPopover.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { alignEntries } from './alignEntries.jsx';
-import { buildDefaultItems, mergeWithData, migrateV1, migrateV3, repairV2, LABEL_H } from './defaultLayout.js';
-import { DEFAULT_COLS, DEFAULT_FOLDER_COLOR, FOLDER_MIN_H, FOLDER_MIN_W, FOLDER_PAD, FOLDER_PRESETS, FOLDER_STRIP, MAX_COLS, TAB_H, childrenOf, clearOverlaps, colsForWidth, insertChildAt, refitFolders, slotAt, tabMetrics, tabXFor, tidyFolder, widthForCols } from './folders.js';
+import { CARD_H, buildDefaultItems, mergeWithData, migrateV1, migrateV3, migrateV4, repairV2, LABEL_H } from './defaultLayout.js';
+import { DEFAULT_COLS, DEFAULT_SECTION_COLOR, SECTION_GAP, sectionColors, SECTION_MIN_H, SECTION_MIN_W, SECTION_PAD, SECTION_PRESETS, SECTION_STRIP, MAX_COLS, TAB_H, childrenOf, clearOverlaps, colsForWidth, insertChildAt, refitSections, slotAt, tabMetrics, tabXFor, tidySection, widthForCols } from './sections.js';
 import * as storage from './useCanvasStorage.js';
+import { exportBoard, parseBackup } from './backup.js';
 import { bounds, snapMove, snapResize, snapValue } from './snapping.js';
 import { DEFAULT_LABEL_COLOR, LABEL_PRESETS_COLORS, LABEL_SIZES, clampFontSize, fontSizeForHeight, labelHeight, labelMinWidth, labelNaturalWidth } from './labelColors.js';
 import SheetMenu from './SheetMenu.jsx';
 import { DEFAULT_RIBBON, RIBBON_LIMITS, RIBBON_STATUSES, cleanLines } from './ribbon.js';
+import { TEXT_COLOR_PRESETS, TEXT_MIN_W, TEXT_SIZE_IDS, estimateTextSize, textColors, textSize } from './text.js';
 import { snapEdgeX } from './snapping.js';
 
 const visualsTab = tabs.find((t) => t.id === 'visuals');
@@ -71,7 +82,9 @@ const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 // Link cards keep their shape as they grow: screenshot (16:10) plus the text block.
 // The real height is measured after render; this keeps resizing smooth.
 export const cardHeight = (w) => Math.round(w * 0.625 + 94);
-const imageHeight = (item, w) => Math.round(w / item.ratio) + (item.caption ? CAPTION_H : 0);
+// Image card: 12px padding around an image at the inner width, natural ratio.
+const IMAGE_PAD = 12;
+const imageHeight = (item, w) => Math.round((w - 2 * IMAGE_PAD) / (item.ratio || 1.6)) + 2 * IMAGE_PAD;
 
 export default function VisualsCanvas() {
   const canvasRef = useRef(null);
@@ -97,9 +110,10 @@ export default function VisualsCanvas() {
   const [dialog, setDialog] = useState(null); // { type: 'reset' } | { type: 'image', id, caption, url }
   const [ready, setReady] = useState(false);
   const [pending, setPending] = useState([]); // skeletons while dropped images are processed
-  const [flashId, setFlashId] = useState(null); // folder that just received a child
+  const [flashId, setFlashId] = useState(null); // section that just received a child
   const geomsRef = useRef(new Map());
-  const [dropTarget, setDropTarget] = useState(null); // { folderId, slot } while a card is dragged over a folder
+  const [dropTarget, setDropTarget] = useState(null); // { sectionItemId, slot } while a card is dragged over a section
+  const [sectionList, setSectionList] = useState(null); // { x, y } anchor of the Sections popover
   const [ribbonEditId, setRibbonEditId] = useState(null); // image whose ribbon text is being edited
   const ribbonEditRef = useRef(null);
   const [ribbonFilter, setRibbonFilter] = useState(null); // 'grey' | 'blue' | ... (not saved)
@@ -160,52 +174,53 @@ export default function VisualsCanvas() {
   }, []);
 
   // ---- geometry: world rectangles for every item ----
-  // Folders get { x, y (body top-left), w, h, tabX, tabW, tabH, curve, corner, fs }.
-  // Children are placed inside their folder's padded body (cx, cy).
+  // Sections get { x, y (body top-left), w, h, tabX, tabW, tabH, curve, corner, fs }.
+  // Children are placed inside their section's padded body (cx, cy).
   function computeGeoms(list) {
     const map = new Map();
     const counts = new Map();
     for (const it of list) if (it.parentId) counts.set(it.parentId, (counts.get(it.parentId) || 0) + 1);
     for (const f of list) {
-      if (f.type !== 'folder') continue;
+      if (f.type !== 'section') continue;
       const m = tabMetrics(f, counts.get(f.id) || 0);
-      map.set(f.id, { x: f.x, y: f.y, w: f.w, h: f.collapsed ? FOLDER_STRIP : f.h, tabX: tabXFor(f, f.w, m.width), tabW: m.width, tabH: m.height, curve: m.curve, corner: m.corner, fs: m.fs });
+      map.set(f.id, { x: f.x, y: f.y, w: f.w, h: f.collapsed ? SECTION_STRIP : f.h, tabX: tabXFor(f, f.w, m.width), tabW: m.width, tabH: m.height, curve: m.curve, corner: m.corner, fs: m.fs });
     }
     for (const it of list) {
-      if (it.type === 'folder') continue;
+      if (it.type === 'section') continue;
       const fg = it.parentId ? map.get(it.parentId) : null;
-      map.set(it.id, fg ? { x: fg.x + FOLDER_PAD + (it.cx || 0), y: fg.y + FOLDER_PAD + (it.cy || 0), w: it.w, h: it.h } : { x: it.x, y: it.y, w: it.w, h: it.h });
+      const sz = it.type === 'text' ? textSize(it) : { w: it.w, h: it.h };
+      map.set(it.id, fg ? { x: fg.x + SECTION_PAD + (it.cx || 0), y: fg.y + SECTION_PAD + (it.cy || 0), w: sz.w, h: sz.h } : { x: it.x, y: it.y, w: sz.w, h: sz.h });
     }
     return map;
   }
-  const rectOf = (it) => geomsRef.current.get(it.id) || { x: it.x || 0, y: it.y || 0, w: it.w, h: it.h };
-  // Frame of a folder including its tab (for handles, overlap checks and fit).
+  const rectOf = (it) => geomsRef.current.get(it.id) || { x: it.x || 0, y: it.y || 0, ...(it.type === 'text' ? textSize(it) : { w: it.w, h: it.h }) };
+  // Frame of a section including its tab (for handles, overlap checks and fit).
   const frameOf = (f) => {
     const g = rectOf(f);
     return { x: g.x, y: g.y - (g.tabH || TAB_H), w: g.w, h: g.h + (g.tabH || TAB_H) };
   };
-  // Write a world position back to an item (children store it relative to the folder).
+  // Write a world position back to an item (children store it relative to the section).
   const setAbs = (it, x, y, list = itemsRef.current) => {
     if (!it.parentId) return { ...it, x, y };
     const fg = geomsRef.current.get(it.parentId) || computeGeoms(list).get(it.parentId);
-    return { ...it, cx: x - fg.x - FOLDER_PAD, cy: y - fg.y - FOLDER_PAD };
+    return { ...it, cx: x - fg.x - SECTION_PAD, cy: y - fg.y - SECTION_PAD };
   };
-  // Children of collapsed folders are kept but hidden.
+  // Children of collapsed sections are kept but hidden.
   const hiddenIds = (list) => {
-    const collapsed = new Set(list.filter((it) => it.type === 'folder' && it.collapsed).map((it) => it.id));
+    const collapsed = new Set(list.filter((it) => it.type === 'section' && it.collapsed).map((it) => it.id));
     return new Set(list.filter((it) => it.parentId && collapsed.has(it.parentId)).map((it) => it.id));
   };
-  // The expanded folder whose body contains a world point (topmost by z).
-  const folderAtPoint = (x, y, excludeIds = new Set()) => {
-    const candidates = itemsRef.current.filter((it) => it.type === 'folder' && !it.collapsed && !excludeIds.has(it.id)).sort((a, b) => b.z - a.z);
+  // The expanded section whose body contains a world point (topmost by z).
+  const sectionAtPoint = (x, y, excludeIds = new Set()) => {
+    const candidates = itemsRef.current.filter((it) => it.type === 'section' && !it.collapsed && !excludeIds.has(it.id)).sort((a, b) => b.z - a.z);
     for (const f of candidates) {
       const g = rectOf(f);
       if (x >= g.x && x <= g.x + g.w && y >= g.y && y <= g.y + g.h) return f;
     }
     return null;
   };
-  // Free items never sit on a folder: after layout changes push them aside.
-  const settle = (list) => clearOverlaps(refitFolders(list), (it) => computeGeoms(list).get(it.id) || it);
+  // Free items never sit on a section: after layout changes push them aside.
+  const settle = (list) => clearOverlaps(refitSections(list), (it) => computeGeoms(list).get(it.id) || it);
 
   // ---- history ----
   const pushHistory = useCallback((prev) => {
@@ -327,13 +342,40 @@ export default function VisualsCanvas() {
     },
     [setView]
   );
+  // Animate pan/zoom to a target view (300ms ease-out).
+  const animRef = useRef(0);
+  const animateView = useCallback(
+    (target, ms = 300) => {
+      cancelAnimationFrame(animRef.current);
+      const from = { ...viewRef.current };
+      const t0 = performance.now();
+      const ease = (t) => 1 - (1 - t) ** 3;
+      const step = (now) => {
+        const t = Math.min(1, (now - t0) / ms);
+        const k = ease(t);
+        setView({ zoom: from.zoom + (target.zoom - from.zoom) * k, panX: from.panX + (target.panX - from.panX) * k, panY: from.panY + (target.panY - from.panY) * k });
+        if (t < 1) animRef.current = requestAnimationFrame(step);
+      };
+      animRef.current = requestAnimationFrame(step);
+    },
+    [setView]
+  );
+  // View that fits a world rect in the safe area (never above 100%).
+  const viewForRect = (b, maxZoom = 1) => {
+    const { w, h } = sizeRef.current;
+    const aw = w - 2 * SAFE.side;
+    const ah = h - SAFE.top - SAFE.bottom;
+    const z = clampZoom(Math.min(aw / b.w, ah / b.h, maxZoom));
+    return { zoom: z, panX: SAFE.side + (aw - b.w * z) / 2 - b.x * z, panY: SAFE.top + (ah - b.h * z) / 2 - b.y * z };
+  };
+
   const fitToContent = useCallback(
     (list = itemsRef.current) => {
       const geoms = computeGeoms(list);
       const hidden = hiddenIds(list);
       const rects = list.filter((it) => !hidden.has(it.id)).map((it) => {
         const g = geoms.get(it.id);
-        return it.type === 'folder' ? { x: g.x, y: g.y - g.tabH, w: g.w, h: g.h + g.tabH } : g;
+        return it.type === 'section' ? { x: g.x, y: g.y - g.tabH, w: g.w, h: g.h + g.tabH } : g;
       });
       const b = bounds(rects);
       const { w, h } = sizeRef.current;
@@ -346,6 +388,25 @@ export default function VisualsCanvas() {
     },
     [setView]
   );
+
+  // Image cards: 280px wide inside sections, height from the card formula.
+  const normalizeImages = (list) => {
+    const touched = new Set();
+    let out = list.map((it) => {
+      if (it.type === 'link' && it.h !== CARD_H) {
+        if (it.parentId) touched.add(it.parentId);
+        return { ...it, w: 280, h: CARD_H };
+      }
+      if (it.type !== 'image') return it;
+      const w = it.parentId ? IMAGE_W : it.w;
+      const h = imageHeight(it, w);
+      if (w === it.w && h === it.h) return it;
+      if (it.parentId) touched.add(it.parentId);
+      return { ...it, w, h };
+    });
+    for (const id of touched) out = tidySection(out, id);
+    return out;
+  };
 
   // ---- load once ----
   useEffect(() => {
@@ -363,8 +424,9 @@ export default function VisualsCanvas() {
         let base = saved.items;
         if (legacy === 'v1') base = migrateV1(saved.items, visualsTab);
         if (legacy === 'v2') base = repairV2(saved.items, visualsTab);
-        if (legacy) base = migrateV3({ items: base, layout: legacy === 'v3' ? saved.layout : null }, visualsTab);
-        list = settle(mergeWithData(base, visualsTab));
+        if (legacy && legacy !== 'v4') base = migrateV3({ items: base, layout: legacy === 'v3' ? saved.layout : null }, visualsTab);
+        if (legacy) base = migrateV4(base);
+        list = settle(normalizeImages(mergeWithData(base, visualsTab)));
         if (saved.view && legacy !== 'v3') setView(saved.view);
         else pendingFit.current = true;
         if (typeof saved.snapGrid === 'boolean') setSnapGrid(saved.snapGrid);
@@ -448,16 +510,16 @@ export default function VisualsCanvas() {
   const selectedItems = useMemo(() => items.filter((it) => selection.includes(it.id)), [items, selection]);
   const maxZ = () => itemsRef.current.reduce((m, it) => Math.max(m, it.z), 0);
 
-  // Remove items. Folders with children ask first (keepChildren: true unparents them).
+  // Remove items. Sections with children ask first (keepChildren: true unparents them).
   const removeItems = useCallback(
     (ids, keepChildren) => {
       const idSet = new Set(ids);
-      const folders = itemsRef.current.filter((it) => it.type === 'folder' && idSet.has(it.id)).map((it) => it.id);
+      const sections = itemsRef.current.filter((it) => it.type === 'section' && idSet.has(it.id)).map((it) => it.id);
       let next = itemsRef.current;
-      if (!keepChildren) for (const it of next) if (it.parentId && folders.includes(it.parentId)) idSet.add(it.id);
+      if (!keepChildren) for (const it of next) if (it.parentId && sections.includes(it.parentId)) idSet.add(it.id);
       const removing = next.filter((it) => idSet.has(it.id));
       next = next.filter((it) => !idSet.has(it.id)).map((it) => {
-        if (!(it.parentId && folders.includes(it.parentId))) return it;
+        if (!(it.parentId && sections.includes(it.parentId))) return it;
         const r = rectOf(it);
         return { ...it, parentId: undefined, cx: undefined, cy: undefined, x: r.x, y: r.y };
       });
@@ -477,7 +539,7 @@ export default function VisualsCanvas() {
     const ids = removing.map((it) => it.id);
     const childCount = itemsRef.current.filter((it) => it.parentId && ids.includes(it.parentId) && !ids.includes(it.id)).length;
     if (childCount > 0) {
-      setDialog({ type: 'deleteFolder', ids, count: childCount });
+      setDialog({ type: 'deleteSection', ids, count: childCount });
       return;
     }
     removeItems(ids, false);
@@ -616,6 +678,37 @@ export default function VisualsCanvas() {
   // for the centre of the view. Images are laid out in a grid of 4, 280px wide.
   // Skeletons show while files are processed; then everything is committed at
   // once, so one undo removes the whole batch.
+  // "+ Text": a transparent, medium, #111 text at the centre of the view, editing right away.
+  const addText = useCallback(() => {
+    const item = { id: newId('text'), type: 'text', text: 'Text', fill: 'transparent', color: '#111111', size: 'M', weight: 500, align: 'left', w: 'auto', x: 0, y: 0, z: maxZ() + 1, locked: false };
+    const est = estimateTextSize(item);
+    const spot = findFreeSpot(est.w, est.h);
+    item.x = spot.x;
+    item.y = spot.y;
+    item.mw = est.w;
+    item.mh = est.h;
+    commit([...itemsRef.current, item]);
+    setSelection([item.id]);
+    setEditingId(item.id);
+    canvasRef.current?.focus({ preventScroll: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [commit, setSelection, setEditingId]);
+
+  // Apply a patch to every selected text item (fill, color, size, weight, align, w).
+  const colorInputText = useRef(null);
+  const setTextProps = useCallback(
+    (patch) => {
+      if (patch.color === '__custom') {
+        colorInputText.current?.click();
+        return;
+      }
+      const ids = new Set(itemsRef.current.filter((it) => it.type === 'text' && selectionRef.current.includes(it.id)).map((it) => it.id));
+      if (!ids.size) return;
+      commit(itemsRef.current.map((it) => (ids.has(it.id) ? { ...it, ...patch, ...(patch.fill && patch.fill !== it.fill ? { color: patch.fill === 'filled' ? 'paper' : '#111111' } : {}) } : it)));
+    },
+    [commit]
+  );
+
   const addFiles = useCallback(
     async (files, at) => {
       const valid = [];
@@ -648,7 +741,7 @@ export default function VisualsCanvas() {
           if (!(await storage.putImage(key, blob))) saveFailed = true;
           urls[key] = URL.createObjectURL(blob);
           const w = IMAGE_W;
-          added.push({ id: newId('image'), type: 'image', imageKey: key, ratio: width / height, ...slot(i), w, h: Math.round((w * height) / width), z: ++z, locked: false });
+          added.push({ id: newId('image'), type: 'image', imageKey: key, ratio: width / height, ...slot(i), w, h: imageHeight({ ratio: width / height }, w), z: ++z, locked: false });
         } catch {
           showToast(`Couldn't read ${f.name}.`);
         }
@@ -657,9 +750,9 @@ export default function VisualsCanvas() {
       if (saveFailed) showToast("Couldn't save in this browser.");
       if (!added.length) return;
       setImages((prev) => ({ ...prev, ...urls }));
-      const target = at ? folderAtPoint(at.x, at.y) : null;
+      const target = at ? sectionAtPoint(at.x, at.y) : null;
       let next = [...itemsRef.current, ...added.map((it) => (target ? { ...it, parentId: target.id, cx: 1e6, cy: 1e6 } : it))];
-      if (target) next = tidyFolder(next, target.id);
+      if (target) next = tidySection(next, target.id);
       commit(next);
       setSelection(added.map((it) => it.id));
     },
@@ -669,12 +762,12 @@ export default function VisualsCanvas() {
   // ---- label size presets ----
   const setLabelSize = useCallback(
     (fs) => {
-      const ids = new Set(itemsRef.current.filter((it) => (it.type === 'label' || it.type === 'folder') && selectionRef.current.includes(it.id)).map((it) => it.id));
+      const ids = new Set(itemsRef.current.filter((it) => (it.type === 'label' || it.type === 'section') && selectionRef.current.includes(it.id)).map((it) => it.id));
       if (!ids.size) return;
       commit(
         itemsRef.current.map((it) => {
           if (!ids.has(it.id)) return it;
-          if (it.type === 'folder') return { ...it, fontSize: fs };
+          if (it.type === 'section') return { ...it, fontSize: fs };
           const old = it.fontSize || 14;
           return { ...it, fontSize: fs, w: it.fixedW ? Math.round((it.w * fs) / old) : labelNaturalWidth(it.text, fs), h: labelHeight(fs) };
         })
@@ -687,7 +780,11 @@ export default function VisualsCanvas() {
   const selectedLabels = () => itemsRef.current.filter((it) => it.type === 'label' && selectionRef.current.includes(it.id));
   const setLabelColor = useCallback(
     (color) => {
-      const ids = new Set(itemsRef.current.filter((it) => (it.type === 'label' || it.type === 'folder') && selectionRef.current.includes(it.id)).map((it) => it.id));
+      if (color === '__custom') {
+        colorInput.current?.click();
+        return;
+      }
+      const ids = new Set(itemsRef.current.filter((it) => (it.type === 'label' || it.type === 'section') && selectionRef.current.includes(it.id)).map((it) => it.id));
       if (!ids.size) return;
       commit(itemsRef.current.map((it) => (ids.has(it.id) ? { ...it, color } : it)));
     },
@@ -763,21 +860,21 @@ export default function VisualsCanvas() {
     return entries;
   };
 
-  // ---- folders ----
-  const selectedFolderIds = () => itemsRef.current.filter((it) => it.type === 'folder' && selectionRef.current.includes(it.id)).map((it) => it.id);
-  const updateFolders = useCallback(
+  // ---- sections ----
+  const selectedSectionIds = () => itemsRef.current.filter((it) => it.type === 'section' && selectionRef.current.includes(it.id)).map((it) => it.id);
+  const updateSections = useCallback(
     (fn) => {
-      const ids = new Set(selectedFolderIds());
+      const ids = new Set(selectedSectionIds());
       if (!ids.size) return;
       commit(itemsRef.current.map((it) => (ids.has(it.id) ? fn(it) : it)));
     },
     [commit]
   );
-  const setTabSide = useCallback((side) => updateFolders((f) => ({ ...f, tabSide: side })), [updateFolders]);
+  const setTabSide = useCallback((side) => updateSections((f) => ({ ...f, tabSide: side })), [updateSections]);
 
   const toggleCollapse = useCallback(
     (id) => {
-      const ids = id ? [id] : selectedFolderIds();
+      const ids = id ? [id] : selectedSectionIds();
       if (!ids.length) return;
       const next = itemsRef.current.map((it) => (ids.includes(it.id) ? { ...it, collapsed: !it.collapsed } : it));
       commit(next);
@@ -789,32 +886,64 @@ export default function VisualsCanvas() {
   );
   const tidySelected = useCallback(() => {
     let next = itemsRef.current;
-    for (const id of selectedFolderIds()) next = tidyFolder(next, id);
+    for (const id of selectedSectionIds()) next = tidySection(next, id);
     commit(next);
   }, [commit]);
-  const setFolderCols = useCallback(
+  const setSectionCols = useCallback(
     (id, cols) => {
       const c = Math.max(1, Math.min(MAX_COLS, cols));
-      commit(tidyFolder(itemsRef.current.map((it) => (it.id === id ? { ...it, cols: c } : it)), id));
+      commit(tidySection(itemsRef.current.map((it) => (it.id === id ? { ...it, cols: c } : it)), id));
     },
     [commit]
   );
 
-  const addFolder = useCallback(
-    (title) => {
-      const folder = { id: newId('folder'), type: 'folder', title: title || 'Folder', color: DEFAULT_FOLDER_COLOR, tabSide: 'left', fontSize: 13, cols: DEFAULT_COLS, collapsed: false, x: 0, y: 0, w: FOLDER_MIN_W, h: FOLDER_MIN_H, z: 0, locked: false };
-      const tab = tabMetrics(folder).height;
-      const spot = findFreeSpot(FOLDER_MIN_W, FOLDER_MIN_H + tab);
-      folder.x = spot.x;
-      folder.y = spot.y + tab;
-      folder.z = Math.min(0, ...itemsRef.current.filter((it) => it.type === 'folder').map((it) => it.z)) - 1;
-      commit([...itemsRef.current, folder]);
-      setSelection([folder.id]);
-      setEditingId(folder.id);
+  // Jump to a section: animate the view to fit it in the safe area (max 100%) and select it.
+  const jumpToSection = useCallback(
+    (id) => {
+      const f = itemsRef.current.find((it) => it.id === id);
+      if (!f) return;
+      const fr = frameOf(f);
+      animateView(viewForRect(fr, 1));
+      setSelection([id]);
       canvasRef.current?.focus({ preventScroll: true });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [commit, setSelection, setEditingId]
+    [animateView, setSelection]
+  );
+  const openSectionList = useCallback((anchor) => {
+    const r = anchor || canvasRef.current?.getBoundingClientRect();
+    setSectionList({ x: r.left, y: r.top - 4 });
+  }, []);
+
+  // "+ Section": an empty section below the last one, on the same left edge,
+  // then the view scrolls to it and the name is ready to be typed over.
+  const addSection = useCallback(
+    (title) => {
+      const sections = itemsRef.current.filter((it) => it.type === 'section');
+      const section = { id: newId('section'), type: 'section', title: title || 'Untitled section', color: DEFAULT_SECTION_COLOR, tabSide: 'left', fontSize: 16, cols: DEFAULT_COLS, collapsed: false, x: 0, y: 0, w: SECTION_MIN_W, h: SECTION_MIN_H, z: 0, locked: false };
+      const tab = tabMetrics(section).height;
+      if (sections.length) {
+        const frames = sections.map((f) => frameOf(f));
+        section.x = Math.min(...frames.map((r) => r.x));
+        section.y = Math.max(...frames.map((r) => r.y + r.h)) + SECTION_GAP + tab;
+      } else {
+        const spot = findFreeSpot(SECTION_MIN_W, SECTION_MIN_H + tab);
+        section.x = spot.x;
+        section.y = spot.y + tab;
+      }
+      section.z = Math.min(0, ...sections.map((it) => it.z)) - 1;
+      commit([...itemsRef.current, section]);
+      setSelection([section.id]);
+      setEditingId(section.id);
+      // Bring it into view without changing the zoom unless it doesn't fit.
+      const v = viewRef.current;
+      const target = viewForRect({ x: section.x, y: section.y - tab, w: section.w, h: section.h + tab }, v.zoom);
+      animateView(target);
+      canvasRef.current?.focus({ preventScroll: true });
+      return section.id;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [commit, setSelection, setEditingId, animateView]
   );
 
   const openLink = (item) => item.url && window.open(item.url, '_blank', 'noopener,noreferrer');
@@ -823,8 +952,8 @@ export default function VisualsCanvas() {
     const chosen = itemsRef.current.filter((it) => selectionRef.current.includes(it.id));
     if (chosen.length !== 1) return;
     const it = chosen[0];
-    if (it.type === 'label') setEditingId(it.id);
-    if (it.type === 'folder' && !it.collapsed) setEditingId(it.id);
+    if (it.type === 'label' || it.type === 'text') setEditingId(it.id);
+    if (it.type === 'section' && !it.collapsed) setEditingId(it.id);
     if (it.type === 'image') setDialog({ type: 'image', id: it.id, caption: it.caption || '', url: it.url || '' });
   }, [setEditingId]);
 
@@ -841,6 +970,49 @@ export default function VisualsCanvas() {
     geomsRef.current = computeGeoms(list);
     fitToContent(list);
   }, [fitToContent, images, setItems, setSelection]);
+
+  // ---- backup: export / import ----
+  const doExport = useCallback(async () => {
+    const res = await exportBoard(itemsRef.current, viewRef.current, snapGridRef.current);
+    if (res.tooBig && !window.confirm(`This backup is about ${res.sizeMB} MB. Export anyway?`)) return;
+    if (res.tooBig) res.download();
+    else res.download();
+    showToast(`Exported ${res.itemCount} item${res.itemCount === 1 ? '' : 's'}, ${res.imageCount} image${res.imageCount === 1 ? '' : 's'}`);
+  }, [showToast]);
+  const [importing, setImporting] = useState(null); // parsed backup awaiting confirmation
+  const importFileRef = useRef(null);
+  const doImportFile = useCallback(
+    async (file) => {
+      try {
+        const parsed = await parseBackup(file, { migrateV1, repairV2, migrateV3, migrateV4, tab: visualsTab });
+        setImporting(parsed);
+      } catch {
+        showToast("This file isn't a Rooted board backup.");
+      }
+    },
+    [showToast]
+  );
+  const confirmImport = useCallback(async () => {
+    const data = importing;
+    if (!data) return;
+    setImporting(null);
+    for (const url of Object.values(images)) URL.revokeObjectURL(url);
+    await storage.clearImages();
+    const urls = {};
+    for (const [key, blob] of Object.entries(data.blobs)) {
+      await storage.putImage(key, blob);
+      urls[key] = URL.createObjectURL(blob);
+    }
+    setImages(urls);
+    history.current = { past: [], future: [] };
+    const list = settle(normalizeImages(mergeWithData(data.items, visualsTab)));
+    setItems(list);
+    setSelection([]);
+    geomsRef.current = computeGeoms(list);
+    fitToContent(list);
+    showToast(`Imported ${data.items.length} item${data.items.length === 1 ? '' : 's'}, ${Object.keys(data.blobs).length} image${Object.keys(data.blobs).length === 1 ? '' : 's'}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [importing, images, fitToContent, setItems, setSelection, showToast]);
 
   // ---- pointer gestures ----
   const trackPointer = (e) => pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -898,7 +1070,7 @@ export default function VisualsCanvas() {
       setSelection(sel.includes(item.id) ? sel.filter((id) => id !== item.id) : [...sel, item.id]);
       return;
     }
-    // Double-click (or double-tap): rename a label, rename or collapse a folder.
+    // Double-click (or double-tap): rename a label, rename or collapse a section.
     // Detected here because pointer capture keeps the browser's own dblclick
     // from reaching the item; it only fires on release if the pointer didn't move.
     const now = Date.now();
@@ -907,9 +1079,9 @@ export default function VisualsCanvas() {
     let dbl = null;
     if (last.id === item.id && now - last.time < 400 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 6) {
       lastPress.current = { id: null, time: 0, x: 0, y: 0 };
-      if (item.type === 'label' && !item.locked) dbl = { type: 'rename' };
+      if ((item.type === 'label' || item.type === 'text') && !item.locked) dbl = { type: 'rename' };
       if (item.type === 'image' && item.ribbon && e.target.closest?.('[data-ribbon]')) dbl = { type: 'ribbon' };
-      if (item.type === 'folder') {
+      if (item.type === 'section') {
         const onText = Boolean(e.target.closest?.('[data-tab-text]'));
         dbl = onText && !item.collapsed && !item.locked ? { type: 'rename' } : { type: 'collapse' };
       }
@@ -928,7 +1100,7 @@ export default function VisualsCanvas() {
       if (dbl?.type === 'collapse') toggleCollapse(item.id);
       return;
     }
-    // Children ride along inside their folder's element, so only the selected items move.
+    // Children ride along inside their section's element, so only the selected items move.
     const moving = new Map(itemsRef.current.filter((it) => nextSel.includes(it.id) && !it.locked).map((it) => [it.id, { x: rectOf(it).x, y: rectOf(it).y }]));
     gesture.current = { type: 'move', pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, startItems: itemsRef.current, primary: item.id, moving, moved: false, dbl };
     canvasRef.current.setPointerCapture(e.pointerId);
@@ -964,7 +1136,9 @@ export default function VisualsCanvas() {
     const heightFor = it.type === 'link' ? cardHeight : it.type === 'image' ? (w) => imageHeight(it, w) : undefined;
     const r0 = rectOf(it);
     if (it.type === 'link') return; // link cards have a fixed size
-    gesture.current = { type: 'resize', pointerId: e.pointerId, id: it.id, corner, start: { x: r0.x, y: r0.y, w: r0.w, h: r0.h, fontSize: it.fontSize || 14, fixedW: Boolean(it.fixedW), text: it.text }, startItems: itemsRef.current, heightFor, label: it.type === 'label', folder: it.type === 'folder', cols: it.cols || DEFAULT_COLS };
+    if (it.type === 'text' && !(corner === 'w' || corner === 'e')) return;
+    if (it.type === 'image' && it.parentId) return; // image cards inside a section keep the 280px width
+    gesture.current = { type: 'resize', pointerId: e.pointerId, id: it.id, corner, start: { x: r0.x, y: r0.y, w: r0.w, h: r0.h, fontSize: it.fontSize || 14, fixedW: Boolean(it.fixedW), text: it.text }, startItems: itemsRef.current, heightFor, label: it.type === 'label', text: it.type === 'text', section: it.type === 'section', image: it.type === 'image', cols: it.cols || DEFAULT_COLS };
     canvasRef.current.setPointerCapture(e.pointerId);
     setDraggingIds([it.id]);
   }
@@ -1027,17 +1201,28 @@ export default function VisualsCanvas() {
       const sdy = snapped.y - start.y;
       setItems(g.startItems.map((it) => (g.moving.has(it.id) ? setAbs(it, g.moving.get(it.id).x + sdx, g.moving.get(it.id).y + sdy, g.startItems) : it)));
       setOverlay({ guides: snapped.guides, spacings: snapped.spacings, box: null, tip: null });
-      // Dragging a single card or image over a folder: show where it would land.
-      if (g.moving.size === 1 && primary.type !== 'folder' && primary.type !== 'label') {
+      // Dragging a single card or image over a section: show where it would land.
+      if (g.moving.size === 1 && primary.type !== 'section' && primary.type !== 'label') {
         const cx = snapped.x + primary.w / 2;
         const cy = snapped.y + primary.h / 2;
-        const target = folderAtPoint(cx, cy, new Set([primary.id]));
+        const target = sectionAtPoint(cx, cy, new Set([primary.id]));
         if (target) {
           const tg = rectOf(target);
-          const slot = slotAt(g.startItems, target.id, snapped.x - tg.x - FOLDER_PAD, snapped.y - tg.y - FOLDER_PAD, primary);
-          setDropTarget((d) => (d && d.folderId === target.id && d.slot.index === slot.index ? d : { folderId: target.id, slot }));
+          const slot = slotAt(g.startItems, target.id, snapped.x - tg.x - SECTION_PAD, snapped.y - tg.y - SECTION_PAD, primary);
+          setDropTarget((d) => (d && d.sectionItemId === target.id && d.slot.index === slot.index ? d : { sectionItemId: target.id, slot }));
         } else setDropTarget((d) => (d ? null : d));
       }
+    } else if (g.type === 'resize' && g.text) {
+      // Text: a side handle sets a fixed width; the text wraps and re-measures.
+      const pointer = toWorld(p.clientX, p.clientY);
+      const right = g.corner === 'e';
+      const anchorX = right ? g.start.x : g.start.x + g.start.w;
+      let w = Math.max(TEXT_MIN_W, Math.round(Math.abs(pointer.x - anchorX)));
+      if (!p.altKey && snapGridRef.current) w = Math.max(TEXT_MIN_W, snapValue(w));
+      const x = right ? anchorX : anchorX - w;
+      setItems(g.startItems.map((it) => (it.id === g.id ? { ...setAbs(it, x, g.start.y, g.startItems), w } : it)));
+      const r = canvasRect();
+      setOverlay({ guides: [], spacings: [], box: null, tip: { x: p.clientX - r.left, y: p.clientY - r.top, text: `W ${w}` } });
     } else if (g.type === 'resize' && g.label) {
       // Labels: side handles change the width; corners scale the whole chip.
       const pointer = toWorld(p.clientX, p.clientY);
@@ -1082,8 +1267,8 @@ export default function VisualsCanvas() {
     } else if (g.type === 'resize') {
       const pointer = toWorld(p.clientX, p.clientY);
       const others = g.startItems.filter((it) => it.id !== g.id);
-      if (g.folder) {
-        // Folder handles change the column count; the height follows the content.
+      if (g.section) {
+        // Section handles change the column count; the height follows the content.
         const right = g.corner.includes('e');
         const anchorX = right ? g.start.x : g.start.x + g.start.w;
         const cols = colsForWidth(Math.abs(pointer.x - anchorX));
@@ -1091,13 +1276,13 @@ export default function VisualsCanvas() {
           g.cols = cols;
           const w = widthForCols(cols);
           const x = right ? anchorX : anchorX - w;
-          setItems(tidyFolder(g.startItems.map((it) => (it.id === g.id ? { ...it, cols, x } : it)), g.id));
+          setItems(tidySection(g.startItems.map((it) => (it.id === g.id ? { ...it, cols, x } : it)), g.id));
         }
         const r = canvasRect();
         setOverlay({ guides: [], spacings: [], box: null, tip: { x: p.clientX - r.left, y: p.clientY - r.top, text: `${g.cols} column${g.cols === 1 ? '' : 's'}` } });
         return;
       }
-      const { rect, guides } = snapResize(g.start, g.corner, pointer, others.map(rectOf), { threshold, grid: snapGridRef.current, noSnap: p.altKey, heightFor: g.heightFor, minW: 80 });
+      const { rect, guides } = snapResize(g.start, g.corner, pointer, others.map(rectOf), { threshold, grid: snapGridRef.current, noSnap: p.altKey, heightFor: g.heightFor, minW: g.image ? 160 : 80 });
       setItems(g.startItems.map((it) => (it.id === g.id ? { ...setAbs(it, rect.x, rect.y, g.startItems), w: rect.w, h: rect.h } : it)));
       const r = canvasRect();
       setOverlay({ guides, spacings: [], box: null, tip: { x: p.clientX - r.left, y: p.clientY - r.top, text: `${Math.round(rect.w)} × ${Math.round(rect.h)}` } });
@@ -1129,29 +1314,31 @@ export default function VisualsCanvas() {
     }
     if (g.type === 'move' && g.moved) {
       pushHistory(g.startItems);
-      // Cards and images dropped inside a folder body join it; dragged out, they leave it.
+      // Cards and images dropped inside a section body join it; dragged out, they leave it.
       let next = itemsRef.current;
       const movedTop = [...g.moving.keys()];
       let received = null;
       for (const id of movedTop) {
         const it = next.find((x) => x.id === id);
-        if (!it || it.type === 'folder' || it.type === 'label') continue;
+        if (!it || it.type === 'section' || it.type === 'label') continue;
         const r = rectOf(it);
         const cx = r.x + r.w / 2;
         const cy = r.y + r.h / 2;
-        const target = folderAtPoint(cx, cy, new Set(movedTop));
+        const target = sectionAtPoint(cx, cy, new Set(movedTop));
         if (target) {
           // Insert at the grid slot nearest the drop point, then tidy.
           const tg = rectOf(target);
-          const slot = slotAt(next, target.id, r.x - tg.x - FOLDER_PAD, r.y - tg.y - FOLDER_PAD, it);
+          const slot = slotAt(next, target.id, r.x - tg.x - SECTION_PAD, r.y - tg.y - SECTION_PAD, it);
           const from = it.parentId;
+          // Image cards take the 280px column width inside a section.
+          if (it.type === 'image' && it.w !== IMAGE_W) next = next.map((x) => (x.id === id ? { ...x, w: IMAGE_W, h: imageHeight(x, IMAGE_W) } : x));
           next = insertChildAt(next, target.id, id, slot.index);
-          if (from && from !== target.id) next = tidyFolder(next, from);
+          if (from && from !== target.id) next = tidySection(next, from);
           if (target.id !== from) received = target.id;
         } else if (it.parentId) {
           const from = it.parentId;
           next = next.map((x) => (x.id === id ? { ...x, parentId: undefined, cx: undefined, cy: undefined, x: r.x, y: r.y } : x));
-          next = tidyFolder(next, from);
+          next = tidySection(next, from);
         }
       }
       setDropTarget(null);
@@ -1164,7 +1351,7 @@ export default function VisualsCanvas() {
     }
     if (g.type === 'resize') {
       pushHistory(g.startItems);
-      if (g.folder) setItems(settle(itemsRef.current));
+      if (g.section) setItems(settle(itemsRef.current));
     }
     setDropTarget(null);
     endGesture();
@@ -1173,16 +1360,26 @@ export default function VisualsCanvas() {
   // ---- labels: measuring and inline editing ----
   const onMeasure = useCallback(
     (id, w, h) => {
-      setItems(itemsRef.current.map((it) => (it.id === id ? { ...it, w, h } : it)));
+      setItems(itemsRef.current.map((it) => (it.id === id ? (it.type === 'text' ? { ...it, mw: w, mh: h } : { ...it, w, h }) : it)));
     },
     [setItems]
   );
+  const text0 = (t) => (t == null ? '' : String(t));
   const onEditCommit = useCallback(
     (item, text) => {
       if (editingRef.current !== item.id) return;
       setEditingId(null);
-      if (item.type === 'folder') {
-        const title = text || item.title || 'Folder';
+      if (item.type === 'text') {
+        const value = text0(text).replace(/\s+$/, '');
+        if (!value.trim()) {
+          commit(itemsRef.current.filter((it) => it.id !== item.id));
+          setSelection([]);
+        } else if (value !== item.text) commit(itemsRef.current.map((it) => (it.id === item.id ? { ...it, text: value } : it)));
+        canvasRef.current?.focus({ preventScroll: true });
+        return;
+      }
+      if (item.type === 'section') {
+        const title = text || item.title || 'Section';
         if (title !== item.title) commit(itemsRef.current.map((it) => (it.id === item.id ? { ...it, title } : it)));
         canvasRef.current?.focus({ preventScroll: true });
         return;
@@ -1231,8 +1428,8 @@ export default function VisualsCanvas() {
     const mod = (k) => modLabel(k);
     if (menu.kind === 'canvas') {
       return [
-        { label: 'Add folder', icon: FolderIcon, onSelect: () => addFolder(null) },
-        { label: 'Add label', icon: TagIcon, onSelect: () => addLabel('Label') },
+        { label: 'Add section', icon: SectionIcon, onSelect: () => addSection() },
+        { label: 'Add text', icon: TextIcon, onSelect: () => addText() },
         { label: 'Upload image', icon: ImageIcon, onSelect: () => document.getElementById('canvas-file-input')?.click() },
         { label: 'Zoom to fit', icon: FrameIcon, onSelect: () => fitToContent() },
         { label: 'Zoom to 100%', icon: ZoomInIcon, shortcut: mod('0'), onSelect: () => zoomTo(1) },
@@ -1245,11 +1442,11 @@ export default function VisualsCanvas() {
     const one = chosen.length === 1 ? chosen[0] : null;
     const allLocked = chosen.length > 0 && chosen.every((it) => it.locked);
     const entries = [];
-    if (one && one.type !== 'link' && !(one.type === 'folder' && one.collapsed)) entries.push({ label: 'Edit', icon: PencilIcon, onSelect: startEdit });
-    const folders = chosen.filter((it) => it.type === 'folder');
-    if (folders.length) {
-      const f = folders[0];
-      entries.push({ label: 'Color', icon: PaletteIcon, submenu: [...FOLDER_PRESETS.map((p) => ({ label: p.name, swatch: p.bg, selected: (f.color || DEFAULT_FOLDER_COLOR) === p.id, onSelect: () => setLabelColor(p.id) })), 'divider', { label: 'Custom…', onSelect: () => colorInput.current?.click() }] });
+    if (one && one.type !== 'link' && !(one.type === 'section' && one.collapsed)) entries.push({ label: 'Edit', icon: PencilIcon, onSelect: startEdit });
+    const sections = chosen.filter((it) => it.type === 'section');
+    if (sections.length) {
+      const f = sections[0];
+      entries.push({ label: 'Color', icon: PaletteIcon, submenu: [...SECTION_PRESETS.map((p) => ({ label: p.name, swatch: p.bg, selected: (f.color || DEFAULT_SECTION_COLOR) === p.id, onSelect: () => setLabelColor(p.id) })), 'divider', { label: 'Custom…', onSelect: () => colorInput.current?.click() }] });
       entries.push({ label: 'Size', icon: TextSizeIcon, submenu: LABEL_SIZES.map((sz) => ({ label: `${sz.id} (${sz.fs})`, selected: f.fontSize === sz.fs, onSelect: () => setLabelSize(sz.fs) })) });
       entries.push({ label: 'Tab position', icon: TabSideIcon, submenu: [{ label: 'Left', selected: f.tabSide !== 'right', onSelect: () => setTabSide('left') }, { label: 'Right', selected: f.tabSide === 'right', onSelect: () => setTabSide('right') }] });
       entries.push({ label: f.collapsed ? 'Expand' : 'Collapse', icon: f.collapsed ? ExpandIcon : CollapseIcon, onSelect: () => toggleCollapse() });
@@ -1260,6 +1457,17 @@ export default function VisualsCanvas() {
     if (ribbonEntries) {
       if (ribbonEntries.length === 1) entries.push(ribbonEntries[0]);
       else entries.push({ label: 'Ribbon', icon: RibbonIcon, submenu: ribbonEntries });
+    }
+    const texts = chosen.filter((it) => it.type === 'text');
+    if (texts.length) {
+      const t = texts[0];
+      const presets = t.fill === 'filled' ? SECTION_PRESETS : TEXT_COLOR_PRESETS;
+      entries.push({ label: 'Fill', icon: t.fill === 'filled' ? FillIcon : TransparentIcon, submenu: [{ label: 'Filled', icon: FillIcon, selected: t.fill === 'filled', onSelect: () => setTextProps({ fill: 'filled' }) }, { label: 'Transparent', icon: TransparentIcon, selected: t.fill !== 'filled', onSelect: () => setTextProps({ fill: 'transparent' }) }] });
+      entries.push({ label: 'Color', icon: PaletteIcon, submenu: [...presets.map((p) => ({ label: p.name, swatch: p.bg, selected: t.color === p.id, onSelect: () => setTextProps({ color: p.id }) })), 'divider', { label: 'Custom…', onSelect: () => colorInputText.current?.click() }] });
+      entries.push({ label: 'Size', icon: TextSizeIcon, submenu: TEXT_SIZE_IDS.map((id) => ({ label: `${id} (${{ S: 14, M: 20, L: 28, XL: 40 }[id]})`, selected: t.size === id, onSelect: () => setTextProps({ size: id }) })) });
+      entries.push({ label: 'Weight', icon: BoldIcon, submenu: [{ label: 'Regular', selected: t.weight === 400, onSelect: () => setTextProps({ weight: 400 }) }, { label: 'Medium', selected: t.weight !== 400, onSelect: () => setTextProps({ weight: 500 }) }] });
+      entries.push({ label: 'Align', icon: AlignTextLeftIcon, submenu: [{ label: 'Left', icon: AlignTextLeftIcon, selected: !t.align || t.align === 'left', onSelect: () => setTextProps({ align: 'left' }) }, { label: 'Center', icon: AlignTextCenterIcon, selected: t.align === 'center', onSelect: () => setTextProps({ align: 'center' }) }, { label: 'Right', icon: AlignTextRightIcon, selected: t.align === 'right', onSelect: () => setTextProps({ align: 'right' }) }] });
+      if (typeof t.w === 'number') entries.push({ label: 'Auto width', icon: AutoWidthIcon, onSelect: () => setTextProps({ w: 'auto' }) });
     }
     const labels = chosen.filter((it) => it.type === 'label');
     if (labels.length) {
@@ -1288,7 +1496,7 @@ export default function VisualsCanvas() {
     entries.push({ label: 'Remove', icon: TrashIcon, danger: true, shortcut: 'Del', disabled: allLocked, onSelect: deleteSelected });
     return entries;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menu, snapGrid, addLabel, addFolder, fitToContent, zoomTo, startEdit, duplicateSelected, bringToFront, sendToBack, align, toggleLock, deleteSelected, setLabelColor, setLabelSize, setTabSide, toggleCollapse, tidySelected, addOrEditRibbon, setRibbon, removeRibbon, startRibbonEdit]);
+  }, [menu, snapGrid, addLabel, addSection, fitToContent, zoomTo, startEdit, duplicateSelected, bringToFront, sendToBack, align, toggleLock, deleteSelected, setLabelColor, setLabelSize, setTabSide, toggleCollapse, tidySelected, addOrEditRibbon, setRibbon, removeRibbon, startRibbonEdit, setTextProps]);
 
   // ---- keyboard (only while the canvas has focus) ----
   function onKeyDown(e) {
@@ -1325,6 +1533,11 @@ export default function VisualsCanvas() {
       e.preventDefault();
       if (e.shiftKey) redo();
       else undo();
+      return;
+    }
+    if (mod && lower === 'j') {
+      e.preventDefault();
+      openSectionList(document.querySelector('[aria-label="Sections (⌘J)"]')?.getBoundingClientRect());
       return;
     }
     if (mod && lower === 'a') {
@@ -1398,18 +1611,18 @@ export default function VisualsCanvas() {
   geomsRef.current = geoms;
   const single = selectedItems.length === 1 ? selectedItems[0] : null;
   const singleRect = single ? geoms.get(single.id) : null;
-  // Folder handles sit on the tab + body frame; link cards have no handles.
-  const handles = single && singleRect && !single.locked && !editingId && single.type !== 'link' ? (single.type === 'folder' ? { x: singleRect.x, y: singleRect.y - singleRect.tabH, w: singleRect.w, h: singleRect.h + singleRect.tabH } : { x: singleRect.x, y: singleRect.y, w: singleRect.w, h: singleRect.h }) : null;
-  const sizeLabel = single?.type === 'folder' && singleRect ? { x: singleRect.x, y: singleRect.y + singleRect.h, text: `${single.cols || DEFAULT_COLS} column${(single.cols || DEFAULT_COLS) === 1 ? '' : 's'} · ${Math.round(singleRect.w)} × ${Math.round(singleRect.h)}` } : null;
-  const groupBox = selectedItems.length > 1 ? bounds(selectedItems.map((it) => { const g = geoms.get(it.id); return it.type === 'folder' ? { x: g.x, y: g.y - g.tabH, w: g.w, h: g.h + g.tabH } : g; })) : null;
+  // Section handles sit on the tab + body frame; link cards have no handles.
+  const handles = single && singleRect && !single.locked && !editingId && single.type !== 'link' ? (single.type === 'section' ? { x: singleRect.x, y: singleRect.y - singleRect.tabH, w: singleRect.w, h: singleRect.h + singleRect.tabH } : { x: singleRect.x, y: singleRect.y, w: singleRect.w, h: singleRect.h }) : null;
+  const sizeLabel = single?.type === 'section' && singleRect ? { x: singleRect.x, y: singleRect.y + singleRect.h, text: `${single.cols || DEFAULT_COLS} column${(single.cols || DEFAULT_COLS) === 1 ? '' : 's'} · ${Math.round(singleRect.w)} × ${Math.round(singleRect.h)}` } : null;
+  const groupBox = selectedItems.length > 1 ? bounds(selectedItems.map((it) => { const g = geoms.get(it.id); return it.type === 'section' ? { x: g.x, y: g.y - g.tabH, w: g.w, h: g.h + g.tabH } : g; })) : null;
   const selectedParents = new Set(selectedItems.map((it) => it.parentId).filter(Boolean));
-  // Folders render first (stack order, or by z), then loose items by z. Children
-  // render inside their folder's element.
+  // Sections render first (stack order, or by z), then loose items by z. Children
+  // render inside their section's element.
   const sorted = useMemo(() => {
     const byZ = (a, b) => a.z - b.z;
-    return [...items.filter((it) => it.type === 'folder').sort(byZ), ...items.filter((it) => it.type !== 'folder' && !it.parentId).sort(byZ)];
+    return [...items.filter((it) => it.type === 'section').sort(byZ), ...items.filter((it) => it.type !== 'section' && !it.parentId).sort(byZ)];
   }, [items]);
-  const childrenByFolder = useMemo(() => {
+  const childrenBySection = useMemo(() => {
     const m = new Map();
     for (const it of items) if (it.parentId) (m.get(it.parentId) || m.set(it.parentId, []).get(it.parentId)).push(it);
     for (const list of m.values()) list.sort((a, b) => a.z - b.z);
@@ -1420,11 +1633,11 @@ export default function VisualsCanvas() {
     for (const it of items) if (it.parentId) m.set(it.parentId, (m.get(it.parentId) || 0) + 1);
     return m;
   }, [items]);
-  const firstFolder = selectedItems.find((it) => it.type === 'folder');
-  const folderEntries = firstFolder
+  const firstSection = selectedItems.find((it) => it.type === 'section');
+  const sectionEntries = firstSection
     ? [
-        { label: 'Tab position', icon: TabSideIcon, submenu: [{ label: 'Left', selected: firstFolder.tabSide !== 'right', onSelect: () => setTabSide('left') }, { label: 'Right', selected: firstFolder.tabSide === 'right', onSelect: () => setTabSide('right') }] },
-        { label: firstFolder.collapsed ? 'Expand' : 'Collapse', icon: firstFolder.collapsed ? ExpandIcon : CollapseIcon, onSelect: () => toggleCollapse() },
+        { label: 'Tab position', icon: TabSideIcon, submenu: [{ label: 'Left', selected: firstSection.tabSide !== 'right', onSelect: () => setTabSide('left') }, { label: 'Right', selected: firstSection.tabSide === 'right', onSelect: () => setTabSide('right') }] },
+        { label: firstSection.collapsed ? 'Expand' : 'Collapse', icon: firstSection.collapsed ? ExpandIcon : CollapseIcon, onSelect: () => toggleCollapse() },
         { label: 'Tidy up', icon: TidyIcon, onSelect: tidySelected },
         'divider',
         { label: 'Duplicate', icon: CopyIcon, onSelect: duplicateSelected },
@@ -1455,9 +1668,9 @@ export default function VisualsCanvas() {
       dimmed={Boolean(ribbonFilter) && item.type === 'image' && item.ribbon?.status !== ribbonFilter}
       ribbonEditing={ribbonEditId === item.id && !phone}
       imageUrl={item.type === 'image' ? images[item.imageKey] : undefined}
-      geom={item.type === 'folder' ? geoms.get(item.id) : null}
-      childSelected={item.type === 'folder' && selectedParents.has(item.id)}
-      dropGhost={dropTarget && dropTarget.folderId === item.id ? dropTarget.slot : null}
+      geom={item.type === 'section' ? geoms.get(item.id) : null}
+      childSelected={item.type === 'section' && selectedParents.has(item.id)}
+      dropGhost={dropTarget && dropTarget.sectionItemId === item.id ? dropTarget.slot : null}
       onPointerDown={onItemPointerDown}
       onDoubleClick={onItemDoubleClick}
       onContextMenu={onItemContextMenu}
@@ -1469,10 +1682,11 @@ export default function VisualsCanvas() {
       onRibbonCancel={onRibbonCancel}
       {...extra}
     >
-      {item.type === 'folder' && !item.collapsed ? (childrenByFolder.get(item.id) || []).map((child) => renderItem(child)) : null}
+      {item.type === 'section' && !item.collapsed ? (childrenBySection.get(item.id) || []).map((child) => renderItem(child)) : null}
     </CanvasItem>
   );
   const firstLabel = selectedItems.find((it) => it.type === 'label');
+  const firstText = selectedItems.find((it) => it.type === 'text');
 
   return (
     <>
@@ -1516,21 +1730,24 @@ export default function VisualsCanvas() {
           </div>
         )}
 
-        <Guides guides={overlay.guides} spacings={overlay.spacings} box={overlay.box} handles={handles} sideHandles={single?.type === 'label' || single?.type === 'folder'} tip={overlay.tip} sizeLabel={sizeLabel} groupBox={groupBox} toScreen={toScreen} zoom={view.zoom} onHandlePointerDown={onHandlePointerDown} />
+        <Guides guides={overlay.guides} spacings={overlay.spacings} box={overlay.box} handles={handles} sideHandles={single?.type === 'label' || single?.type === 'section' || single?.type === 'text'} sidesOnly={single?.type === 'text'} tip={overlay.tip} sizeLabel={sizeLabel} groupBox={groupBox} toScreen={toScreen} zoom={view.zoom} onHandlePointerDown={onHandlePointerDown} />
 
         <ToolBar
           selectionCount={selection.length}
-          canEdit={!!single && single.type !== 'link' && !(single.type === 'folder' && single.collapsed)}
+          canEdit={!!single && single.type !== 'link' && !(single.type === 'section' && single.collapsed)}
           allLocked={selectedItems.length > 0 && selectedItems.every((it) => it.locked)}
           labelColor={firstLabel ? firstLabel.color || DEFAULT_LABEL_COLOR : undefined}
-          labelSize={firstLabel ? firstLabel.fontSize || 14 : firstFolder ? firstFolder.fontSize || 13 : undefined}
-          folderColor={!firstLabel && firstFolder ? firstFolder.color || DEFAULT_FOLDER_COLOR : undefined}
-          folderEntries={folderEntries}
+          labelSize={firstLabel ? firstLabel.fontSize || 14 : firstSection ? firstSection.fontSize || 13 : undefined}
+          sectionColor={!firstLabel && firstSection ? firstSection.color || DEFAULT_SECTION_COLOR : undefined}
+          sectionEntries={sectionEntries}
+          textProps={firstText ? { fill: firstText.fill || 'transparent', color: firstText.color, swatch: firstText.fill === 'filled' ? textColors(firstText).bg : textColors(firstText).text, size: firstText.size || 'M', weight: firstText.weight || 500, align: firstText.align || 'left' } : undefined}
+          onText={setTextProps}
           ribbonEntries={ribbonEntriesFor(selectedItems.filter((it) => it.type === 'image'))}
           onRibbonMenu={(open) => {
             ribbonMenuOpen.current = open;
           }}
-          onAddFolder={addFolder}
+          onAddSection={() => addSection()}
+          onAddText={() => addText()}
           phone={phone}
           onPickColor={setLabelColor}
           onPickSize={setLabelSize}
@@ -1551,8 +1768,22 @@ export default function VisualsCanvas() {
           onReset={() => zoomTo(1)}
           onToggleSnap={() => setSnapGrid(!snapGridRef.current)}
           onFit={() => fitToContent()}
+          onSections={(anchor) => (sectionList ? setSectionList(null) : openSectionList(anchor))}
+          sectionsOpen={Boolean(sectionList)}
         />
-        <InfoPopover ribbonFilter={ribbonFilter} onRibbonFilter={setRibbonFilter} />
+        {sectionList &&
+          (() => {
+            const sections = [...items.filter((it) => it.type === 'section')].sort((a, b) => a.y - b.y || a.x - b.x);
+            const entries = [
+              ...sections.map((f) => ({ label: f.title || 'Untitled section', swatch: sectionColors(f.color).bg, trailing: items.filter((it) => it.parentId === f.id).length, onSelect: () => jumpToSection(f.id) })),
+              'divider',
+              { label: '+ New section', icon: SectionIcon, keep: true, onSelect: () => addSection() },
+            ];
+            const props = { entries, onClose: () => setSectionList(null), label: 'Sections' };
+            return phone ? <SheetMenu {...props} /> : <ContextMenu x={sectionList.x} y={sectionList.y} above searchable placeholder="Jump to a section…" {...props} />;
+          })()}
+        <InfoPopover ribbonFilter={ribbonFilter} onRibbonFilter={setRibbonFilter} onExport={doExport} onImport={() => importFileRef.current?.click()} />
+        <input ref={importFileRef} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) doImportFile(f); e.target.value = ''; }} />
         {toast ? (
           <div className="canvas__toast canvas__toast--dark" role="status">
             {toast}
@@ -1570,6 +1801,7 @@ export default function VisualsCanvas() {
       </div>
 
       <input ref={colorInput} type="color" className="visually-hidden" tabIndex={-1} aria-hidden="true" defaultValue="#AABBCC" onChange={(e) => setLabelColor(e.target.value)} />
+      <input ref={colorInputText} type="color" className="visually-hidden" tabIndex={-1} aria-hidden="true" defaultValue="#AABBCC" onChange={(e) => setTextProps({ color: e.target.value })} />
       {menu &&
         (phone ? (
           <SheetMenu entries={menuEntries} onClose={() => setMenu(null)} label={menu.kind === 'item' ? 'Options' : 'Canvas'} />
@@ -1590,7 +1822,7 @@ export default function VisualsCanvas() {
         </div>
       </Modal>
 
-      <Modal open={dialog?.type === 'deleteFolder'} onClose={() => setDialog(null)} title={`Delete folder and its ${dialog?.count} item${dialog?.count === 1 ? '' : 's'}?`} subtitle="You can also keep the items and only remove the folder." width={420}>
+      <Modal open={dialog?.type === 'deleteSection'} onClose={() => setDialog(null)} title={`Delete section and its ${dialog?.count} item${dialog?.count === 1 ? '' : 's'}?`} subtitle="You can also keep the items and only remove the section." width={420}>
         <div className="cdialog">
           <div className="modal__actions">
             <button type="button" className="button button--light" data-autofocus onClick={() => setDialog(null)}>
@@ -1635,6 +1867,19 @@ export default function VisualsCanvas() {
         )}
       </Modal>
 
+      <Modal open={Boolean(importing)} onClose={() => setImporting(null)} title="Replace your current board with this backup?" subtitle={importing ? `${importing.items.length} item${importing.items.length === 1 ? '' : 's'}, ${Object.keys(importing.blobs).length} image${Object.keys(importing.blobs).length === 1 ? '' : 's'}. This can't be undone.` : ''} width={420}>
+        <div className="cdialog">
+          <div className="modal__actions">
+            <button type="button" className="button button--light" data-autofocus onClick={() => setImporting(null)}>
+              Cancel
+            </button>
+            <button type="button" className="button button--dark" onClick={confirmImport}>
+              Replace board
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       <Modal open={dialog?.type === 'image'} onClose={() => setDialog(null)} title="Edit image" width={420}>
         {dialog?.type === 'image' && (
           <form
@@ -1643,7 +1888,7 @@ export default function VisualsCanvas() {
               e.preventDefault();
               const caption = dialog.caption.trim();
               const url = dialog.url.trim();
-              commit(itemsRef.current.map((it) => (it.id === dialog.id ? { ...it, caption, url: url || undefined, h: imageHeight({ ...it, caption }, it.w) } : it)));
+              commit(itemsRef.current.map((it) => (it.id === dialog.id ? { ...it, caption, url: url || undefined } : it)));
               setDialog(null);
             }}
           >
@@ -1670,4 +1915,3 @@ export default function VisualsCanvas() {
   );
 }
 
-export { LABEL_PRESETS };

@@ -398,10 +398,11 @@ export function BackIcon(props) {
   );
 }
 
-export function FolderIcon(props) {
+export function SectionIcon(props) {
   return (
     <svg {...base} {...props}>
-      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
+      <path d="M3 9V7a2 2 0 0 1 2-2h5l1 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" />
+      <path d="M3 10h18" />
     </svg>
   );
 }
@@ -447,6 +448,181 @@ export function RibbonIcon(props) {
   return (
     <svg {...base} {...props}>
       <path d="M7 3h10v18l-5-4-5 4V3Z" />
+    </svg>
+  );
+}
+
+export function TextIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M5 6V4h14v2" />
+      <path d="M12 4v16" />
+      <path d="M9 20h6" />
+    </svg>
+  );
+}
+
+export function ListIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M8 6h12" />
+      <path d="M8 12h12" />
+      <path d="M8 18h12" />
+      <path d="M4 6h.01" />
+      <path d="M4 12h.01" />
+      <path d="M4 18h.01" />
+    </svg>
+  );
+}
+
+export function ArrowUpToLineIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M5 4h14" />
+      <path d="M12 20V8" />
+      <path d="m7 13 5-5 5 5" />
+    </svg>
+  );
+}
+
+export function ArrowDownToLineIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M5 20h14" />
+      <path d="M12 4v12" />
+      <path d="m7 11 5 5 5-5" />
+    </svg>
+  );
+}
+
+export function PanelLeftIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9 4v16" />
+    </svg>
+  );
+}
+
+export function PanelRightIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M15 4v16" />
+    </svg>
+  );
+}
+
+export function ChevronsUpIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="m7 15 5-5 5 5" />
+      <path d="m7 20 5-5 5 5" />
+    </svg>
+  );
+}
+
+export function ChevronsDownIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="m7 4 5 5 5-5" />
+      <path d="m7 9 5 5 5-5" />
+    </svg>
+  );
+}
+
+export function ScanIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+      <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+      <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+      <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+    </svg>
+  );
+}
+
+export function FillIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="4" y="4" width="16" height="16" rx="4" fill="currentColor" fillOpacity="0.25" />
+    </svg>
+  );
+}
+
+export function TransparentIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="4" y="4" width="16" height="16" rx="4" strokeDasharray="3 3" />
+    </svg>
+  );
+}
+
+export function BoldIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M7 4h7a4 4 0 0 1 0 8H7z" />
+      <path d="M7 12h8a4 4 0 0 1 0 8H7z" />
+    </svg>
+  );
+}
+
+export function AlignTextLeftIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 6h16" />
+      <path d="M4 12h10" />
+      <path d="M4 18h14" />
+    </svg>
+  );
+}
+
+export function AlignTextCenterIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 6h16" />
+      <path d="M7 12h10" />
+      <path d="M5 18h14" />
+    </svg>
+  );
+}
+
+export function AlignTextRightIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 6h16" />
+      <path d="M10 12h10" />
+      <path d="M6 18h14" />
+    </svg>
+  );
+}
+
+export function AutoWidthIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 12h16" />
+      <path d="m8 8-4 4 4 4" />
+      <path d="m16 8 4 4-4 4" />
+    </svg>
+  );
+}
+
+export function DownloadIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 4v11" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M5 20h14" />
+    </svg>
+  );
+}
+
+export function UploadIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 20V9" />
+      <path d="m7 14 5-5 5 5" />
+      <path d="M5 4h14" />
     </svg>
   );
 }

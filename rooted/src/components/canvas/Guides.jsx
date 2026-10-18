@@ -4,7 +4,7 @@
 const CORNERS = ['nw', 'ne', 'sw', 'se'];
 const SIDES = ['w', 'e'];
 
-export default function Guides({ guides, spacings, box, handles, sideHandles = false, cornersOnly = false, tip, sizeLabel, groupBox, toScreen, zoom, onHandlePointerDown }) {
+export default function Guides({ guides, spacings, box, handles, sideHandles = false, sidesOnly = false, tip, sizeLabel, groupBox, toScreen, zoom, onHandlePointerDown }) {
   return (
     <div className="canvas__overlay" aria-hidden="true">
       {guides.map((g, i) =>
@@ -77,6 +77,7 @@ export default function Guides({ guides, spacings, box, handles, sideHandles = f
       )}
 
       {handles &&
+        !sidesOnly &&
         CORNERS.map((c) => {
           const x = c.includes('e') ? handles.x + handles.w : handles.x;
           const y = c.includes('s') ? handles.y + handles.h : handles.y;

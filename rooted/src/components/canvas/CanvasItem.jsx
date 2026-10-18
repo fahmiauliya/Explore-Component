@@ -2,8 +2,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Card from '../Card.jsx';
 import { LockIcon } from '../Icons.jsx';
 import { labelColors, labelMetrics } from './labelColors.js';
-import { FOLDER_PAD, darken, folderColors, folderPath, tabTitle } from './folders.js';
+import { SECTION_PAD, darken, sectionColors, sectionPath, tabTitle } from './sections.js';
 import { RIBBON_BASE_W, RIBBON_FOLD, RIBBON_LIMITS, ribbonLayout, ribbonPath, ribbonStatus, ribbonWidth } from './ribbon.js';
+import { TEXT_LINE, TEXT_PAD_X, TEXT_PAD_Y, textColors, textFontSize } from './text.js';
 
 // One thing on the board: a label, a link card or an uploaded image.
 // Positioning is done by the parent (world coordinates); this only draws it.
@@ -15,19 +16,24 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
   // Labels size themselves to their text and link cards to their content;
   // report the real size back so selection and snapping use it.
   useLayoutEffect(() => {
-    if (item.type === 'image' || item.type === 'folder' || !ref.current) return;
+    if (item.type === 'image' || item.type === 'section' || !ref.current) return;
     const w = ref.current.offsetWidth;
     const h = ref.current.offsetHeight;
+    if (item.type === 'text') {
+      if (Math.abs(w - (item.mw || 0)) > 0.5 || Math.abs(h - (item.mh || 0)) > 0.5) onMeasure(item.id, w, h);
+      return;
+    }
     if (Math.abs(w - item.w) > 0.5 || Math.abs(h - item.h) > 0.5) onMeasure(item.id, w, h);
-  }, [item.type, item.text, item.w, item.h, item.id, item.fontSize, item.fixedW, onMeasure, editing]);
+  }, [item.type, item.text, item.w, item.h, item.mw, item.mh, item.id, item.fontSize, item.fixedW, item.size, item.fill, item.weight, item.align, onMeasure, editing]);
 
   // Focus and select the text when inline editing starts. The editable span
   // owns its text from here on, so re-renders never move the caret.
   useEffect(() => {
     if (!editing || !editRef.current) return;
     const el = editRef.current;
-    el.textContent = item.type === 'folder' ? item.title || '' : item.text;
+    el.textContent = item.type === 'section' ? item.title || '' : item.text;
     el.focus();
+    if (item.type === 'text') el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
     const range = document.createRange();
     range.selectNodeContents(el);
     const sel = window.getSelection();
@@ -36,7 +42,7 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing]);
 
-  const label = item.type === 'label' ? item.text : item.type === 'link' ? item.name : item.type === 'folder' ? `${item.title || 'Folder'} folder` : item.caption || 'Image';
+  const label = item.type === 'label' || item.type === 'text' ? item.text : item.type === 'link' ? item.name : item.type === 'section' ? `${item.title || 'Section'} section` : item.caption || 'Image';
 
   function onKeyDown(e) {
     if (editing) return;
@@ -47,23 +53,38 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
   }
 
   const chip = item.type === 'label' ? labelColors(item.color) : null;
+  const tx = item.type === 'text' ? textColors(item) : null;
   const metrics = item.type === 'label' ? labelMetrics(item.fontSize || 14) : null;
-  const folder = item.type === 'folder' && geom ? { ...folderColors(item.color), g: geom } : null;
-  // Children sit inside their folder's padded body; everything else uses world coordinates.
-  const pos = item.parentId ? { x: FOLDER_PAD + (item.cx || 0), y: FOLDER_PAD + (item.cy || 0) } : { x: item.x, y: item.y };
-  const style = folder
+  const section = item.type === 'section' && geom ? { ...sectionColors(item.color), g: geom } : null;
+  // Children sit inside their section's padded body; everything else uses world coordinates.
+  const pos = item.parentId ? { x: SECTION_PAD + (item.cx || 0), y: SECTION_PAD + (item.cy || 0) } : { x: item.x, y: item.y };
+  const style = section
     ? {
-        transform: `translate(${folder.g.x}px, ${folder.g.y - folder.g.tabH}px)`,
-        width: folder.g.w,
-        height: folder.g.tabH + folder.g.h,
+        transform: `translate(${section.g.x}px, ${section.g.y - section.g.tabH}px)`,
+        width: section.g.w,
+        height: section.g.tabH + section.g.h,
         zIndex: dragging ? 100000 : item.z,
       }
     : {
         transform: `translate(${pos.x}px, ${pos.y}px)`,
-        width: item.type === 'label' ? (item.fixedW ? item.w : 'auto') : item.w,
+        width: item.type === 'label' ? (item.fixedW ? item.w : 'auto') : item.type === 'text' ? (typeof item.w === 'number' ? item.w : 'auto') : item.w,
         height: item.type === 'image' ? item.h : 'auto',
         zIndex: dragging ? 100000 : item.z,
       };
+  if (tx) {
+    Object.assign(style, {
+      background: tx.bg,
+      color: tx.text,
+      borderColor: tx.border,
+      fontSize: textFontSize(item),
+      lineHeight: TEXT_LINE,
+      fontWeight: item.weight || 500,
+      textAlign: item.align || 'left',
+      padding: item.fill === 'filled' ? `${TEXT_PAD_Y}px ${TEXT_PAD_X}px` : 0,
+      borderWidth: item.fill === 'filled' ? 1 : 0,
+      whiteSpace: typeof item.w === 'number' ? 'pre-wrap' : 'pre',
+    });
+  }
   Object.assign(style, {
     ...(chip
       ? {
@@ -118,53 +139,83 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
           <span key="text" className="citem__label">{item.text}</span>
         ))}
 
+      {item.type === 'text' &&
+        (editing ? (
+          <span
+            key="edit"
+            ref={editRef}
+            className="ctext__edit citem__label-edit"
+            contentEditable
+            suppressContentEditableWarning
+            spellCheck="false"
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                onEditCommit(item, editRef.current.textContent);
+              } else if (e.key === 'Enter') {
+                // Enter and Shift+Enter add a line; a click outside or Esc finishes.
+                e.preventDefault();
+                document.execCommand('insertText', false, '\n');
+              }
+            }}
+            onBlur={() => onEditCommit(item, editRef.current?.textContent ?? item.text)}
+            onPointerDown={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span key="text" className="ctext__text">
+            {item.text}
+          </span>
+        ))}
+
       {item.type === 'link' && <Card item={{ ...item, key: item.id }} interactive={false} showImage={visible} />}
 
       {item.type === 'image' && (
         <>
-          {imageUrl && visible ? (
-            <img className="citem__img" src={imageUrl} alt={item.caption || ''} draggable={false} />
-          ) : (
-            <span className="citem__img citem__img--missing" />
-          )}
-          {item.caption && <span className="citem__caption">{item.caption}</span>}
+          <span className="icard">
+            {imageUrl && visible ? (
+              <img className="citem__img" src={imageUrl} alt={item.caption || ''} draggable={false} />
+            ) : (
+              <span className="citem__img citem__img--missing" style={{ aspectRatio: item.ratio || 1.6 }} />
+            )}
+          </span>
           {item.ribbon && <Ribbon item={item} editing={ribbonEditing} tip={tip} setTip={setTip} onCommit={onRibbonCommit} onCancel={onRibbonCancel} />}
         </>
       )}
 
-      {folder && (
+      {section && (
         <>
           <svg
-            className="folder__svg"
-            width={folder.g.w}
-            height={folder.g.tabH + folder.g.h}
-            viewBox={`0 0 ${folder.g.w} ${folder.g.tabH + folder.g.h}`}
+            className="section__svg"
+            width={section.g.w}
+            height={section.g.tabH + section.g.h}
+            viewBox={`0 0 ${section.g.w} ${section.g.tabH + section.g.h}`}
             aria-hidden="true"
             data-tab
           >
-            <path className="folder__shape" d={folderPath(folder.g.w, folder.g.h, folder.g.tabH, folder.g.tabX, folder.g.tabW, folder.g.curve, folder.g.corner)} fill={folder.bg} stroke={flash ? darken(folder.bg) : 'rgba(0,0,0,0.06)'} strokeWidth={flash ? 2 : 1} />
+            <path className="section__shape" d={sectionPath(section.g.w, section.g.h, section.g.tabH, section.g.tabX, section.g.tabW, section.g.curve, section.g.corner)} fill={section.bg} stroke={flash ? darken(section.bg) : 'rgba(0,0,0,0.06)'} strokeWidth={flash ? 2 : 1} />
             {/* hover / selected stroke along the same path (2px at any zoom) */}
-            <path className="folder__outline" d={folderPath(folder.g.w, folder.g.h, folder.g.tabH, folder.g.tabX, folder.g.tabW, folder.g.curve, folder.g.corner)} fill="none" vectorEffect="non-scaling-stroke" />
+            <path className="section__outline" d={sectionPath(section.g.w, section.g.h, section.g.tabH, section.g.tabX, section.g.tabW, section.g.curve, section.g.corner)} fill="none" vectorEffect="non-scaling-stroke" />
             {childCount === 0 && !item.collapsed && (
-              <rect className="folder__empty-outline" x={12} y={folder.g.tabH + 12} width={folder.g.w - 24} height={folder.g.h - 24} rx={10} fill="none" stroke={folder.text} strokeOpacity="0.2" strokeWidth="1.5" strokeDasharray="6 6" />
+              <rect className="section__empty-outline" x={12} y={section.g.tabH + 12} width={section.g.w - 24} height={section.g.h - 24} rx={10} fill="none" stroke={section.text} strokeOpacity="0.2" strokeWidth="1.5" strokeDasharray="6 6" />
             )}
             {dropGhost && !item.collapsed && (
               <>
-                <rect x={12} y={folder.g.tabH + 12} width={folder.g.w - 24} height={folder.g.h - 24} rx={10} fill="none" stroke={darken(folder.bg)} strokeWidth="2" strokeDasharray="8 6" />
-                <rect x={FOLDER_PAD + dropGhost.cx} y={folder.g.tabH + FOLDER_PAD + dropGhost.cy} width={dropGhost.w} height={dropGhost.h} rx={16} fill="rgba(0,0,0,0.12)" />
+                <rect x={12} y={section.g.tabH + 12} width={section.g.w - 24} height={section.g.h - 24} rx={10} fill="none" stroke={darken(section.bg)} strokeWidth="2" strokeDasharray="8 6" />
+                <rect x={SECTION_PAD + dropGhost.cx} y={section.g.tabH + SECTION_PAD + dropGhost.cy} width={dropGhost.w} height={dropGhost.h} rx={16} fill="rgba(0,0,0,0.12)" />
               </>
             )}
           </svg>
           <span
-            className="folder__title"
-            style={{ top: 0, left: folder.g.tabX, height: folder.g.tabH, width: folder.g.tabW, fontSize: folder.g.fs, color: folder.text }}
+            className="section__title"
+            style={{ top: 0, left: section.g.tabX, height: section.g.tabH, width: section.g.tabW, fontSize: section.g.fs, color: section.text }}
             data-tab
           >
             {editing ? (
               <span
                 key="edit"
                 ref={editRef}
-                className="folder__edit citem__label-edit"
+                className="section__edit citem__label-edit"
                 contentEditable
                 suppressContentEditableWarning
                 spellCheck="false"
@@ -182,15 +233,15 @@ export default function CanvasItem({ item, selected, editing, imageUrl, dragging
                 onPointerDown={(e) => e.stopPropagation()}
               />
             ) : (
-              <span key="text" className="folder__text" data-tab-text>
+              <span key="text" className="section__text" data-tab-text>
                 {tabTitle(item)}
-                <span className="folder__count num">{childCount}</span>
+                <span className="section__count num">{childCount}</span>
               </span>
             )}
           </span>
-          <div className="folder__body" style={{ top: folder.g.tabH, width: folder.g.w, height: folder.g.h, overflow: item.collapsed ? 'hidden' : 'visible' }}>
+          <div className="section__body" style={{ top: section.g.tabH, width: section.g.w, height: section.g.h, overflow: item.collapsed ? 'hidden' : 'visible' }}>
             {childCount === 0 && !item.collapsed && (
-              <span className="folder__hint" style={{ color: folder.text }}>
+              <span className="section__hint" style={{ color: section.text }}>
                 Drop images or cards here
               </span>
             )}

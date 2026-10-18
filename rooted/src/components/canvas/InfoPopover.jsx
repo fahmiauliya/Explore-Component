@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { socials } from '../../data/references.js';
-import { InfoIcon, socialIcons } from '../Icons.jsx';
+import { DownloadIcon, InfoIcon, UploadIcon, socialIcons } from '../Icons.jsx';
 import { modLabel } from '../../lib/platform.js';
 import { RIBBON_STATUSES } from './ribbon.js';
 
 // Bottom-left "i" button with a small popover: credit, socials, shortcuts, copyright.
-export default function InfoPopover({ ribbonFilter = null, onRibbonFilter }) {
+export default function InfoPopover({ ribbonFilter = null, onRibbonFilter, onExport, onImport }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const year = new Date().getFullYear();
@@ -62,6 +62,16 @@ export default function InfoPopover({ ribbonFilter = null, onRibbonFilter }) {
                 />
               ))}
             </span>
+          </div>
+          <div className="info-pop__backup">
+            <button type="button" className="button button--light" onClick={() => { setOpen(false); onExport?.(); }}>
+              <DownloadIcon />
+              Export board
+            </button>
+            <button type="button" className="button button--light" onClick={() => { setOpen(false); onImport?.(); }}>
+              <UploadIcon />
+              Import board
+            </button>
           </div>
           <p className="footer__small">© {year} Rooted</p>
         </div>

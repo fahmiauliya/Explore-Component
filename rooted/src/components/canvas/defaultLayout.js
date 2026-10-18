@@ -2,18 +2,19 @@
 // and keeps a saved canvas in step with later edits to that file.
 import { getDomain, getSlug } from '../../lib/references.js';
 import { labelHeight } from './labelColors.js';
-import { DEFAULT_COLS, FOLDER_GAP, FOLDER_PAD, TAB_H, fitFolder, tidyAll, tidyFolder } from './folders.js';
+import { DEFAULT_COLS, SECTION_GAP, SECTION_PAD, TAB_H, fitSection, tidyAll, tidySection } from './sections.js';
+import { labelToText, textSize } from './text.js';
 
 export const CARD_W = 280;
-export const CARD_H = 263; // rendered height of a 280-wide card (tags, screenshot, text); re-measure if the card changes
+export const CARD_H = 273; // rendered height of a 280-wide canvas card (12px padding, full-width 16:10 screenshot, text); re-measure if the card changes
 export const GROUP_LABEL_FS = 20; // (v1) group labels started at M
 export const LABEL_H = labelHeight(GROUP_LABEL_FS);
-export { fitFolder };
+export { fitSection };
 const GAP = 24; // between cards
 const LABEL_GAP = 16; // label -> cards
 const GROUP_GAP = 80;
-// Default folder colours per section, tabs alternating left / right.
-const FOLDER_COLORS = { fonts: 'paper', colors: 'sky', 'image-style': 'stone', 'illustration-style': 'lilac' };
+// Default sec colours per section, tabs alternating left / right.
+const SECTION_COLORS = { fonts: 'paper', colors: 'sky', 'image-style': 'stone', 'illustration-style': 'lilac' };
 
 export function linkId(url) {
   return `link:${getSlug(url)}`;
@@ -39,50 +40,66 @@ function linkItem(item, section, x, y, z) {
   };
 }
 
-export const folderId = (sectionId) => `folder:${sectionId}`;
+export const sectionItemId = (sectionId) => `section:${sectionId}`;
+// World height of a top-level item: text measures itself, everything else stores h.
+const heightOf = (it) => { const h = it.type === 'text' ? textSize(it).h : it.h; return Number.isFinite(h) ? h : 0; };
 
-const makeFolder = (section, i, z, x, y) => ({ id: folderId(section.id), type: 'folder', title: section.title, color: FOLDER_COLORS[section.id] || 'paper', tabSide: 'left', fontSize: 13, cols: DEFAULT_COLS, collapsed: false, x, y, w: 344, h: 200, z, locked: false });
+const makeSection = (section, i, z, x, y) => ({ id: sectionItemId(section.id), type: 'section', title: section.title, color: SECTION_COLORS[section.id] || 'paper', tabSide: 'left', fontSize: 16, cols: DEFAULT_COLS, collapsed: false, x, y, w: 344, h: 200, z, locked: false });
 
-// 4 folders in one left-aligned column, 72px between one folder's bottom and
+// 4 secs in one left-aligned column, 72px between one sec's bottom and
 // the next tab's top, each holding its link cards (4 per row, 24px gaps).
 export function buildDefaultItems(tab) {
   let items = [];
   let y = TAB_H;
   let z = 1;
   tab.sections.forEach((section, i) => {
-    const folder = makeFolder(section, i, z++, 0, y);
-    items.push(folder);
-    section.items.forEach((item) => items.push({ ...linkItem(item, section, 0, 0, z++), parentId: folder.id, cx: 0, cy: 0 }));
-    items = tidyFolder(items, folder.id);
-    const fitted = items.find((it) => it.id === folder.id);
-    y = fitted.y + fitted.h + FOLDER_GAP + TAB_H;
+    const sec = makeSection(section, i, z++, 0, y);
+    items.push(sec);
+    section.items.forEach((item) => items.push({ ...linkItem(item, section, 0, 0, z++), parentId: sec.id, cx: 0, cy: 0 }));
+    items = tidySection(items, sec.id);
+    const fitted = items.find((it) => it.id === sec.id);
+    y = fitted.y + fitted.h + SECTION_GAP + TAB_H;
   });
   return items;
 }
 
-// Lay the given folders out as the default column (keeps their order, colors and children).
+// Lay the given secs out as the default column (keeps their order, colors and children).
 export function columnize(items, orderIds) {
-  const folders = orderIds.map((id) => items.find((it) => it.id === id)).filter(Boolean);
+  const secs = orderIds.map((id) => items.find((it) => it.id === id)).filter(Boolean);
   let y = TAB_H;
   let out = items;
-  for (const f of folders) {
+  for (const f of secs) {
     out = out.map((it) => (it.id === f.id ? { ...it, x: 0, y } : it));
     const fitted = out.find((it) => it.id === f.id);
-    y += fitted.h + FOLDER_GAP + TAB_H;
+    y += fitted.h + SECTION_GAP + TAB_H;
   }
   return out;
+}
+
+// v4 boards (and anything older, after the earlier migrations): "folder" items
+// become "section" items with new ids; tabs move from 13px to 16px.
+export function migrateV4(items) {
+  const idMap = new Map();
+  for (const it of items) if (it.type === 'folder' && String(it.id).startsWith('folder:')) idMap.set(it.id, it.id.replace(/^folder:/, 'section:'));
+  return items.map((it) => {
+    let next = it;
+    if (next.type === 'folder') next = { ...next, type: 'section', id: idMap.get(next.id) || next.id, fontSize: !next.fontSize || next.fontSize === 13 ? 16 : next.fontSize };
+    if (next.type === 'label') next = labelToText(next);
+    if (next.parentId && idMap.has(next.parentId)) next = { ...next, parentId: idMap.get(next.parentId) };
+    return next;
+  });
 }
 
 // v3 boards: drop the stack; a stacked board gets the default column in its
 // stack order, a spread board keeps its positions. Everything re-tidies to the
 // new 32px padding and 280px grid.
 export function migrateV3(saved, tab) {
-  let items = saved.items.map((it) => (it.type === 'folder' ? { ...it, cols: it.cols || DEFAULT_COLS, tabSide: it.tabSide === 'right' ? 'right' : 'left' } : it));
+  let items = saved.items.map((it) => (it.type === 'section' ? { ...it, cols: it.cols || DEFAULT_COLS, tabSide: it.tabSide === 'right' ? 'right' : 'left' } : it));
   items = tidyAll(items);
   const lay = saved.layout;
   if (lay?.mode === 'stack') {
-    const folders = items.filter((it) => it.type === 'folder');
-    const order = [...(lay.order || []).filter((id) => folders.some((f) => f.id === id)), ...folders.filter((f) => !(lay.order || []).includes(f.id)).map((f) => f.id)];
+    const secs = items.filter((it) => it.type === 'section');
+    const order = [...(lay.order || []).filter((id) => secs.some((f) => f.id === id)), ...secs.filter((f) => !(lay.order || []).includes(f.id)).map((f) => f.id)];
     items = columnize(items, order);
   }
   return items;
@@ -90,52 +107,52 @@ export function migrateV3(saved, tab) {
 
 // v1 canvases: a label per section with the cards in a row under it.
 export function migrateV1(saved, tab) {
-  let items = saved.filter((it) => it.type !== 'folder');
+  let items = saved.filter((it) => it.type !== 'section');
   let z = items.reduce((m, it) => Math.max(m, it.z || 0), 0) + 1;
   tab.sections.forEach((section, i) => {
     const label = items.find((it) => it.id === `label:${section.id}`);
     if (!label) return;
-    const folder = makeFolder(section, i, z++, label.x, label.y + TAB_H);
-    folder.title = label.text || section.title;
+    const sec = makeSection(section, i, z++, label.x, label.y + TAB_H);
+    sec.title = label.text || section.title;
     items = items.filter((it) => it.id !== label.id);
-    items = items.map((it) => (it.type === 'link' && it.sectionId === section.id && !it.parentId ? { ...it, parentId: folder.id, cx: 0, cy: 0 } : it));
-    items = [folder, ...items];
-    items = tidyFolder(items, folder.id);
+    items = items.map((it) => (it.type === 'link' && it.sectionId === section.id && !it.parentId ? { ...it, parentId: sec.id, cx: 0, cy: 0 } : it));
+    items = [sec, ...items];
+    items = tidySection(items, sec.id);
   });
   return repairV2(items, tab);
 }
 
-// v2 canvases stored children with world coordinates, and some folders ended
+// v2 canvases stored children with world coordinates, and some secs ended
 // up empty with their cards sitting loose below them. Convert and repair.
 export function repairV2(saved, tab) {
   let items = saved.map((it) => ({ ...it }));
-  const folders = items.filter((it) => it.type === 'folder').sort((a, b) => a.y - b.y);
+  const secs = items.filter((it) => it.type === 'section').sort((a, b) => a.y - b.y);
   // 1. children with world x/y -> relative cx/cy
   items = items.map((it) => {
     if (!it.parentId || it.cx !== undefined) return it;
     const f = items.find((x) => x.id === it.parentId);
     if (!f) return { ...it, parentId: undefined };
-    return { ...it, cx: Math.max(0, it.x - f.x - FOLDER_PAD), cy: Math.max(0, it.y - f.y - FOLDER_PAD) };
+    return { ...it, cx: Math.max(0, it.x - f.x - SECTION_PAD), cy: Math.max(0, it.y - f.y - SECTION_PAD) };
   });
-  // 2. empty folders adopt the loose link cards between them and the next folder
-  folders.forEach((f, i) => {
+  // 2. empty secs adopt the loose link cards between them and the next sec
+  secs.forEach((f, i) => {
     if (items.some((it) => it.parentId === f.id)) return;
-    const next = folders[i + 1];
+    const next = secs[i + 1];
     const loose = items.filter((it) => it.type === 'link' && !it.parentId && it.y >= f.y - TAB_H && (!next || it.y < next.y - TAB_H));
     if (!loose.length) return;
     const ids = new Set(loose.map((it) => it.id));
-    items = items.map((it) => (ids.has(it.id) ? { ...it, parentId: f.id, cx: Math.max(0, it.x - f.x - FOLDER_PAD), cy: Math.max(0, it.y - f.y - FOLDER_PAD) } : it));
-    items = tidyFolder(items, f.id);
+    items = items.map((it) => (ids.has(it.id) ? { ...it, parentId: f.id, cx: Math.max(0, it.x - f.x - SECTION_PAD), cy: Math.max(0, it.y - f.y - SECTION_PAD) } : it));
+    items = tidySection(items, f.id);
   });
-  // 3. any link card still loose but matching a section folder goes into it
-  for (const f of folders) {
-    const section = tab.sections.find((sec) => folderId(sec.id) === f.id);
+  // 3. any link card still loose but matching a section sec goes into it
+  for (const f of secs) {
+    const section = tab.sections.find((sec) => sectionItemId(sec.id) === f.id);
     if (!section) continue;
     const loose = items.filter((it) => it.type === 'link' && !it.parentId && it.sectionId === section.id);
     if (!loose.length) continue;
     const ids = new Set(loose.map((it) => it.id));
     items = items.map((it) => (ids.has(it.id) ? { ...it, parentId: f.id, cx: 0, cy: 0 } : it));
-    items = tidyFolder(items, f.id);
+    items = tidySection(items, f.id);
   }
   return items;
 }
@@ -163,27 +180,29 @@ export function mergeWithData(saved, tab) {
   let z = items.reduce((m, it) => Math.max(m, it.z || 0), 0) + 1;
   const present = new Set(items.filter((it) => it.type === 'link').map((it) => it.url));
   // Lowest edge of the top-level items (children have no world y of their own).
-  let bottom = items.filter((it) => !it.parentId && typeof it.y === 'number').reduce((m, it) => Math.max(m, it.y + it.h), 0);
+  // Text items carry a measured height (mh) instead of h, so go through heightOf.
+  const lowestEdge = (list) => list.filter((it) => !it.parentId && typeof it.y === 'number').reduce((m, it) => Math.max(m, it.y + heightOf(it)), 0);
+  let bottom = lowestEdge(items);
 
   for (const section of tab.sections) {
     for (const item of section.items) {
       if (present.has(item.url)) continue;
-      const folder = items.find((it) => it.id === folderId(section.id));
-      if (folder) {
-        items.push({ ...linkItem(item, section, 0, 0, z++), parentId: folder.id, cx: 0, cy: 0 });
+      const sec = items.find((it) => it.id === sectionItemId(section.id));
+      if (sec) {
+        items.push({ ...linkItem(item, section, 0, 0, z++), parentId: sec.id, cx: 0, cy: 0 });
         present.add(item.url);
-        items = tidyFolder(items, folder.id);
+        items = tidySection(items, sec.id);
         continue;
       }
-      // No folder for this section yet (it was deleted, or the data file gained a
+      // No sec for this section yet (it was deleted, or the data file gained a
       // section): add one below everything else and put the link in it.
       const i = tab.sections.indexOf(section);
-      const made = makeFolder(section, i, z++, 0, bottom + FOLDER_GAP + TAB_H);
+      const made = makeSection(section, i, z++, 0, bottom + SECTION_GAP + TAB_H);
       items.push(made);
       items.push({ ...linkItem(item, section, 0, 0, z++), parentId: made.id, cx: 0, cy: 0 });
       present.add(item.url);
-      items = tidyFolder(items, made.id);
-      bottom = Math.max(bottom, ...items.filter((it) => !it.parentId && typeof it.y === 'number').map((it) => it.y + it.h));
+      items = tidySection(items, made.id);
+      bottom = Math.max(bottom, lowestEdge(items));
       continue;
     }
   }

@@ -1,12 +1,18 @@
-import { FrameIcon, GridIcon, MinusIcon, PlusIcon } from '../Icons.jsx';
+import { FrameIcon, GridIcon, ListIcon, MinusIcon, PlusIcon } from '../Icons.jsx';
+import { useRef } from 'react';
 import { modLabel } from '../../lib/platform.js';
 
 // Bottom-right pill: − | zoom % | + | grid snap | fit to content.
 // On phones only "%" (tap = fit) and the grid toggle; pinch handles zooming.
-export default function ZoomBar({ zoom, snap, phone, onZoomIn, onZoomOut, onReset, onToggleSnap, onFit }) {
+export default function ZoomBar({ zoom, snap, phone, onZoomIn, onZoomOut, onReset, onToggleSnap, onFit, onSections, sectionsOpen }) {
   const pct = `${Math.round(zoom * 100)}%`;
+  const listBtn = useRef(null);
   return (
     <div className="cbar cbar--zoom floating" role="toolbar" aria-label="Zoom">
+      <button ref={listBtn} type="button" className="cbar__btn" onClick={() => onSections(listBtn.current?.getBoundingClientRect())} aria-label="Sections (⌘J)" title="Sections (⌘J)" aria-haspopup="menu" aria-expanded={sectionsOpen}>
+        <ListIcon />
+      </button>
+      <span className="cbar__divider" />
       {!phone && (
         <button type="button" className="cbar__btn" onClick={onZoomOut} aria-label={`Zoom out (${modLabel('−')})`} title={`Zoom out (${modLabel('−')})`}>
           <MinusIcon />

@@ -6,13 +6,15 @@ import { CheckIcon, ChevronRightIcon } from '../Icons.jsx';
 //   { label, icon?, shortcut?, onSelect, disabled?, danger?, checked?, submenu? }  or 'divider'.
 // Closes on Esc, a click outside, scroll or wheel. Flips to stay inside the window.
 // Arrow keys move between rows, Enter activates, Right opens a submenu, Left closes it.
-export default function ContextMenu({ x, y, entries, onClose, label = 'Menu', above = false, depth = 0, onRootClose = onClose }) {
+export default function ContextMenu({ x, y, entries, onClose, label = 'Menu', above = false, depth = 0, onRootClose = onClose, searchable = false, placeholder = 'Filter…' }) {
+  const [query, setQuery] = useState('');
+  const filtered = searchable && query.trim() ? entries.filter((e) => e !== 'divider' && !e.keep && String(e.label).toLowerCase().includes(query.trim().toLowerCase())) : entries;
   const ref = useRef(null);
   const [pos, setPos] = useState({ left: x, top: y });
   const [active, setActive] = useState(-1);
   const [sub, setSub] = useState(null); // { index, x, y }
 
-  const rows = entries.map((e, i) => ({ entry: e, index: i })).filter(({ entry }) => entry !== 'divider');
+  const rows = filtered.map((e, i) => ({ entry: e, index: i })).filter(({ entry }) => entry !== 'divider');
 
   // Keep the menu inside the window.
   useLayoutEffect(() => {
@@ -48,7 +50,8 @@ export default function ContextMenu({ x, y, entries, onClose, label = 'Menu', ab
   // Focus the menu while open; give focus back to whatever opened it afterwards.
   useEffect(() => {
     const opener = document.activeElement;
-    ref.current?.focus();
+    if (searchable) ref.current?.querySelector('input')?.focus();
+    else ref.current?.focus();
     return () => {
       if (opener && typeof opener.focus === 'function' && document.contains(opener)) opener.focus({ preventScroll: true });
     };
@@ -73,6 +76,7 @@ export default function ContextMenu({ x, y, entries, onClose, label = 'Menu', ab
 
   function onKeyDown(e) {
     const pos = rows.findIndex((r) => r.index === active);
+    if (searchable && e.target.tagName === 'INPUT' && !['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'].includes(e.key)) return;
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
@@ -85,7 +89,7 @@ export default function ContextMenu({ x, y, entries, onClose, label = 'Menu', ab
       e.preventDefault();
       setActive(rows[(pos - 1 + rows.length) % rows.length].index);
     } else if (e.key === 'ArrowRight') {
-      const entry = entries[active];
+      const entry = filtered[active];
       if (entry?.submenu && !entry.disabled) {
         e.preventDefault();
         openSub(active);
@@ -97,7 +101,8 @@ export default function ContextMenu({ x, y, entries, onClose, label = 'Menu', ab
       }
     } else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      if (active >= 0) activate(entries[active], active);
+      if (active >= 0) activate(filtered[active], active);
+      else if (searchable && rows.length) activate(filtered[rows[0].index], rows[0].index);
     } else if (e.key === 'Tab') {
       e.preventDefault();
     }
@@ -114,7 +119,20 @@ export default function ContextMenu({ x, y, entries, onClose, label = 'Menu', ab
       onKeyDown={onKeyDown}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {entries.map((entry, i) =>
+      {searchable && (
+        <input
+          className="cmenu__search"
+          type="text"
+          value={query}
+          placeholder={placeholder}
+          aria-label={placeholder}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setActive(-1);
+          }}
+        />
+      )}
+      {filtered.map((entry, i) =>
         entry === 'divider' ? (
           <div key={`d${i}`} className="cmenu__divider" role="separator" />
         ) : (
@@ -139,23 +157,24 @@ export default function ContextMenu({ x, y, entries, onClose, label = 'Menu', ab
               {entry.swatch ? <span className="cmenu__swatch" style={{ background: entry.swatch }} /> : entry.icon ? <entry.icon /> : null}
             </span>
             <span className="cmenu__label">{entry.label}</span>
-            {entry.selected && <CheckIcon width={14} height={14} />}
+            {entry.trailing !== undefined && <span className="cmenu__hint num">{entry.trailing}</span>}
+            {entry.selected && <CheckIcon width={16} height={16} className="cmenu__check" />}
             {entry.checked !== undefined && <span className="cmenu__hint">{entry.checked ? 'On' : 'Off'}</span>}
             {entry.shortcut && <span className="cmenu__hint num">{entry.shortcut}</span>}
-            {entry.submenu && <ChevronRightIcon width={14} height={14} />}
+            {entry.submenu && <ChevronRightIcon width={16} height={16} />}
           </button>
         )
       )}
-      {sub && entries[sub.index]?.submenu && (
+      {sub && filtered[sub.index]?.submenu && (
         <ContextMenu
           x={sub.x}
           y={sub.y}
-          entries={entries[sub.index].submenu}
+          entries={filtered[sub.index].submenu}
           onClose={() => {
             setSub(null);
             ref.current?.focus();
           }}
-          label={entries[sub.index].label}
+          label={filtered[sub.index].label}
           depth={depth + 1}
           onRootClose={onRootClose}
         />
