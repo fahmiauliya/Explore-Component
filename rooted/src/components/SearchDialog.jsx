@@ -7,7 +7,8 @@ function openSite(url) {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
-// ⌘K search across every tab. Arrows move the highlight, Enter opens it.
+// ⌘K search across every tab (bookmarks inside folders included; the row
+// shows their folder path). Arrows move the highlight, Enter opens it.
 export default function SearchDialog({ open, onClose }) {
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
@@ -53,7 +54,7 @@ export default function SearchDialog({ open, onClose }) {
             className="search__input"
             type="text"
             value={query}
-            placeholder="Search websites, components, fonts…"
+            placeholder="Search bookmarks, components, fonts…"
             aria-label="Search references"
             aria-controls="search-results"
             aria-activedescendant={results[active] ? `search-opt-${active}` : undefined}
@@ -80,7 +81,7 @@ export default function SearchDialog({ open, onClose }) {
                   onMouseEnter={() => setActive(i)}
                 >
                   <span className="row__name">{item.name}</span>
-                  <span className="row__desc">{item.tabLabel} · {item.sectionTitle}</span>
+                  <span className="row__desc">{item.pathLabel}</span>
                 </a>
               </li>
             ))}

@@ -1,6 +1,6 @@
 # Rooted
 
-A free website that lists design references as a grid of screenshot cards. Four tabs (Websites, Components, Open Source, Visuals), search, a random pick and a request form.
+A free website that lists design references as a grid of screenshot cards. Four tabs (Bookmarks, Components, Open Source, Visuals), search, a random pick and a request form. The Bookmarks tab works like Chrome bookmarks: folders inside folders, opened on the same page.
 
 Built with React + Vite, plain JavaScript and one CSS file. No backend.
 
@@ -17,14 +17,22 @@ Open http://localhost:5194/. To make a production build: `npm run build` (output
 
 Everything lives in one file: `src/data/references.js`. The comment at the top shows the shape.
 
-- **Add a reference:** find the tab and section, then add a line like
+- **Add a reference** (Components, Open Source, Visuals): find the tab and section, then add a line like
   `{ name: 'Site', url: 'https://example.com', description: 'One short line.', tags: ['Tag', 'Tag'] }`.
   `tags` is optional: 2 or 3 short words shown as chips at the top of the card. Clicking a chip filters the tab by that tag (the filter also lives in the URL as `?tag=gallery`).
+- **Add a bookmark or folder** (Bookmarks tab): the tab holds a `children` tree instead of sections. A folder is `{ type: 'folder', id: 'awards', name: 'Awards', children: [ … ] }` and a bookmark is `{ type: 'bookmark', id: 'awwwards', name: 'Awwwards', url: 'https://…', tags: ['Tag'], thumbnail: '/previews/my.jpg' }` (`thumbnail` optional, like `image`). Folders nest at any depth. Ids appear in the URL (`#bookmarks/galleries/awards`), so keep them short and unique inside their folder. Bookmark cards show the tags and the name only, no description.
 - **"New" chip:** add `added: 'YYYY-MM-DD'` to an item. For 14 days after that date the card shows a "New" chip. Leave it out on older items.
 - **Add a section:** inside a tab's `sections`, add `{ id, title, description, items: [] }`. The label and count appear automatically. The section `description` is kept in the data but is not shown on the page.
 - **Add a social link:** add to `socials`. Allowed ids: `x`, `linkedin`, `instagram`, `threads`, `website`.
 
 Tab counts, section counts, search and the random pick all read from this file. Nothing is hard-coded.
+
+## The Bookmarks tab
+
+- **Folders:** the top level shows folders first, then loose bookmarks. Clicking a folder opens it in place (subfolders first, then its bookmarks) and a breadcrumb above the grid (Bookmarks / Galleries / Awards, every part clickable) shows where you are. The URL hash carries the path (`#bookmarks/galleries/awards`), so the browser back button and a refresh land in the same folder. The old `#websites` hash redirects to `#bookmarks`. The tab count is every bookmark in every folder.
+- **Folder card:** a macOS-style folder in the same grid as the cards: a gray back panel with a tab on the top right, 2–3 thumbnails of the bookmarks inside (for a folder with only subfolders, the first ones found inside them; an empty folder shows a plain sheet) peeking out above a frosted front panel that carries the favicon of the first bookmark (or a folder glyph), the name and "3 folders · 12 bookmarks". Hover lifts the papers 8px and fans them (−3°, 0°, 3°) while the front panel tilts back 7°; pressing scales the folder to 0.97 for 100ms; keyboard focus shows the neutral ring; with reduced motion only colors and shadows change.
+- **Search:** ⌘K finds bookmarks inside any folder and shows the folder path in the row.
+- **Tag pills:** every state (default, hover, selected, selected + hover, keyboard focus) uses the same 22px box with a 1px border; only the colors change, over 150ms, so toggling never shifts the layout.
 
 ## Preview images
 

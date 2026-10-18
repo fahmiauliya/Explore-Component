@@ -5,14 +5,14 @@
 //
 // ⚠︎ marks anything that isn't 2xx, or a redirect that lands on another domain.
 
-import { tabs } from '../src/data/references.js';
+import { flattenItems } from '../src/lib/references.js';
 
 const TIMEOUT = 15_000;
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36';
 
 const items = [];
 const seen = new Set();
-for (const tab of tabs) for (const section of tab.sections) for (const item of section.items) {
+for (const item of flattenItems()) {
   if (seen.has(item.url)) continue;
   seen.add(item.url);
   items.push(item);

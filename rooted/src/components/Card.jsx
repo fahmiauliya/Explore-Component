@@ -52,7 +52,7 @@ export default function Card({ item, interactive = true, showImage = true }) {
         ) : (
           <span className="card__name">{item.name}</span>
         )}
-        <span className="card__desc">{item.description}</span>
+        {item.description && <span className="card__desc">{item.description}</span>}
       </div>
     </article>
   );

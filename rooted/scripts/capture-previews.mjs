@@ -18,8 +18,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import sharp from 'sharp';
-import { tabs } from '../src/data/references.js';
-import { getSlug, githubRepo } from '../src/lib/references.js';
+import { getSlug, githubRepo, flattenItems } from '../src/lib/references.js';
 import { fetchRepoImage, suggestRepo } from './github-image.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -48,19 +47,16 @@ const items = [];
 const repos = [];
 const ownersOnly = [];
 const seen = new Set();
-for (const tab of tabs) {
-  for (const section of tab.sections) {
-    for (const item of section.items) {
-      if (seen.has(item.url)) continue;
-      seen.add(item.url);
-      if (ONLY && !ONLY.includes(getSlug(item.url))) continue;
-      if (githubRepo(item.url)) repos.push(item);
-      else if (/^https?:\/\/(www\.)?github\.com\/[^/?#]+\/?$/i.test(item.url)) {
-        ownersOnly.push(item);
-        items.push(item);
-      } else items.push(item);
-    }
-  }
+// Every unique URL across all tabs (bookmark folders included).
+for (const item of flattenItems()) {
+  if (seen.has(item.url)) continue;
+  seen.add(item.url);
+  if (ONLY && !ONLY.includes(getSlug(item.url))) continue;
+  if (githubRepo(item.url)) repos.push(item);
+  else if (/^https?:\/\/(www\.)?github\.com\/[^/?#]+\/?$/i.test(item.url)) {
+    ownersOnly.push(item);
+    items.push(item);
+  } else items.push(item);
 }
 
 function readManifest() {

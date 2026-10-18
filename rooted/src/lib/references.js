@@ -24,11 +24,53 @@ export function getDomain(url) {
   }
 }
 
+// ---- Bookmark trees ----
+// The Bookmarks tab holds `children` (folders and bookmarks at any depth)
+// instead of `sections`. These helpers read both shapes.
+export const isTree = (tab) => Array.isArray(tab.children);
+export const isFolder = (node) => node.type === 'folder';
+
+// Every bookmark under `nodes`, depth-first, with the folders above it.
+export function* walkBookmarks(nodes, path = []) {
+  for (const node of nodes || []) {
+    if (isFolder(node)) yield* walkBookmarks(node.children, [...path, node]);
+    else yield { node, path };
+  }
+}
+
+// The flattened item for a tree node (filled in by flattenItems).
+const nodeItems = new WeakMap();
+export const itemForNode = (node) => nodeItems.get(node);
+
 // Every item from every tab in one flat list, each one tagged with
-// its tab and section so search and random can show where it came from.
+// its tab and section (or folder path) so search and random can show
+// where it came from.
 export function flattenItems() {
   const out = [];
   for (const tab of tabs) {
+    if (isTree(tab)) {
+      for (const { node, path } of walkBookmarks(tab.children)) {
+        const folderIds = path.map((f) => f.id);
+        const folderNames = path.map((f) => f.name);
+        const parent = path[path.length - 1];
+        const item = {
+          ...node,
+          image: node.thumbnail || node.image,
+          key: `${tab.id}/${[...folderIds, node.id].join('/')}`,
+          tabId: tab.id,
+          tabLabel: tab.label,
+          sectionId: parent ? parent.id : '',
+          sectionTitle: parent ? parent.name : tab.label,
+          folderIds,
+          folderNames,
+          pathLabel: [tab.label, ...folderNames].join(' / '),
+          domain: getDomain(node.url),
+        };
+        nodeItems.set(node, item);
+        out.push(item);
+      }
+      continue;
+    }
     for (const section of tab.sections) {
       for (const item of section.items) {
         out.push({
@@ -38,6 +80,7 @@ export function flattenItems() {
           tabLabel: tab.label,
           sectionId: section.id,
           sectionTitle: section.title,
+          pathLabel: `${tab.label} · ${section.title}`,
           domain: getDomain(item.url),
         });
       }
@@ -48,9 +91,48 @@ export function flattenItems() {
 
 export const allItems = flattenItems();
 
-// Number of items in one tab (used for the header tab counts).
+// Number of items in one tab (used for the header tab counts). For the
+// Bookmarks tab that is every bookmark in every folder.
 export function countItems(tab) {
+  if (isTree(tab)) return [...walkBookmarks(tab.children)].length;
   return tab.sections.reduce((sum, section) => sum + section.items.length, 0);
+}
+
+// Folder helpers.
+export const folderChildren = (folder) => (folder.children || []).filter(isFolder);
+export const folderBookmarks = (folder) => (folder.children || []).filter((n) => !isFolder(n));
+// { folders: direct subfolders, bookmarks: every bookmark inside, at any depth }
+export function folderStats(folder) {
+  return { folders: folderChildren(folder).length, bookmarks: [...walkBookmarks(folder.children)].length };
+}
+export function folderCountLabel(folder) {
+  const { folders, bookmarks } = folderStats(folder);
+  const b = `${bookmarks} bookmark${bookmarks === 1 ? '' : 's'}`;
+  return folders ? `${folders} folder${folders === 1 ? '' : 's'} · ${b}` : b;
+}
+// The first `n` bookmarks for a folder's preview: its own first, then the
+// first ones found inside its subfolders.
+export function folderPreviews(folder, n = 3) {
+  const own = folderBookmarks(folder).slice(0, n);
+  if (own.length >= n) return own;
+  const out = [...own];
+  for (const { node } of walkBookmarks(folderChildren(folder))) {
+    out.push(node);
+    if (out.length >= n) break;
+  }
+  return out;
+}
+// Resolve folder ids to folder nodes; stops at the first id that doesn't exist.
+export function folderPath(tab, ids) {
+  const path = [];
+  let nodes = tab.children || [];
+  for (const id of ids || []) {
+    const next = nodes.find((n) => isFolder(n) && n.id === id);
+    if (!next) break;
+    path.push(next);
+    nodes = next.children || [];
+  }
+  return path;
 }
 
 // Case-insensitive search across name, description, domain, tab and section.
@@ -60,7 +142,7 @@ export function searchItems(query, limit = 12) {
   if (!q) return allItems.slice(0, 8);
   const words = q.split(/\s+/);
   const matches = allItems.filter((item) => {
-    const haystack = [item.name, item.description, item.domain, item.tabLabel, item.sectionTitle]
+    const haystack = [item.name, item.description, item.domain, item.tabLabel, item.sectionTitle, ...(item.folderNames || []), ...(item.tags || [])]
       .join(' ')
       .toLowerCase();
     return words.every((word) => haystack.includes(word));
@@ -117,8 +199,17 @@ export function githubPreview(url) {
   return r ? `https://opengraph.githubassets.com/1/${r.owner}/${r.repo}` : null;
 }
 
-// Tab id <-> URL hash helpers (#websites, #components, #open-source, #visuals).
+// Tab id <-> URL hash helpers (#bookmarks, #bookmarks/galleries/awards, #components, …).
+// The Websites tab became Bookmarks: #websites still resolves to it.
+const HASH_ALIASES = { websites: 'bookmarks' };
+export function parseHash(hash) {
+  const parts = (hash || '').replace(/^#/, '').split('/').filter(Boolean);
+  const first = HASH_ALIASES[parts[0]] || parts[0];
+  const tab = tabs.find((t) => t.id === first) || tabs[0];
+  const folderIds = tabs.some((t) => t.id === first) && isTree(tab) ? folderPath(tab, parts.slice(1)).map((f) => f.id) : [];
+  return { tabId: tab.id, folderIds, legacy: Boolean(HASH_ALIASES[parts[0]]) };
+}
+export const hashFor = (tabId, folderIds = []) => `#${[tabId, ...folderIds].join('/')}`;
 export function tabFromHash(hash) {
-  const id = (hash || '').replace(/^#/, '');
-  return tabs.some((tab) => tab.id === id) ? id : tabs[0].id;
+  return parseHash(hash).tabId;
 }

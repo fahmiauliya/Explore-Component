@@ -19,56 +19,68 @@
 //   script would use (e.g. awwwards-com.webp), or add `image` to the item:
 //     { name: 'Awwwards', url: 'https://www.awwwards.com', description: '...', image: '/previews/my-image.jpg' },
 //
+// The Bookmarks tab is a tree instead of sections (it works like Chrome bookmarks):
+//   Folder:   { type: 'folder', id: 'awards', name: 'Awards', children: [ ...folders and bookmarks... ] }
+//   Bookmark: { type: 'bookmark', id: 'awwwards', name: 'Awwwards', url: 'https://…', tags: ['Tag'], thumbnail: '/previews/my.jpg' }
+//   Folders nest at any depth. `thumbnail` is optional (same as `image` above); `added` works here too.
+//   Ids are used in the URL (#bookmarks/galleries/awards), so keep them short, lowercase and unique inside their folder.
+//
 // How to add a social link (footer icons):
 //   Add to `socials` below. Allowed ids: x | linkedin | instagram | threads | website
 // ============================================================
 
 export const tabs = [
   {
-    id: 'websites',
-    label: 'Websites',
-    sections: [
+    id: 'bookmarks',
+    label: 'Bookmarks',
+    // A tree like Chrome bookmarks. A folder can hold folders and bookmarks at any depth.
+    children: [
       {
+        type: 'folder',
         id: 'galleries',
-        title: 'Galleries',
-        description: 'Web design inspiration, sorted by style.',
-        items: [
-          { name: 'Awwwards', url: 'https://www.awwwards.com', description: 'Awards for standout web design and development.', tags: ['Awards', 'Gallery', 'Web design'] },
-          { name: 'SiteInspire', url: 'https://www.siteinspire.com', description: 'Showcase of fine web design, filterable by style.', tags: ['Gallery', 'Web design', 'Filters'] },
-          { name: 'Land-book', url: 'https://land-book.com', description: 'Landing pages organized by industry and style.', tags: ['Landing pages', 'Gallery', 'By industry'] },
-          { name: 'Minimal Gallery', url: 'https://minimal.gallery', description: 'Minimal and restrained website designs.', tags: ['Minimal', 'Gallery', 'Web design'] },
-          { name: 'Godly', url: 'https://godly.website', description: 'Hand-picked, motion-rich web design.', tags: ['Motion', 'Gallery', 'Web design'] },
-          { name: 'Lapa Ninja', url: 'https://www.lapa.ninja', description: 'Curated gallery of landing pages.', tags: ['Landing pages', 'Gallery', 'Free'] },
+        name: 'Galleries',
+        children: [
+          {
+            type: 'folder',
+            id: 'awards',
+            name: 'Awards',
+            children: [{ type: 'bookmark', id: 'awwwards', name: 'Awwwards', url: 'https://www.awwwards.com', tags: ['Awards', 'Gallery', 'Web design'] }],
+          },
+          { type: 'bookmark', id: 'siteinspire', name: 'SiteInspire', url: 'https://www.siteinspire.com', tags: ['Gallery', 'Web design', 'Filters'] },
+          { type: 'bookmark', id: 'land-book', name: 'Land-book', url: 'https://land-book.com', tags: ['Landing pages', 'Gallery', 'By industry'] },
+          { type: 'bookmark', id: 'minimal-gallery', name: 'Minimal Gallery', url: 'https://minimal.gallery', tags: ['Minimal', 'Gallery', 'Web design'] },
+          { type: 'bookmark', id: 'godly', name: 'Godly', url: 'https://godly.website', tags: ['Motion', 'Gallery', 'Web design'] },
+          { type: 'bookmark', id: 'lapa-ninja', name: 'Lapa Ninja', url: 'https://www.lapa.ninja', tags: ['Landing pages', 'Gallery', 'Free'] },
         ],
       },
       {
+        type: 'folder',
         id: 'landing-pages',
-        title: 'Landing pages',
-        description: 'SaaS and product marketing pages.',
-        items: [
-          { name: 'Saaspo', url: 'https://www.saaspo.com', description: 'Curated SaaS landing page designs.', tags: ['SaaS', 'Landing pages', 'Gallery'] },
-          { name: 'Landingfolio', url: 'https://www.landingfolio.com', description: 'Landing page designs and templates.', tags: ['Landing pages', 'Templates', 'Gallery'] },
-          { name: 'SaaS Landing Page', url: 'https://saaslandingpage.com', description: 'Showcase of top SaaS landing pages.', tags: ['SaaS', 'Landing pages'] },
-          { name: 'One Page Love', url: 'https://onepagelove.com', description: 'Single-page website showcase.', tags: ['One page', 'Gallery', 'Templates'] },
+        name: 'Landing pages',
+        children: [
+          { type: 'bookmark', id: 'saaspo', name: 'Saaspo', url: 'https://www.saaspo.com', tags: ['SaaS', 'Landing pages', 'Gallery'] },
+          { type: 'bookmark', id: 'landingfolio', name: 'Landingfolio', url: 'https://www.landingfolio.com', tags: ['Landing pages', 'Templates', 'Gallery'] },
+          { type: 'bookmark', id: 'saas-landing-page', name: 'SaaS Landing Page', url: 'https://saaslandingpage.com', tags: ['SaaS', 'Landing pages'] },
+          { type: 'bookmark', id: 'one-page-love', name: 'One Page Love', url: 'https://onepagelove.com', tags: ['One page', 'Gallery', 'Templates'] },
         ],
       },
       {
+        type: 'folder',
         id: 'apps',
-        title: 'Apps',
-        description: 'Real mobile and web app screens.',
-        items: [
-          { name: 'Mobbin', url: 'https://mobbin.com', description: 'Real mobile and web app flows.', tags: ['Mobile', 'Web', 'User flows'] },
-          { name: 'Screenlane', url: 'https://screenlane.com', description: 'Searchable gallery of app screens.', tags: ['Mobile', 'Screens', 'Search'] },
-          { name: 'Scrnshts', url: 'https://scrnshts.club', description: 'App Store screenshot designs.', tags: ['App Store', 'Screenshots', 'Mobile'] },
+        name: 'Apps',
+        children: [
+          { type: 'bookmark', id: 'mobbin', name: 'Mobbin', url: 'https://mobbin.com', tags: ['Mobile', 'Web', 'User flows'] },
+          { type: 'bookmark', id: 'screenlane', name: 'Screenlane', url: 'https://screenlane.com', tags: ['Mobile', 'Screens', 'Search'] },
+          { type: 'bookmark', id: 'scrnshts', name: 'Scrnshts', url: 'https://scrnshts.club', tags: ['App Store', 'Screenshots', 'Mobile'] },
         ],
       },
       {
+        type: 'folder',
         id: 'portfolios',
-        title: 'Portfolios',
-        description: 'Designer and builder portfolios.',
-        items: [
-          { name: 'Folios Gallery', url: 'https://folios.gallery', description: 'Directory of designer portfolios.', tags: ['Portfolios', 'Directory'] },
-          { name: 'Wall of Portfolios', url: 'https://www.wallofportfolios.in', description: 'Product and design engineering portfolios.', tags: ['Portfolios', 'Product', 'Engineering'] },
+        name: 'Portfolios',
+        children: [
+          { type: 'bookmark', id: 'folios-gallery', name: 'Folios Gallery', url: 'https://folios.gallery', tags: ['Portfolios', 'Directory'] },
+          { type: 'bookmark', id: 'wall-of-portfolios', name: 'Wall of Portfolios', url: 'https://www.wallofportfolios.in', tags: ['Portfolios', 'Product', 'Engineering'] },
         ],
       },
     ],

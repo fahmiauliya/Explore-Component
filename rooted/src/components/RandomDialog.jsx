@@ -19,9 +19,9 @@ export default function RandomDialog({ open, onClose }) {
         <div className="random__image">
           <PreviewImage key={item.key} item={item} lazy={false} />
         </div>
-        <p className="random__path">{item.tabLabel} · {item.sectionTitle}</p>
+        <p className="random__path">{item.pathLabel}</p>
         <h3 className="modal__title" id="random-title">{item.name}</h3>
-        <p className="random__desc">{item.description}</p>
+        {item.description && <p className="random__desc">{item.description}</p>}
         <div className="modal__actions">
           <button type="button" className="button button--light" data-autofocus onClick={() => setItem((cur) => randomItem(cur?.key))}>
             Another one

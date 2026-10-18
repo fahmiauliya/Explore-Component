@@ -550,26 +550,49 @@ body.has-filter {
   z-index: 1;
 }
 
+/* Tag pills keep the same box in every state (22px, 1px border, pill
+   radius); only the colors change, over 150ms. States: default, hover,
+   selected, selected + hover, and a focus ring for keyboard focus only. */
 .card__tag {
   display: inline-flex;
   align-items: center;
   height: 22px;
   padding: 0 var(--space-2);
+  border: 1px solid #fff;
   border-radius: var(--radius-pill);
   background: #fff;
+  font: inherit;
   font-size: var(--text-xs);
+  line-height: 1;
   color: var(--muted);
   white-space: nowrap;
-  transition: background-color var(--ease-hover), color var(--ease-hover);
+  outline: none;
+  transition: background-color var(--ease-hover), color var(--ease-hover), border-color var(--ease-hover), box-shadow var(--ease-hover);
+}
+
+button.card__tag {
+  cursor: pointer;
 }
 
 button.card__tag:hover {
+  border-color: #e3e3e3;
   color: var(--text);
 }
 
 .card__tag.is-active {
   background: var(--text);
+  border-color: var(--text);
   color: #fff;
+}
+
+button.card__tag.is-active:hover {
+  background: var(--dark-hover);
+  border-color: var(--dark-hover);
+  color: #fff;
+}
+
+button.card__tag:focus-visible {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text);
 }
 
 .card__new {
@@ -681,6 +704,268 @@ a.card__name:focus-visible {
 
 @media (prefers-reduced-motion: reduce) {
   .card:hover .card__frame {
+    transform: none;
+  }
+}
+
+/* ---- Bookmarks: breadcrumb above the grid ---- */
+.crumbs {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-5);
+  margin-bottom: var(--space-4);
+}
+
+.crumbs__path {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.crumbs__part {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color var(--ease-hover);
+}
+
+.crumbs__part:hover,
+.crumbs__part.is-current {
+  color: var(--text);
+}
+
+.crumbs__part.is-current {
+  font-weight: 500;
+  cursor: default;
+}
+
+.crumbs__part:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+
+.crumbs__sep {
+  font-size: var(--text-sm);
+  color: #c8c8c8;
+}
+
+.crumbs__count {
+  font-size: var(--text-xs);
+  color: var(--faint);
+  white-space: nowrap;
+}
+
+/* ---- Bookmarks: macOS-style folder ----
+   Back to front: gray back panel with a tab (top right), 2–3 thumbnails
+   peeking out like papers, a frosted front panel over the lower 75% with the
+   icon, name and count at the bottom left. Sized like a bookmark card. */
+.folder {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 0.92; /* a bookmark card's proportions; in a row with cards it stretches to their height */
+  align-self: stretch;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  perspective: 600px;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 100ms ease;
+}
+
+.folder:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 4px;
+}
+
+.folder__back {
+  position: absolute;
+  inset: 8% 0 0;
+  border-radius: var(--radius-lg);
+  background: #dbdbdb;
+}
+
+/* The tab on the top right, with two small slots. */
+.folder__back::before {
+  content: '';
+  position: absolute;
+  top: -14px;
+  right: 6%;
+  width: 34%;
+  height: 28px;
+  border-radius: 10px 10px 0 0;
+  background: #dbdbdb;
+}
+
+.folder__back::after {
+  content: '';
+  position: absolute;
+  top: -7px;
+  right: calc(6% + 14px);
+  width: 40px;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #c6c6c6 0 58%, transparent 58% 70%, #c6c6c6 70% 100%);
+}
+
+.folder__papers {
+  position: absolute;
+  inset: 0;
+}
+
+.folder__paper {
+  --fan: 0deg;
+  position: absolute;
+  width: 56%;
+  aspect-ratio: 16 / 10;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  transform-origin: 50% 100%;
+  transition: transform 200ms ease-out, box-shadow 200ms ease-out;
+}
+
+.folder__paper--0 {
+  --fan: -3deg;
+  left: 10%;
+  top: 13%;
+  z-index: 3;
+}
+
+.folder__paper--1 {
+  --fan: 0deg;
+  left: 22%;
+  top: 9%;
+  z-index: 2;
+}
+
+.folder__paper--2 {
+  --fan: 3deg;
+  left: 34%;
+  top: 5%;
+  z-index: 1;
+}
+
+.folder__paper .shot {
+  width: 100%;
+  height: 100%;
+}
+
+.folder__paper .preview-placeholder {
+  height: 100%;
+}
+
+.folder__front {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  height: 75%;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: rgba(236, 236, 236, 0.84);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 8px 24px rgba(0, 0, 0, 0.08);
+  transform-origin: 50% 100%;
+  transition: transform 200ms ease-out, box-shadow 200ms ease-out;
+}
+
+.folder__icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  color: var(--muted);
+}
+
+.folder__icon .site-icon {
+  border-radius: 4px;
+}
+
+.folder__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.folder__name {
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.folder__count {
+  font-size: var(--text-xs);
+  color: var(--faint);
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  .folder:hover .folder__paper {
+    transform: translateY(-8px) rotate(var(--fan));
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  }
+
+  .folder:hover .folder__front {
+    transform: rotateX(7deg);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 16px 32px rgba(0, 0, 0, 0.14);
+  }
+}
+
+/* Pressed: the whole folder scales down, the papers drop back, the shadow shrinks (100ms). */
+.folder:active {
+  transform: scale(0.97);
+}
+
+.folder:active .folder__paper {
+  transform: translateY(-2px) rotate(var(--fan));
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  transition-duration: 100ms;
+}
+
+.folder:active .folder__front {
+  transform: rotateX(2deg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition-duration: 100ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .folder,
+  .folder:active,
+  .folder:hover .folder__paper,
+  .folder:active .folder__paper,
+  .folder:hover .folder__front,
+  .folder:active .folder__front {
     transform: none;
   }
 }
@@ -1380,7 +1665,7 @@ body.is-canvas {
 
 .citem--link .card .card__tag {
   background: var(--surface);
-  border: 0;
+  border-color: var(--surface);
 }
 
 .citem--link:hover .card {
