@@ -703,38 +703,37 @@ a.card__name:focus-visible {
   color: var(--muted);
 }
 
-/* ---------- Footer (full width, two rows) ---------- */
+/* ---------- Footer (same column and type as the intro) ---------- */
 
 .footer {
   margin-top: var(--space-9);
 }
 
 .footer__inner {
-  padding: 40px 0 var(--space-7);
-  padding-bottom: calc(var(--space-7) + env(safe-area-inset-bottom));
+  padding: var(--space-6) 0 var(--space-8);
+  padding-bottom: calc(var(--space-8) + env(safe-area-inset-bottom));
   border-top: 1px solid var(--line);
 }
 
-.footer__row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-4);
-}
-
-.footer__row--meta {
-  margin-top: var(--space-5);
-}
-
-.footer__name {
-  font-size: var(--text-md);
-  font-weight: 500;
-}
-
-.footer__by {
-  margin-top: var(--space-1);
+.footer__kicker {
   font-size: var(--text-md);
   color: var(--muted);
+}
+
+.footer__text {
+  margin-top: var(--space-2);
+  font-size: var(--text-md);
+  color: var(--text);
+}
+
+.socials {
+  display: flex;
+  gap: var(--space-1);
+  margin: var(--space-4) 0 0 calc(-1 * var(--space-2));
+}
+
+.socials .icon-button {
+  color: #555;
 }
 
 .footer__meta {
@@ -742,24 +741,23 @@ a.card__name:focus-visible {
   color: var(--muted);
 }
 
-.socials {
+.footer__shortcuts {
+  margin-top: var(--space-5);
+}
+
+.footer__row {
   display: flex;
-  gap: var(--space-1);
-}
-
-.socials .icon-button {
-  color: #555;
-}
-
-.footer__small {
-  font-size: var(--text-xs);
-  color: var(--faint);
-}
-
-.footer__right {
-  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: var(--space-5);
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+/* Without the shortcuts line (touch), keep 24px above the last row. */
+@media (hover: none) {
+  .footer__row {
+    margin-top: var(--space-5);
+  }
 }
 
 .footer__top {
@@ -775,6 +773,24 @@ a.card__name:focus-visible {
 
 .footer__top:hover {
   text-decoration-color: var(--text);
+}
+
+/* Fade behind the floating pills while a list page is scrolled. */
+.scroll-fade {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 39;
+  height: 136px;
+  background: linear-gradient(to bottom, #ffffff 0%, rgba(255, 255, 255, 0.92) 55%, rgba(255, 255, 255, 0) 100%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.scroll-fade.is-visible {
+  opacity: 1;
 }
 
 /* ---------- Dialogs ---------- */
@@ -2074,14 +2090,6 @@ body.is-canvas {
 
   .card__frame {
     width: 84%;
-  }
-
-  .footer__row,
-  .footer__right {
-    flex-direction: column;
-    justify-content: center;
-    gap: var(--space-3);
-    text-align: center;
   }
 
   /* Inputs at 16px so iPhone Safari doesn't zoom in. */

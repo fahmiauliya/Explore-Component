@@ -104,6 +104,19 @@ export function normalizeUrl(url) {
   }
 }
 
+// "https://github.com/radix-ui/primitives" -> { owner, repo }; null for owner-only or other URLs.
+export function githubRepo(url) {
+  const m = String(url).match(/^https?:\/\/(?:www\.)?github\.com\/([^/?#]+)\/([^/?#]+)\/?(?:[?#].*)?$/i);
+  if (!m) return null;
+  return { owner: m[1], repo: m[2].replace(/\.git$/, '') };
+}
+
+// GitHub's social preview image for a repo, or null.
+export function githubPreview(url) {
+  const r = githubRepo(url);
+  return r ? `https://opengraph.githubassets.com/1/${r.owner}/${r.repo}` : null;
+}
+
 // Tab id <-> URL hash helpers (#websites, #components, #open-source, #visuals).
 export function tabFromHash(hash) {
   const id = (hash || '').replace(/^#/, '');

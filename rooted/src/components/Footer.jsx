@@ -2,39 +2,33 @@ import { socials } from '../data/references.js';
 import { socialIcons } from './Icons.jsx';
 import { modLabel } from '../lib/platform.js';
 
-// Full-width footer (same container as the grid): two balanced rows.
+// Footer in the same 600px column as the intro, with the intro's text styles.
 export default function Footer() {
   const year = new Date().getFullYear();
   const toTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
   return (
-    <footer className="footer container--wide">
+    <footer className="footer container">
       <div className="footer__inner">
-        <div className="footer__row">
-          <div className="footer__brand">
-            <p className="footer__name">Rooted</p>
-            <p className="footer__by">Curated by Fahmi Auliya</p>
-          </div>
-          <div className="socials">
-            {socials.map((s) => {
-              const Icon = socialIcons[s.id] || socialIcons.website;
-              return (
-                <a key={s.id} className="icon-button icon-button--lg icon-button--touch" href={s.url} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label}>
-                  <Icon width={18} height={18} />
-                </a>
-              );
-            })}
-          </div>
+        <p className="footer__kicker">Curated by Fahmi Auliya</p>
+        <p className="footer__text">New references are added regularly. Follow along or say hi.</p>
+        <div className="socials">
+          {socials.map((s) => {
+            const Icon = socialIcons[s.id] || socialIcons.website;
+            return (
+              <a key={s.id} className="icon-button icon-button--lg icon-button--touch" href={s.url} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label}>
+                <Icon width={18} height={18} />
+              </a>
+            );
+          })}
         </div>
-        <div className="footer__row footer__row--meta">
+        <p className="footer__meta footer__shortcuts hide-on-touch">
+          {modLabel('K')} search · 1–4 tabs · {modLabel('E')} random
+        </p>
+        <div className="footer__row">
           <p className="footer__meta">© {year} Rooted</p>
-          <div className="footer__right">
-            <p className="footer__meta hide-on-touch">
-              {modLabel('K')} search · 1–4 tabs · {modLabel('E')} random
-            </p>
-            <button type="button" className="footer__top" onClick={toTop}>
-              Back to top ↑
-            </button>
-          </div>
+          <button type="button" className="footer__top" onClick={toTop}>
+            Back to top ↑
+          </button>
         </div>
       </div>
     </footer>

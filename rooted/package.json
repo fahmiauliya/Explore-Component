@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview --port 5194",
     "previews": "node scripts/capture-previews.mjs",
-    "previews:force": "node scripts/capture-previews.mjs --force"
+    "previews:force": "node scripts/capture-previews.mjs --force",
+    "check-links": "node scripts/check-links.mjs"
   },
   "dependencies": {
     "react": "^19.1.0",

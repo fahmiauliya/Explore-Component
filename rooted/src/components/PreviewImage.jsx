@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { getSlug } from '../lib/references.js';
+import { getSlug, githubPreview } from '../lib/references.js';
 import SiteIcon from './SiteIcon.jsx';
 
 // ------------------------------------------------------------
 // Screenshot for one reference. Sources are tried in this order:
 //   1. item.image (manual override in the data file)
-//   2. /previews/<slug>.webp (made by `npm run previews`)
-//   3. thum.io screenshot service (backup only, limited free quota)
-//   4. nothing -> the placeholder (favicon + domain)
+//   2. GitHub's social preview, for github.com/{owner}/{repo} links only
+//   3. /previews/<slug>.webp (made by `npm run previews`)
+//   4. thum.io screenshot service (backup only, limited free quota)
+//   5. nothing -> the placeholder (favicon + domain)
 // The step that worked (or that everything failed) is remembered per item,
 // so failed URLs are never requested twice.
 // ------------------------------------------------------------
@@ -16,6 +17,7 @@ const stepCache = new Map(); // item.key -> index of the working source, or -1
 function candidatesFor(item) {
   return [
     item.image,
+    githubPreview(item.url),
     `/previews/${getSlug(item.url)}.webp`,
     `https://image.thum.io/get/width/640/crop/750/${item.url}`,
   ].filter(Boolean);

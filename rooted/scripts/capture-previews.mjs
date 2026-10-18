@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import sharp from 'sharp';
 import { tabs } from '../src/data/references.js';
-import { getSlug } from '../src/lib/references.js';
+import { getSlug, githubRepo } from '../src/lib/references.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = resolve(ROOT, 'public/previews');
@@ -45,6 +45,7 @@ for (const tab of tabs) {
       if (seen.has(item.url)) continue;
       seen.add(item.url);
       if (ONLY && !ONLY.includes(getSlug(item.url))) continue;
+      if (githubRepo(item.url)) continue; // repos use GitHub's own preview image
       items.push(item);
     }
   }

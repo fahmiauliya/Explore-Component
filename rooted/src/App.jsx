@@ -110,6 +110,15 @@ export default function App() {
 
   const closeDialog = () => setDialog(null);
 
+  // Fade behind the floating pills once the list page has scrolled a little.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   // Sections of the current tab, filtered by the active tag (empty ones hidden).
   const sections = tab.sections
     .map((section) => ({ section, items: (itemsBySection.get(section.id) || []).filter((it) => !tag || (it.tags || []).some((t) => tagSlug(t) === tag)) }))
@@ -129,6 +138,8 @@ export default function App() {
         onOpenRandom={() => setDialog('random')}
         onOpenRequest={() => setDialog('request')}
       />
+
+      {!isCanvas && <div className={`scroll-fade${scrolled ? ' is-visible' : ''}`} aria-hidden="true" />}
 
       <main>
         {!isCanvas && <Intro onOpenRequest={() => setDialog('request')} />}
